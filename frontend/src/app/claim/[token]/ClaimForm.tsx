@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Zap, Loader2, AlertCircle } from 'lucide-react';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
 interface ClaimFormProps {
   claimToken: string;
   authorHandle?: string;
@@ -42,7 +44,7 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/checkout/create-session', {
+      const res = await fetch('${BACKEND_URL}/api/checkout/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

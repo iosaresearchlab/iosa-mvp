@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
 interface TrophyPayload {
   author: string;
   vpi_ratio: string;
@@ -19,7 +21,7 @@ export default function BuyTrophyButton({ postData }: { postData: TrophyPayload 
     try {
       // 1. Genera l'immagine e crea il prodotto su Printify
       setStatusText('Generazione targa...');
-      const genRes = await fetch('http://localhost:8000/api/trophy/generate', {
+      const genRes = await fetch('${BACKEND_URL}/api/trophy/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(postData),
@@ -31,7 +33,7 @@ export default function BuyTrophyButton({ postData }: { postData: TrophyPayload 
       // 2. Crea la sessione di checkout Stripe
       setStatusText('Apertura checkout...');
       const checkoutRes = await fetch(
-        `http://localhost:8000/api/checkout/create-session?printify_product_id=${genData.printify_product_id}&creator_name=${encodeURIComponent(postData.author)}`,
+        `${BACKEND_URL}/api/checkout/create-session?printify_product_id=${genData.printify_product_id}&creator_name=${encodeURIComponent(postData.author)}`,
         { method: 'POST' }
       );
 

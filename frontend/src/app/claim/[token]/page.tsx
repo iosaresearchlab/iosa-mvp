@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ShieldCheck, CheckCircle2, Timer, Calendar, Info, Loader2, Sparkles, ExternalLink } from 'lucide-react';
 import ClaimForm from './ClaimForm';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -59,7 +60,7 @@ export default function ClaimPage({
 
           try {
             setProductInitializing(true);
-            const res = await fetch(`http://localhost:8000/api/claim/initialize/${token}`, {
+            const res = await fetch(`${BACKEND_URL}/api/claim/initialize/${token}`, {
               method: 'POST',
             });
             if (res.ok) {
@@ -159,7 +160,7 @@ export default function ClaimPage({
       : '2026-08-20',
   };
 
-  const previewImageUrl = `http://localhost:8000/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
+  const previewImageUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
   
   // URL dinamico per il mockup della tazza
   const mockupUrl = `https://images.printify.com/mockup/6a8789cfa16053a90f092c49/33719/6400/iosa-official-trophy-at-${post.author_handle?.replace('@', '').toLowerCase()}.jpg?camera_label=front&s=640&use_cdn_redirect=true`;
