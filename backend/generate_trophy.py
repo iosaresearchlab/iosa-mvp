@@ -4,6 +4,9 @@ import asyncio
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+# ------------------------------------------------------------------------------
+# TEMPLATE DIGITAL PLAQUE / CERTIFICATO HORIZONTAL (2700x1120)
+# ------------------------------------------------------------------------------
 TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,6 +142,102 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 </body>
 </html>"""
 
+
+# ------------------------------------------------------------------------------
+# TEMPLATE MUG PREVIEW / TAZZA CERAMICA (1200x1200)
+# ------------------------------------------------------------------------------
+MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+  <style>
+    .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
+    .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
+    
+    /* Ombra e riflesso ceramica */
+    .mug-body {{
+      background: linear-gradient(135deg, #111827 0%, #030712 50%, #1f2937 100%);
+      box-shadow: 
+        inset -25px 0 35px rgba(0,0,0,0.8),
+        inset 15px 0 25px rgba(255,255,255,0.15),
+        0 30px 60px rgba(0,0,0,0.6);
+    }}
+    .mug-handle {{
+      box-shadow: inset 4px 0 10px rgba(255,255,255,0.15), 0 15px 25px rgba(0,0,0,0.5);
+    }}
+  </style>
+</head>
+<body class="bg-[#090D16] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center">
+
+  <div class="relative w-[1200px] h-[1200px] flex items-center justify-center overflow-hidden">
+    <!-- Glow di Sfondo -->
+    <div class="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
+
+    <!-- CONTENITORE TAZZA MOCKUP 3D -->
+    <div class="relative flex items-center">
+      
+      # CORPO PRINCIPALE DELLA TAZZA
+      <div class="mug-body w-[520px] h-[640px] rounded-[60px] border-t-[8px] border-gray-700 relative z-20 flex flex-col justify-between p-10 overflow-hidden">
+        
+        <!-- Bordo Superiore (Apertura Tazza) -->
+        <div class="absolute top-0 left-0 right-0 h-8 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-900 rounded-t-[60px] border-b border-gray-600/40"></div>
+
+        <!-- HEADER TAZZA / LOGO IOSA -->
+        <div class="pt-6 flex justify-between items-center relative z-10">
+          <div class="flex items-center gap-2">
+            <svg class="h-8 w-6 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+              <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
+            </svg>
+            <span class="font-mono-tech font-black text-2xl tracking-tighter text-white">OSA</span>
+          </div>
+          <span class="text-xs font-mono-tech px-3 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">
+            11oz CERAMIC
+          </span>
+        </div>
+
+        <!-- CONTENUTO GRAFICO STAMPATO SULLA TAZZA -->
+        <div class="space-y-4 text-center my-auto relative z-10 py-6">
+          <div class="text-4xl font-mono-tech font-black text-[#00E5FF] tracking-wider uppercase drop-shadow-[0_0_20px_rgba(0,229,255,0.4)]">
+            {user_handle}
+          </div>
+          <div class="text-7xl font-mono-tech font-black text-white tracking-tight leading-none">
+            {vpi_score} <span class="text-[#00E5FF]">VPI</span>
+          </div>
+          <p class="text-gray-400 font-mono-tech text-xs tracking-widest uppercase pt-2">
+            VIRAL PERFORMANCE ARTIFACT
+          </p>
+        </div>
+
+        <!-- FOOTER BADGE TAZZA -->
+        <div class="relative z-10 pb-4 text-center">
+          <span class="inline-block text-xs font-mono-tech px-6 py-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/60 font-black tracking-widest">
+            ACCREDITED OUTLIER
+          </span>
+        </div>
+
+      </div>
+
+      <!-- MANICO DELLA TAZZA -->
+      <div class="mug-handle w-[140px] h-[380px] border-[38px] border-gray-900 rounded-r-[100px] -ml-6 z-10 relative"></div>
+
+    </div>
+
+    <!-- Didascalia inferiore -->
+    <div class="absolute bottom-10 left-0 right-0 text-center font-mono-tech text-gray-500 text-sm tracking-widest uppercase">
+      IOSA Physical Artifact — 11oz Black Glossy Ceramic Mug
+    </div>
+  </div>
+
+</body>
+</html>"""
+
+
+# ------------------------------------------------------------------------------
+# RENDERING PLAQUE (SYNC & ASYNC)
+# ------------------------------------------------------------------------------
 def _render_png_sync(
     record_id: str,
     vpi_score: str,
@@ -156,7 +255,6 @@ def _render_png_sync(
     final_output_path = out_path / f"trophy_{record_id}.png"
     record_hash = f"0x{uuid.uuid4().hex[:8].upper()}"
 
-    # Consentiamo titoli più lunghi (fino a 130 caratteri) per coprire comodamente 2-3 righe
     if content_title and len(content_title) > 130:
         content_title = content_title[:127] + "..."
 
@@ -214,6 +312,60 @@ async def generate_trophy_png(
     )
 
 
+# ------------------------------------------------------------------------------
+# RENDERING MUG PREVIEW (SYNC & ASYNC)
+# ------------------------------------------------------------------------------
+def _render_mug_preview_sync(
+    record_id: str,
+    vpi_score: str,
+    user_handle: str,
+    output_dir: str
+) -> str:
+    out_path = Path(__file__).resolve().parent / output_dir
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    final_output_path = out_path / f"mug_preview_{record_id}.png"
+
+    html_content = MUG_PREVIEW_HTML_TEMPLATE.format(
+        user_handle=user_handle,
+        vpi_score=vpi_score
+    )
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(
+            viewport={"width": 1200, "height": 1200},
+            device_scale_factor=1
+        )
+        page.set_content(html_content, wait_until="networkidle")
+        page.screenshot(
+            path=str(final_output_path),
+            type="png",
+            omit_background=False
+        )
+        browser.close()
+
+    return str(final_output_path)
+
+
+async def generate_mug_preview_png(
+    record_id: str = "preview",
+    vpi_score: str = "+8.7x",
+    user_handle: str = "@TEARDOWNMAYHEM",
+    output_dir: str = "renders"
+) -> str:
+    return await asyncio.to_thread(
+        _render_mug_preview_sync,
+        record_id,
+        vpi_score,
+        user_handle,
+        output_dir
+    )
+
+
+# ------------------------------------------------------------------------------
+# HELPER LEGACY PER COMPATIBILITÀ
+# ------------------------------------------------------------------------------
 def create_trophy_image(
     author: str,
     vpi_ratio: str,

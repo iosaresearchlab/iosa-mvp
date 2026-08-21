@@ -11,6 +11,10 @@ interface ClaimFormProps {
   postData?: { author?: string };
 }
 
+interface ValidationError {
+  msg?: string;
+}
+
 export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimFormProps) {
   // Resolve creator handle safely whether passed directly or via postData
   const activeAuthor = authorHandle || postData?.author || 'Creator';
@@ -65,7 +69,7 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
         if (typeof data.detail === 'string') {
           detailMsg = data.detail;
         } else if (Array.isArray(data.detail)) {
-          detailMsg = data.detail.map((err: any) => err.msg || 'Validation error').join(', ');
+          detailMsg = data.detail.map((err: ValidationError) => err.msg || 'Validation error').join(', ');
         }
         
         throw new Error(detailMsg);
@@ -77,9 +81,10 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
         setErrorMsg('Invalid response received from payment server.');
         setLoading(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Checkout creation error:', err);
-      setErrorMsg(err.message || 'An error occurred while connecting to the payment service.');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while connecting to the payment service.';
+      setErrorMsg(errorMessage);
       setLoading(false);
     }
   };
@@ -133,7 +138,7 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold py-3.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
+        className="w-full bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold py-3.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-4 disabled:opacity-50 cursor-pointer"
       >
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />

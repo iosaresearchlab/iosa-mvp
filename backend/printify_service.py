@@ -14,6 +14,13 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# Elenco dei paesi europei per il routing locale della stampa
+EU_COUNTRIES = {
+    'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 
+    'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 
+    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'GB', 'CH', 'NO'
+}
+
 def upload_image_to_printify(image_path="trophy_design.png"):
     """Carica l'immagine locale nello storage media di Printify via Base64."""
     with open(image_path, "rb") as file:
@@ -33,12 +40,11 @@ def upload_image_to_printify(image_path="trophy_design.png"):
     print(f"Immagine caricata su Printify con successo. ID: {image_data['id']}")
     return image_data["id"]
 
-def get_blueprint_setup(blueprint_id=68):
+def get_blueprint_setup(blueprint_id=68, target_country="US"):
     """
-    Recupera dinamicamente dal catalogo Printify un Print Provider attivo 
-    e le varianti disponibili per il blueprint specificato (es. 68 = Tazza Ceramica).
+    Seleziona un Print Provider e la variante corretta in base alla nazione di destinazione dell'acquirente,
+    garantendo costi di spedizione locali e veloci.
     """
-    # 1. Recupera i provider disponibili per questo modello
     providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
     p_res = requests.get(providers_url, headers=headers)
     p_res.raise_for_status()
@@ -47,13 +53,35 @@ def get_blueprint_setup(blueprint_id=68):
     if not providers:
         raise Exception(f"Nessun Print Provider trovato per il blueprint {blueprint_id}")
 
-    # Selezioniamo il primo provider disponibile nel catalogo
-    provider = providers[0]
-    provider_id = provider["id"]
-    provider_title = provider.get("title", f"Provider #{provider_id}")
-    print(f"Provider selezionato dal catalogo: {provider_title} (ID: {provider_id})")
+    target_country = (target_country or "US").upper()
+    is_eu_target = target_country in EU_COUNTRIES
 
-    # 2. Recupera le varianti attive per questo provider
+    selected_provider = None
+
+    # Ricerca provider in base al Paese di destinazione
+    if is_eu_target:
+        for p in providers:
+            p_country = p.get("location", {}).get("country", "").upper()
+            if p_country in EU_COUNTRIES:
+                selected_provider = p
+                break
+    else:
+        for p in providers:
+            p_country = p.get("location", {}).get("country", "").upper()
+            if p_country == "US":
+                selected_provider = p
+                break
+
+    # Fallback al primo provider disponibile se non viene trovata una corrispondenza esatta
+    if not selected_provider:
+        selected_provider = providers[0]
+
+    provider_id = selected_provider["id"]
+    provider_title = selected_provider.get("title", f"Provider #{provider_id}")
+    provider_country = selected_provider.get("location", {}).get("country", "Unknown")
+    print(f"📍 Provider selezionato per Paese [{target_country}]: {provider_title} (ID: {provider_id}, Nazione: {provider_country})")
+
+    # Recupera le varianti attive per questo specifico provider
     variants_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers/{provider_id}/variants.json"
     v_res = requests.get(variants_url, headers=headers)
     v_res.raise_for_status()
@@ -62,18 +90,16 @@ def get_blueprint_setup(blueprint_id=68):
     if not variants:
         raise Exception(f"Nessuna variante trovata per il provider {provider_id}")
 
-    # Selezioniamo la prima variante attiva (es. tazza standard 11oz)
     variant_ids = [variants[0]["id"]]
     print(f"Variante selezionata dal catalogo: ID {variant_ids[0]}")
 
     return provider_id, variant_ids
 
-def create_dynamic_mug_product(image_id, creator_name="Rick Astley"):
-    """Crea un prodotto Tazza Ceramica personalizzato su Printify con la targa generata."""
+def create_dynamic_mug_product(image_id, creator_name="Rick Astley", target_country="US"):
+    """Crea un prodotto Tazza Ceramica personalizzato su Printify ottimizzato per il Paese di destinazione."""
     blueprint_id = 68  # White Ceramic Mug 11oz
     
-    # Estrazione dinamica dal catalogo per evitare ID non validi
-    provider_id, variant_ids = get_blueprint_setup(blueprint_id)
+    provider_id, variant_ids = get_blueprint_setup(blueprint_id, target_country=target_country)
 
     payload = {
         "title": f"IOSA Official Trophy — {creator_name}",
@@ -83,7 +109,7 @@ def create_dynamic_mug_product(image_id, creator_name="Rick Astley"):
         "variants": [
             {
                 "id": vid,
-                "price": 1900,  # Prezzo in centesimi ($19.00)
+                "price": 1900,  # $19.00
                 "is_enabled": True
             } for vid in variant_ids
         ],
@@ -111,7 +137,6 @@ def create_dynamic_mug_product(image_id, creator_name="Rick Astley"):
     url = f"{BASE_URL}/shops/{PRINTIFY_SHOP_ID}/products.json"
     response = requests.post(url, json=payload, headers=headers)
     
-    # In caso di errore, visualizza la risposta JSON dettagliata di Printify
     if not response.ok:
         print(f"\n[ERRORE PRINTIFY API] Codice {response.status_code}:")
         try:
@@ -121,16 +146,15 @@ def create_dynamic_mug_product(image_id, creator_name="Rick Astley"):
         response.raise_for_status()
 
     product_data = response.json()
-    print(f"\nProdotto creato su Printify con successo! Product ID: {product_data['id']}")
-    return product_data["id"]
-
-if __name__ == "__main__":
-    img_id = upload_image_to_printify("trophy_design.png")
-    prod_id = create_dynamic_mug_product(img_id, "Rick Astley")
+    product_id = product_data["id"]
+    native_variant_id = variant_ids[0]
+    
+    print(f"\n✅ Prodotto creato su Printify! Product ID: {product_id}, Variant ID: {native_variant_id}")
+    return product_id, native_variant_id
 
 def send_printify_order(product_id, variant_id, shipping_address, line_item_title="IOSA Trophy Mug"):
     """
-    Invia l'ordine di stampa e spedizione a Printify dopo che Stripe ha confermato il pagamento.
+    Invia l'ordine di stampa e spedizione a Printify dopo la conferma del pagamento.
     """
     payload = {
         "external_id": f"order_{os.urandom(4).hex()}",
@@ -141,7 +165,7 @@ def send_printify_order(product_id, variant_id, shipping_address, line_item_titl
                 "quantity": 1
             }
         ],
-        "shipping_method": 1,  # Standard shipping
+        "shipping_method": 1,
         "send_shipping_notification": True,
         "address_to": {
             "first_name": shipping_address.get("first_name", "Valued"),

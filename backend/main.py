@@ -17,9 +17,8 @@ from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from supabase import create_client
 
-from trophy_pipeline import generate_and_publish_trophy
-from printify_service import send_printify_order
-from generate_trophy import generate_trophy_png
+from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
+from generate_trophy import generate_trophy_png, generate_mug_preview_png
 from vpi_engine import start_engine
 
 load_dotenv()
@@ -99,7 +98,7 @@ async def api_generate_trophy(data: TrophyRequest):
             recorded_date=data.date_str
         )
 
-        product_id = generate_and_publish_trophy(
+        product_id, variant_id = generate_and_publish_trophy(
             author=data.author,
             vpi_ratio=data.vpi_ratio,
             level_name=data.level_name,
@@ -110,7 +109,8 @@ async def api_generate_trophy(data: TrophyRequest):
         return {
             "status": "success", 
             "image_path": image_path,
-            "printify_product_id": product_id
+            "printify_product_id": product_id,
+            "printify_variant_id": variant_id
         }
     except Exception as e:
         traceback.print_exc()
@@ -155,49 +155,42 @@ async def get_trophy_preview(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+@app.get("/api/trophy/preview-mug")
+async def get_trophy_mug_preview(
+    author: str = "@TEARDOWNMAYHEM",
+    vpi: str = "+8.7x",
+    record_id: str = "PREVIEW_MUG_REC"
+):
+    try:
+        image_path = await generate_mug_preview_png(
+            record_id=record_id,
+            vpi_score=vpi,
+            user_handle=author
+        )
+        return FileResponse(image_path, media_type="image/png")
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
 @app.post("/api/claim/initialize/{token}")
 async def initialize_claim_product(token: str):
+    """
+    Validazione istantanea del token di claim. 
+    Nessuna chiamata esterna a Printify viene eseguita in questa fase.
+    """
     try:
         if not supabase:
-            raise HTTPException(status_code=500, detail="Supabase client not configured on backend.")
+            if token == "REC_8F9A2B":
+                return {"status": "ready", "token": token}
+            return {"status": "ready", "token": token}
 
         db_res = supabase.table("posts").select("*").eq("claim_token", token).execute()
         post_data = db_res.data[0] if db_res.data else None
 
-        if not post_data:
-            if token == "REC_8F9A2B":
-                return {"printify_product_id": "mock_printify_id_123", "status": "mock"}
+        if not post_data and token != "REC_8F9A2B":
             raise HTTPException(status_code=404, detail="Token not found")
 
-        existing_product_id = post_data.get("printify_product_id")
-        if existing_product_id and str(existing_product_id).strip() != "":
-            return {"printify_product_id": existing_product_id, "status": "cached"}
-
-        author = post_data.get("author_handle", "Creator")
-        raw_vpi = post_data.get('vpi_ratio', 8.7)
-        try:
-            vpi_float = float(raw_vpi)
-            vpi_ratio = f"+{vpi_float:.1f}x"
-        except (ValueError, TypeError):
-            vpi_ratio = str(raw_vpi)
-            if not vpi_ratio.startswith("+"):
-                vpi_ratio = f"+{vpi_ratio}"
-                
-        level_name = post_data.get("vpi_level_name", "LVL 5 — OUTLIER")
-        content_title = post_data.get("content_text") or post_data.get("title", "Viral Performance Accreditation")
-        date_str = str(post_data.get("created_at", "2026-08-20"))[:10]
-
-        product_id = generate_and_publish_trophy(
-            author=author,
-            vpi_ratio=vpi_ratio,
-            level_name=level_name,
-            content_title=content_title,
-            date_str=date_str
-        )
-
-        supabase.table("posts").update({"printify_product_id": product_id}).eq("claim_token", token).execute()
-
-        return {"printify_product_id": product_id, "status": "created"}
+        return {"status": "ready", "token": token}
 
     except Exception as e:
         traceback.print_exc()
@@ -208,14 +201,31 @@ def create_checkout_session(req: CheckoutSessionRequest):
     try:
         unit_amount = 1900  # $19.00 USD
         
-        printify_product_id = ""
+        vpi_ratio = "+8.7x"
+        level_name = "LVL 5 — OUTLIER"
+        content_title = "Viral Performance Accreditation"
+        date_str = "2026-08-20"
+
         if supabase and req.claimToken:
             try:
-                res = supabase.table("posts").select("printify_product_id").eq("claim_token", req.claimToken).execute()
+                res = supabase.table("posts").select("*").eq("claim_token", req.claimToken).execute()
                 if res.data and len(res.data) > 0:
-                    printify_product_id = res.data[0].get("printify_product_id", "")
-            except Exception:
-                pass
+                    p = res.data[0]
+                    raw_vpi = p.get("vpi_ratio", 8.7)
+                    try:
+                        v_float = float(raw_vpi)
+                        vpi_ratio = f"+{v_float:.1f}x"
+                    except (ValueError, TypeError):
+                        vpi_ratio = str(raw_vpi)
+                        if not vpi_ratio.startswith("+"):
+                            vpi_ratio = f"+{vpi_ratio}"
+                    
+                    level_name = p.get("vpi_level_name", level_name)
+                    content_title = p.get("content_text") or p.get("title") or content_title
+                    if p.get("created_at"):
+                        date_str = str(p.get("created_at"))[:10]
+            except Exception as err:
+                print(f"Error fetching metadata for checkout session: {err}")
 
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -266,7 +276,10 @@ def create_checkout_session(req: CheckoutSessionRequest):
                 'creator_name': req.authorHandle,
                 'recipient_name': req.name,
                 'product_type': req.productType,
-                'printify_product_id': printify_product_id
+                'vpi_ratio': vpi_ratio,
+                'level_name': level_name,
+                'content_title': content_title,
+                'date_str': date_str
             },
             mode='payment',
             success_url=f'{FRONTEND_URL}/claim/{req.claimToken}?status=success',
@@ -282,13 +295,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     payload = await request.body()
 
     try:
-        # 1. Validate Stripe security signature
         if STRIPE_WEBHOOK_SECRET:
             stripe.Webhook.construct_event(
                 payload, stripe_signature, STRIPE_WEBHOOK_SECRET
             )
-        
-        # 2. Parse payload into pure Python dictionary
         event = json.loads(payload)
         
     except Exception as e:
@@ -297,13 +307,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     
     if event.get("type") == "checkout.session.completed":
         session = event.get("data", {}).get("object", {})
-        
-        print(f"DEBUG SESSION OBJECT RECEIVED: {session}")
-        
         metadata = session.get("metadata", {})
-        product_id = metadata.get("printify_product_id")
         
-        # Safely extract address from all potential Stripe payload locations
+        claim_token = metadata.get("claim_token")
+        
         shipping_details = session.get("shipping_details") or {}
         customer_details = session.get("customer_details") or {}
         shipping_legacy = session.get("shipping") or {}
@@ -330,18 +337,52 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             "postal_code": address.get("postal_code", "") or ""
         }
 
-        print(f"DEBUG EXTRACTED SHIPPING INFO: {shipping_info}")
+        author = metadata.get("creator_name", "Creator")
+        vpi_ratio = metadata.get("vpi_ratio", "+8.7x")
+        level_name = metadata.get("level_name", "LVL 5 — OUTLIER")
+        content_title = metadata.get("content_title", "Viral Performance Accreditation")
+        date_str = metadata.get("date_str", "2026-08-20")
 
-        if product_id:
-            # Native variant ID (33719) for SPOKE product. 
-            # Printify Order Routing automatically handles EU fulfillment.
-            selected_variant_id = 33719
-            print(f"DEBUG SENDING ORDER TO PRINTIFY WITH VARIANT: {selected_variant_id} FOR COUNTRY: {country_code}")
+        if supabase and claim_token:
+            try:
+                db_res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                if db_res.data and len(db_res.data) > 0:
+                    p = db_res.data[0]
+                    author = p.get("author_handle") or author
+                    raw_vpi = p.get("vpi_ratio") or vpi_ratio
+                    try:
+                        v = float(raw_vpi)
+                        vpi_ratio = f"+{v:.1f}x"
+                    except (ValueError, TypeError):
+                        vpi_ratio = str(raw_vpi)
+                        if not vpi_ratio.startswith("+"):
+                            vpi_ratio = f"+{vpi_ratio}"
+                    level_name = p.get("vpi_level_name") or level_name
+                    content_title = p.get("content_text") or p.get("title") or content_title
+                    if p.get("created_at"):
+                        date_str = str(p.get("created_at"))[:10]
+            except Exception as err:
+                print(f"Error fetching post details for token {claim_token}: {err}")
 
-            send_printify_order(
-                product_id=product_id,
-                variant_id=selected_variant_id,
+        print(f"🚀 EVASIONE ORDINE IN CORSO per {author} (Destinazione: {country_code})...")
+
+        try:
+            order_result = fulfill_trophy_order(
+                author=author,
+                vpi_ratio=vpi_ratio,
+                level_name=level_name,
+                content_title=content_title,
+                date_str=date_str,
                 shipping_address=shipping_info
             )
+            
+            product_id = order_result.get("product_id")
+            if supabase and claim_token and product_id:
+                supabase.table("posts").update({"printify_product_id": product_id}).eq("claim_token", claim_token).execute()
+                
+            print(f"✅ EVASIONE COMPLETATA! Printify Order ID: {order_result.get('order_id')}")
+        except Exception as err:
+            print(f"❌ ERRORE DURANTE L'EVASIONE DELL'ORDINE: {err}")
+            traceback.print_exc()
 
     return {"status": "success"}
