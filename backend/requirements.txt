@@ -5,3 +5,4 @@ supabase
 pillow
 requests
 python-dotenv
+playwright
