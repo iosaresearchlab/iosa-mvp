@@ -250,13 +250,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     payload = await request.body()
 
     try:
-        # 1. Validazione di sicurezza (lancia eccezione se firma invalida)
+        # 1. Validazione di sicurezza della firma di Stripe
         if STRIPE_WEBHOOK_SECRET:
             stripe.Webhook.construct_event(
                 payload, stripe_signature, STRIPE_WEBHOOK_SECRET
             )
         
-        # 2. Parsing manuale del payload in dizionario puro (risolve l'AttributeError)
+        # 2. Parsing del payload in dizionario puro
         event = json.loads(payload)
         
     except Exception as e:
@@ -264,27 +264,39 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         raise HTTPException(status_code=400, detail=f"Webhook Error: {str(e)}")
     
     if event.get("type") == "checkout.session.completed":
-        session = event["data"]["object"]
+        session = event.get("data", {}).get("object", {})
+        
+        print(f"DEBUG SESSION OBJECT RECEIVED: {session}")
         
         metadata = session.get("metadata", {})
         product_id = metadata.get("printify_product_id")
         
-        shipping = session.get("shipping_details", {}) or {}
-        address = shipping.get("address", {}) or {}
-        customer_details = session.get("customer_details", {}) or {}
+        # Controlliamo in modo sicuro tutti i possibili percorsi in cui Stripe memorizza l'indirizzo
+        shipping_details = session.get("shipping_details") or {}
+        customer_details = session.get("customer_details") or {}
+        shipping_legacy = session.get("shipping") or {}
+
+        address = shipping_details.get("address") or customer_details.get("address") or shipping_legacy.get("address") or {}
+        name = shipping_details.get("name") or customer_details.get("name") or shipping_legacy.get("name") or metadata.get("recipient_name") or "Creator IOSA"
+
+        name_parts = name.strip().split(" ")
+        first_name = name_parts[0] if name_parts else "Creator"
+        last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "IOSA"
 
         shipping_info = {
-            "first_name": shipping.get("name", "Creator").split(" ")[0],
-            "last_name": " ".join(shipping.get("name", "IOSA").split(" ")[1:]) or "IOSA",
-            "email": customer_details.get("email", ""),
-            "phone": customer_details.get("phone", ""),
-            "country": address.get("country", "IT"),
-            "state": address.get("state", ""),
-            "city": address.get("city", ""),
-            "line1": address.get("line1", ""),
-            "line2": address.get("line2", ""),
-            "postal_code": address.get("postal_code", "")
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": customer_details.get("email", "") or session.get("customer_email", ""),
+            "phone": customer_details.get("phone", "") or shipping_details.get("phone", ""),
+            "country": address.get("country", "IT") or "IT",
+            "state": address.get("state", "") or "",
+            "city": address.get("city", "") or "",
+            "line1": address.get("line1", "") or "",
+            "line2": address.get("line2", "") or "",
+            "postal_code": address.get("postal_code", "") or ""
         }
+
+        print(f"DEBUG EXTRACTED SHIPPING INFO: {shipping_info}")
 
         if product_id:
             send_printify_order(
