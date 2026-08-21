@@ -70,7 +70,7 @@ class CheckoutSessionRequest(BaseModel):
     authorHandle: str = "Creator"
     email: str
     name: str
-    productType: str = "Official Commemorative Mug (€19.00)"
+    productType: str = "Official Commemorative Mug ($19.00)"
 
     @field_validator("email")
     @classmethod
@@ -206,7 +206,7 @@ async def initialize_claim_product(token: str):
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
     try:
-        unit_amount = 2900 if "29" in req.productType else 1900
+        unit_amount = 1900  # $19.00 USD
         
         printify_product_id = ""
         if supabase and req.claimToken:
@@ -221,11 +221,38 @@ def create_checkout_session(req: CheckoutSessionRequest):
             payment_method_types=['card'],
             customer_email=req.email,
             shipping_address_collection={
-                'allowed_countries': ['IT', 'US', 'GB', 'DE', 'FR', 'ES']
+                'allowed_countries': [
+                    'US', 'CA', 'GB', 'IT', 'DE', 'FR', 'ES', 'AT', 'BE', 'NL', 
+                    'AU', 'JP', 'BR', 'CH', 'SE', 'NO', 'FI', 'DK', 'IE', 'PT', 'PL'
+                ]
             },
+            shipping_options=[
+                {
+                    'shipping_rate_data': {
+                        'type': 'fixed_amount',
+                        'fixed_amount': {'amount': 499, 'currency': 'usd'},  # $4.99 USD Standard
+                        'display_name': 'Standard Tracked Shipping (US / EU)',
+                        'delivery_estimate': {
+                            'minimum': {'unit': 'business_day', 'value': 3},
+                            'maximum': {'unit': 'business_day', 'value': 7},
+                        },
+                    }
+                },
+                {
+                    'shipping_rate_data': {
+                        'type': 'fixed_amount',
+                        'fixed_amount': {'amount': 1299, 'currency': 'usd'}, # $12.99 USD Express/Int.
+                        'display_name': 'Express / International Shipping',
+                        'delivery_estimate': {
+                            'minimum': {'unit': 'business_day', 'value': 7},
+                            'maximum': {'unit': 'business_day', 'value': 14},
+                        },
+                    }
+                }
+            ],
             line_items=[{
                 'price_data': {
-                    'currency': 'eur',
+                    'currency': 'usd',
                     'product_data': {
                         'name': f'IOSA Official Award Trophy — {req.authorHandle}',
                         'description': req.productType,

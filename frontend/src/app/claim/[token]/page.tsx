@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ShieldCheck, CheckCircle2, Timer, Calendar, Info, Loader2, Sparkles, ExternalLink } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ExternalLink, CheckCircle } from 'lucide-react';
 import ClaimForm from './ClaimForm';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -41,6 +41,17 @@ export default function ClaimPage({
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
   const [timeLeft, setTimeLeft] = useState({ days: 14, hours: 23, minutes: 59, seconds: 59 });
   const [isExpired, setIsExpired] = useState(false);
+  const [isOrderSuccess, setIsOrderSuccess] = useState(false);
+
+  // Rileva lo stato di successo dal re-indirizzamento di Stripe (?status=success)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('status') === 'success') {
+        setIsOrderSuccess(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchPostAndInitialize() {
@@ -154,12 +165,13 @@ export default function ClaimPage({
   }
 
   const formattedVpi = Number(post.vpi_ratio || 0).toFixed(1);
+  const postTitle = post.content_text || post.title || post.content_title || 'Viral Video Accreditation';
 
   const trophyPayload = {
     author: post.author_handle || 'Creator',
     vpi_ratio: `+${formattedVpi}x`,
     level_name: post.vpi_level_name || 'LVL 5 — OUTLIER',
-    content_title: post.title || post.content_title || 'Viral Performance Accreditation',
+    content_title: postTitle,
     date_str: post.created_at
       ? new Date(post.created_at).toISOString().split('T')[0]
       : '2026-08-20',
@@ -167,7 +179,6 @@ export default function ClaimPage({
 
   const previewImageUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
   
-  // URL dinamico del mockup basato sul product ID restituito dal backend
   const activeProductId = printifyProductId || '6a8789cfa16053a90f092c49';
   const mockupUrl = `https://images.printify.com/mockup/${activeProductId}/33719/6400/iosa-official-trophy-at-${post.author_handle?.replace('@', '').toLowerCase()}.jpg?camera_label=front&s=640&use_cdn_redirect=true`;
 
@@ -191,6 +202,26 @@ export default function ClaimPage({
         </div>
       </header>
 
+      {/* Banner di Successo Ordine */}
+      {isOrderSuccess && (
+        <div className="max-w-5xl mx-auto mb-8 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-mono font-bold text-base text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
+              <p className="text-xs text-gray-300 font-sans mt-0.5">
+                Payment verified. Your official metric award for <span className="font-bold text-white">{post.author_handle}</span> is now queued for production and dispatch.
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-full uppercase tracking-wider shrink-0">
+            Status: In Production
+          </span>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
         <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-lg">
           <Calendar className="w-4 h-4 text-[#00E5FF] shrink-0" />
@@ -211,13 +242,14 @@ export default function ClaimPage({
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-        <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden h-full justify-between">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        {/* Left Column: Trophy Preview & Compact Full Info */}
+        <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-40 h-40 bg-[#00E5FF]/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="w-full flex flex-col items-center">
             <div 
-              className="w-full max-w-[320px] aspect-[27/11] rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50 cursor-pointer"
+              className="w-full max-w-[320px] aspect-[27/11] rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-5 overflow-hidden relative group shadow-xl shadow-cyan-950/50 cursor-pointer"
               onClick={() => window.open(previewImageUrl, '_blank')}
               title="Click to open image in a new tab"
             >
@@ -242,7 +274,7 @@ export default function ClaimPage({
               </div>
             </div>
 
-            <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-3">
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-2">
               {post.vpi_level_name}
             </span>
 
@@ -252,27 +284,46 @@ export default function ClaimPage({
             <p className="text-xs font-mono text-gray-400 mb-6">Viral Performance Index Accredited</p>
           </div>
 
-          <div className="w-full border-t border-gray-800/80 pt-6 text-left space-y-2 font-mono text-xs text-gray-300">
-            <div className="flex justify-between">
-              <span className="text-gray-500">CREATOR:</span>
+          {/* Block Information (Alzata senza spazio vuoto) */}
+          <div className="w-full border-t border-gray-800/80 pt-5 text-left space-y-3 font-mono text-xs text-gray-300 bg-black/40 p-4 rounded-xl border border-gray-800/60">
+            <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
+              <span className="font-bold text-white text-sm leading-snug">
+                {postTitle}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-[11px]">CREATOR:</span>
               <span className="font-bold text-white">{post.author_handle}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">PLATFORM:</span>
-              <span className="uppercase text-gray-300">{post.platform}</span>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-[11px]">PUBLISHED DATE:</span>
+              <span className="text-gray-300 font-medium">
+                {post.created_at ? new Date(post.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">BASELINE (E_base):</span>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-[11px]">PLATFORM:</span>
+              <span className="uppercase text-cyan-400 font-bold">{post.platform || 'YOUTUBE'}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-[11px]">BASELINE (E_base):</span>
               <span>{post.baseline_score}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">ACTUAL VIEWS (E_act):</span>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-[11px]">ACTUAL VIEWS (E_act):</span>
               <span className="text-[#00E5FF] font-bold">{post.engagement_score}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-[#070A10]/80 border border-gray-800 rounded-2xl p-8 shadow-2xl h-full flex flex-col justify-between">
+        {/* Right Column: Claim Form */}
+        <div className="bg-[#070A10]/80 border border-gray-800 rounded-2xl p-8 shadow-2xl flex flex-col justify-between">
           <div>
             <h1 className="text-2xl font-extrabold mb-2 font-mono">Claim Official Award</h1>
             <p className="text-xs text-gray-400 leading-relaxed mb-6">

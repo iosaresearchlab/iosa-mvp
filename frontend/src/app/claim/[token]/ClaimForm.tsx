@@ -17,7 +17,7 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [productType, setProductType] = useState('Official Commemorative Mug (€19.00)');
+  const [productType, setProductType] = useState('Official Commemorative Mug ($19.00)');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -44,7 +44,6 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
     setLoading(true);
 
     try {
-      // CORRETTO: Usiamo i backticks `` anziché i singoli apici ''
       const res = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,8 +124,9 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
           onChange={(e) => setProductType(e.target.value)}
           className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-[#00E5FF] focus:outline-none focus:border-[#00E5FF]"
         >
-          <option>Official Commemorative Mug (€19.00)</option>
-          <option>Limited Edition Acrylic Badge (€29.00)</option>
+          <option value="Official Commemorative Mug ($19.00)">
+            Official Commemorative Mug ($19.00 + shipping calculated at checkout)
+          </option>
         </select>
       </div>
 
