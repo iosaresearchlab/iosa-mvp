@@ -36,8 +36,8 @@ export default function ClaimPage({
   const [loading, setLoading] = useState(true);
   const [artifactLoading, setArtifactLoading] = useState(true);
   
-  // Toggle between Physical Artifact (Mug) and Digital Plaque
-  const [activeTab, setActiveTab] = useState<'mug' | 'plaque'>('mug');
+  // Toggle between Digital Plaque (default on left) and Physical Artifact (on right)
+  const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
   const [timeLeft, setTimeLeft] = useState({ days: 14, hours: 23, minutes: 59, seconds: 59 });
@@ -157,24 +157,13 @@ export default function ClaimPage({
   const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
   const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
 
-  const currentPreviewUrl = activeTab === 'mug' ? mugMockupUrl : plaquePreviewUrl;
+  const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans p-4 sm:p-6 md:p-8 relative overflow-hidden flex flex-col">
       
-      {/* Relocated Navigation Element */}
-      <div className="max-w-5xl mx-auto w-full mb-6">
-        <Link 
-          href="/" 
-          className="inline-flex items-center gap-2 text-[11px] font-mono text-gray-400 hover:text-white transition-colors group"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF] group-hover:-translate-x-1 transition-transform" /> 
-          RETURN TO HOME
-        </Link>
-      </div>
-
       {/* Integrated Compact Header */}
-      <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-4 mb-5 flex flex-row justify-between items-center gap-4">
+      <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-4 mb-4 flex flex-row justify-between items-center gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <div className="flex items-end gap-1.5">
@@ -196,6 +185,17 @@ export default function ClaimPage({
           <span className="text-[10px] sm:text-xs font-bold tracking-wider">VERIFIED ACCREDITATION</span>
         </div>
       </header>
+
+      {/* Relocated Navigation Element: Sotto il logo IOSA e sopra il contenuto della pagina */}
+      <div className="max-w-5xl mx-auto w-full mb-5">
+        <Link 
+          href="/" 
+          className="inline-flex items-center gap-2 text-[11px] font-mono text-gray-400 hover:text-white transition-colors group"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF] group-hover:-translate-x-1 transition-transform" /> 
+          RETURN TO HOME
+        </Link>
+      </div>
 
       {/* Order Confirmation Banner */}
       {isOrderSuccess && (
@@ -241,22 +241,12 @@ export default function ClaimPage({
       {/* Grid Update: items-stretch to enforce equal height columns */}
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch pb-10">
         
-        {/* Left Column: Showcase Container (h-full & justify-between applied) */}
+        {/* Left Column: Showcase Container */}
         <div className="h-full bg-[#070A10] border border-gray-800 rounded-2xl p-5 md:p-6 flex flex-col justify-between items-center text-center shadow-2xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-40 h-40 bg-[#00E5FF]/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Tab Selector */}
+          {/* Tab Selector: Digital Plaque on Left (default), Physical Artifact on Right */}
           <div className="flex items-center gap-1.5 p-1 bg-black/60 border border-gray-800 rounded-xl mb-6 w-full max-w-[320px]">
-            <button
-              onClick={() => { setActiveTab('mug'); setArtifactLoading(true); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
-                activeTab === 'mug' 
-                  ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/40 font-bold shadow-sm' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <CupSoda className="w-3.5 h-3.5" /> Physical Artifact
-            </button>
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
@@ -267,20 +257,30 @@ export default function ClaimPage({
             >
               <Award className="w-3.5 h-3.5" /> Digital Plaque
             </button>
+            <button
+              onClick={() => { setActiveTab('mug'); setArtifactLoading(true); }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
+                activeTab === 'mug' 
+                  ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/40 font-bold shadow-sm' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <CupSoda className="w-3.5 h-3.5" /> Physical Artifact
+            </button>
           </div>
 
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-6">
-            {/* Artifact Preview Box (Height adjusted, aspect removed for better fit) */}
+            {/* Artifact Preview Box */}
             <div className="w-full h-64 sm:h-72 lg:h-80 rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#00E5FF]" />
-                  <span>RENDERING HIGH-RES MOCKUP...</span>
+                  <span>RENDERING PREVIEW...</span>
                 </div>
               )}
               <img 
                 src={currentPreviewUrl}
-                alt={activeTab === 'mug' ? "IOSA Custom Trophy Mug" : "Official Accreditation Badge"}
+                alt={activeTab === 'plaque' ? "Official Accreditation Badge" : "IOSA Physical Artifact Sample"}
                 onLoad={() => setArtifactLoading(false)}
                 onError={(e) => {
                   setArtifactLoading(false);
@@ -336,7 +336,7 @@ export default function ClaimPage({
           </div>
         </div>
 
-        {/* Right Column: Claim Form (h-full applied) */}
+        {/* Right Column: Claim Form */}
         <div className="h-full bg-[#070A10]/80 border border-gray-800 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
           <div>
             <h1 className="text-2xl font-extrabold mb-3 font-mono">Claim Physical Award</h1>

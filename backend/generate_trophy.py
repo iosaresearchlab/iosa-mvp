@@ -143,7 +143,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 # ------------------------------------------------------------------------------
-# WHITE CERAMIC MUG PREVIEW TEMPLATE (1200x1200)
+# STATIC PHYSICAL ARTIFACT SAMPLE PREVIEW TEMPLATE (1200x1200)
 # ------------------------------------------------------------------------------
 MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -154,67 +154,25 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
     .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
-    
-    /* VPI 3D CYLINDRICAL WARP & BLEND */
-    .mug-warp {{
-      transform: perspective(700px) rotateY(-12deg) rotateX(3deg) skewY(-2deg) scaleX(0.92);
-      mix-blend-mode: multiply;
-      opacity: 0.88;
-      filter: contrast(1.15) drop-shadow(1px 1px 1px rgba(255,255,255,0.3));
-    }}
   </style>
 </head>
-<body class="bg-[#090D16] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center">
+<body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center relative">
 
-  <div class="relative w-[1200px] h-[1200px] flex items-center justify-center overflow-hidden">
-    <!-- Ambient Glow -->
-    <div class="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
+  <div class="relative w-[1200px] h-[1200px] flex items-center justify-center overflow-hidden bg-[#070A10]">
+    
+    <!-- Sample Image Container -->
+    <div class="relative w-[1050px] h-[1050px] flex items-center justify-center">
+      {mug_sample_element}
+    </div>
 
-    <!-- MUG CONTAINER -->
-    <div class="relative flex items-center justify-center w-[900px] h-[900px]">
-      
-      <!-- Base White Mug Image / CSS Fallback -->
-      {mug_bg_element}
-
-      <!-- PRINTED OVERLAY GRAPHICS (WITH 3D WARP) -->
-      <div class="absolute w-[350px] h-[460px] left-[265px] top-[225px] z-20 flex flex-col justify-between items-center text-center p-6 text-slate-900 pointer-events-none mug-warp">
-        
-        <!-- Header Logo -->
-        <div class="flex items-center gap-2">
-          <svg class="h-7 w-5 text-[#0092B3]" viewBox="0 0 18.5 32" fill="none">
-            <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="14" cy="3" r="3" fill="#0092B3"/>
-          </svg>
-          <span class="font-mono-tech font-black text-xl tracking-tighter text-slate-900">OSA</span>
-        </div>
-
-        <!-- Dynamic User Data -->
-        <div class="space-y-2 text-center my-auto">
-          <div class="text-3xl font-mono-tech font-black text-[#0080A0] tracking-wider uppercase">
-            {user_handle}
-          </div>
-          <div class="text-6xl font-mono-tech font-black text-slate-900 tracking-tight leading-none">
-            {vpi_score} <span class="text-[#0080A0]">VPI</span>
-          </div>
-          <p class="text-slate-500 font-mono-tech text-[10px] tracking-widest uppercase pt-1 font-bold">
-            VIRAL PERFORMANCE ARTIFACT
-          </p>
-        </div>
-
-        <!-- Accreditation Badge -->
-        <div class="pb-2">
-          <span class="inline-block text-[10px] font-mono-tech px-4 py-1.5 rounded-lg bg-amber-500/15 text-amber-700 border border-amber-500/40 font-black tracking-widest uppercase">
-            ACCREDITED OUTLIER
-          </span>
-        </div>
-
-      </div>
-
+    <!-- Sample Badge Overlay -->
+    <div class="absolute top-10 right-10 z-30 bg-amber-500 text-slate-950 font-mono-tech font-black px-6 py-3 rounded-2xl text-lg tracking-widest shadow-2xl border-2 border-amber-300 uppercase">
+      PHYSICAL ARTIFACT SAMPLE
     </div>
 
     <!-- Footer Caption -->
-    <div class="absolute bottom-10 left-0 right-0 text-center font-mono-tech text-gray-500 text-sm tracking-widest uppercase">
-      IOSA Physical Artifact — 11oz White Ceramic Mug
+    <div class="absolute bottom-6 left-0 right-0 text-center font-mono-tech text-gray-400 text-sm tracking-widest uppercase">
+      IOSA Official Physical Artifact Sample — 11oz White Ceramic Mug
     </div>
   </div>
 
@@ -300,33 +258,24 @@ async def generate_trophy_png(
 
 
 # ------------------------------------------------------------------------------
-# MUG PREVIEW RENDERING (SYNC & ASYNC)
+# MUG SAMPLE PREVIEW RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
-def _get_mug_bg_html() -> str:
-    """Check for local white mug image file (.png or .jpg) and return HTML image element or CSS fallback."""
+def _get_mug_sample_element() -> str:
+    """Carica l'immagine statica mock_mug_sample.jpg (.png) per l'anteprima sample."""
     possible_paths = [
-        (Path(__file__).resolve().parent / "white_mug.png", "image/png"),
-        (Path(__file__).resolve().parent / "white_mug.jpg", "image/jpeg"),
-        (Path(__file__).resolve().parent / "white_mug_2.png", "image/png"),
-        (Path(__file__).resolve().parent / "white_mug_2.jpg", "image/jpeg"),
-        (Path.cwd() / "white_mug.png", "image/png"),
-        (Path.cwd() / "white_mug.jpg", "image/jpeg"),
-        (Path.cwd() / "white_mug_2.png", "image/png"),
-        (Path.cwd() / "white_mug_2.jpg", "image/jpeg"),
+        (Path(__file__).resolve().parent / "mock_mug_sample.jpg", "image/jpeg"),
+        (Path(__file__).resolve().parent / "mock_mug_sample.png", "image/png"),
+        (Path.cwd() / "mock_mug_sample.jpg", "image/jpeg"),
+        (Path.cwd() / "mock_mug_sample.png", "image/png"),
     ]
     for p, mime_type in possible_paths:
         if p.exists():
             img_bytes = p.read_bytes()
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-[850px] h-[850px] object-contain relative z-10" alt="White Ceramic Mug" />'
+            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-full h-full object-contain rounded-2xl shadow-2xl relative z-10" alt="Physical Artifact Sample" />'
 
-    # Fallback styled ceramic mug container if image file is not found
-    return """
-    <div class="relative flex items-center justify-center">
-      <div class="w-[480px] h-[580px] bg-gradient-to-r from-gray-200 via-white to-gray-300 rounded-[50px] border-t-[8px] border-gray-300 relative z-10 shadow-2xl"></div>
-      <div class="w-[120px] h-[360px] border-[32px] border-gray-200 rounded-r-[80px] absolute -right-[100px] top-[110px] z-0"></div>
-    </div>
-    """
+    # Fallback in caso di assenza temporanea del file immagine
+    return '<div class="text-amber-400 text-xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
 
 
 def _render_mug_preview_sync(
@@ -339,12 +288,10 @@ def _render_mug_preview_sync(
     out_path.mkdir(parents=True, exist_ok=True)
 
     final_output_path = out_path / f"mug_preview_{record_id}.png"
-    mug_bg_element = _get_mug_bg_html()
+    mug_sample_element = _get_mug_sample_element()
 
     html_content = MUG_PREVIEW_HTML_TEMPLATE.format(
-        user_handle=user_handle,
-        vpi_score=vpi_score,
-        mug_bg_element=mug_bg_element
+        mug_sample_element=mug_sample_element
     )
 
     with sync_playwright() as p:
