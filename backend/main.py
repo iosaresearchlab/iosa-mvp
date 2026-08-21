@@ -42,13 +42,6 @@ if SUPABASE_URL and SUPABASE_KEY:
 
 app = FastAPI(title="IOSA Trophy API")
 
-# List of European Union country codes for Printify EU routing
-EU_COUNTRIES = {
-    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", 
-    "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", 
-    "NL", "PL", "PT", "RO", "SE", "SI", "SK"
-}
-
 @app.on_event("startup")
 def startup_event():
     start_engine()
@@ -340,9 +333,10 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         print(f"DEBUG EXTRACTED SHIPPING INFO: {shipping_info}")
 
         if product_id:
-            # Dynamic Variant Selection: EU Provider (69408) vs US Provider (33719)
-            selected_variant_id = 69408 if country_code in EU_COUNTRIES else 33719
-            print(f"DEBUG ASSIGNED VARIANT ID: {selected_variant_id} FOR COUNTRY: {country_code}")
+            # Native variant ID (33719) for SPOKE product. 
+            # Printify Order Routing automatically handles EU fulfillment.
+            selected_variant_id = 33719
+            print(f"DEBUG SENDING ORDER TO PRINTIFY WITH VARIANT: {selected_variant_id} FOR COUNTRY: {country_code}")
 
             send_printify_order(
                 product_id=product_id,

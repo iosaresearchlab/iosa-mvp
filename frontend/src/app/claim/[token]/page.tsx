@@ -99,7 +99,7 @@ export default function ClaimPage({
         } else {
           setPost(null);
         }
-      } font-mono {
+      } finally {
         setLoading(false);
         setProductInitializing(false);
       }
@@ -155,11 +155,17 @@ export default function ClaimPage({
   if (!post) {
     return (
       <main className="min-h-screen bg-[#030508] text-white font-mono flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#070A10] border border-red-500/30 rounded-xl p-8 text-center shadow-2xl">
-          <h1 className="text-xl font-bold text-red-400 mb-2">404 — INVALID TOKEN</h1>
+        <div className="max-w-md w-full bg-[#070A10] border border-red-500/30 rounded-xl p-8 text-center shadow-2xl flex flex-col items-center gap-4">
+          <h1 className="text-xl font-bold text-red-400">404 — INVALID TOKEN</h1>
           <p className="text-xs text-gray-400">
             This verification link does not exist or has expired from the active evaluation window.
           </p>
+          <Link 
+            href="/" 
+            className="inline-flex items-center gap-2 text-xs font-mono text-white bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-[#00E5FF]/50 px-4 py-2 rounded-full transition-all mt-2"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF]" /> Return to Home
+          </Link>
         </div>
       </main>
     );
@@ -184,8 +190,9 @@ export default function ClaimPage({
   const mockupUrl = `https://images.printify.com/mockup/${activeProductId}/33719/6400/iosa-official-trophy-at-${post.author_handle?.replace('@', '').toLowerCase()}.jpg?camera_label=front&s=640&use_cdn_redirect=true`;
 
   return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans p-6 md:p-12 relative overflow-hidden">
-      <header className="max-w-5xl mx-auto border-b border-gray-800/80 pb-6 mb-8 flex justify-between items-center">
+    <main className="min-h-screen bg-[#030508] text-white font-sans p-4 sm:p-6 md:p-12 relative overflow-hidden">
+      {/* Header Re-structured for Mobile & Desktop */}
+      <header className="max-w-5xl mx-auto border-b border-gray-800/80 pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-end gap-1.5">
             <svg className="h-8 w-5 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
@@ -199,15 +206,17 @@ export default function ClaimPage({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
           <Link 
             href="/" 
-            className="flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white bg-gray-900/80 hover:bg-gray-800/80 border border-gray-800 px-3 py-1.5 rounded-full transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-mono text-white bg-gray-900/90 hover:bg-gray-800 border border-gray-700/80 hover:border-[#00E5FF]/50 px-3.5 py-1.5 rounded-full transition-all shadow-md active:scale-95"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Return to Home
+            <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF]" /> 
+            <span>Return to Home</span>
           </Link>
-          <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full">
-            <ShieldCheck className="w-4 h-4 text-[#00E5FF]" /> VERIFIED ACCREDITATION
+          <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1.5 rounded-full">
+            <ShieldCheck className="w-4 h-4 text-[#00E5FF] shrink-0" /> 
+            <span className="text-[11px] sm:text-xs">VERIFIED ACCREDITATION</span>
           </div>
         </div>
       </header>
