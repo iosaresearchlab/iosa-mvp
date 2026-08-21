@@ -44,7 +44,8 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
     setLoading(true);
 
     try {
-      const res = await fetch('${BACKEND_URL}/api/checkout/create-session', {
+      // CORRETTO: Usiamo i backticks `` anziché i singoli apici ''
+      const res = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
