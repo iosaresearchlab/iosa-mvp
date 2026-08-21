@@ -4,3 +4,4 @@ stripe
 supabase
 pillow
 requests
+python-dotenv
