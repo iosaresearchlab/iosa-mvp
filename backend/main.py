@@ -1,5 +1,6 @@
 import sys
 import asyncio
+import json
 
 # Forzo la politica ProactorEventLoop su Windows per consentire i sottoprocessi di Playwright
 if sys.platform == "win32":
@@ -122,7 +123,6 @@ async def get_trophy_preview(
 ):
     try:
         resolved_title = title
-        # Se il titolo non è passato o è quello vecchio di fallback, interroghiamo Supabase sul campo content_text
         if not resolved_title or resolved_title == "Rick Astley - Never Gonna Give You Up":
             if supabase:
                 try:
@@ -179,7 +179,6 @@ async def initialize_claim_product(token: str):
                 vpi_ratio = f"+{vpi_ratio}"
                 
         level_name = post_data.get("vpi_level_name", "LVL 5 — OUTLIER")
-        # Legge correttamente dal campo content_text del DB
         content_title = post_data.get("content_text") or post_data.get("title", "Viral Performance Accreditation")
         date_str = str(post_data.get("created_at", "2026-08-20"))[:10]
 
@@ -251,13 +250,15 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     payload = await request.body()
 
     try:
+        # 1. Validazione di sicurezza (lancia eccezione se firma invalida)
         if STRIPE_WEBHOOK_SECRET:
-            event = stripe.Webhook.construct_event(
+            stripe.Webhook.construct_event(
                 payload, stripe_signature, STRIPE_WEBHOOK_SECRET
-            ).to_dict()  # <--- AGGIUNGI QUESTO .to_dict() QUI!
-        else:
-            import json
-            event = json.loads(payload)
+            )
+        
+        # 2. Parsing manuale del payload in dizionario puro (risolve l'AttributeError)
+        event = json.loads(payload)
+        
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Webhook Error: {str(e)}")
