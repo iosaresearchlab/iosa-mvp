@@ -2,7 +2,7 @@ import sys
 import asyncio
 import json
 
-# Forzo la politica ProactorEventLoop su Windows per consentire i sottoprocessi di Playwright
+# Force ProactorEventLoop policy on Windows to allow Playwright subprocesses
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -29,7 +29,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-print(f"DEBUG: FRONTEND_URL è impostato a: {FRONTEND_URL}")
+print(f"DEBUG: FRONTEND_URL is set to: {FRONTEND_URL}")
 
 if not STRIPE_SECRET_KEY:
     print("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
@@ -41,6 +41,13 @@ if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="IOSA Trophy API")
+
+# List of European Union country codes for Printify EU routing
+EU_COUNTRIES = {
+    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", 
+    "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", 
+    "NL", "PL", "PT", "RO", "SE", "SI", "SK"
+}
 
 @app.on_event("startup")
 def startup_event():
@@ -282,13 +289,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     payload = await request.body()
 
     try:
-        # 1. Validazione di sicurezza della firma di Stripe
+        # 1. Validate Stripe security signature
         if STRIPE_WEBHOOK_SECRET:
             stripe.Webhook.construct_event(
                 payload, stripe_signature, STRIPE_WEBHOOK_SECRET
             )
         
-        # 2. Parsing del payload in dizionario puro
+        # 2. Parse payload into pure Python dictionary
         event = json.loads(payload)
         
     except Exception as e:
@@ -303,7 +310,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         metadata = session.get("metadata", {})
         product_id = metadata.get("printify_product_id")
         
-        # Controlliamo in modo sicuro tutti i possibili percorsi in cui Stripe memorizza l'indirizzo
+        # Safely extract address from all potential Stripe payload locations
         shipping_details = session.get("shipping_details") or {}
         customer_details = session.get("customer_details") or {}
         shipping_legacy = session.get("shipping") or {}
@@ -315,12 +322,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         first_name = name_parts[0] if name_parts else "Creator"
         last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "IOSA"
 
+        country_code = (address.get("country") or "IT").upper()
+
         shipping_info = {
             "first_name": first_name,
             "last_name": last_name,
             "email": customer_details.get("email", "") or session.get("customer_email", ""),
             "phone": customer_details.get("phone", "") or shipping_details.get("phone", ""),
-            "country": address.get("country", "IT") or "IT",
+            "country": country_code,
             "state": address.get("state", "") or "",
             "city": address.get("city", "") or "",
             "line1": address.get("line1", "") or "",
@@ -331,9 +340,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         print(f"DEBUG EXTRACTED SHIPPING INFO: {shipping_info}")
 
         if product_id:
+            # Dynamic Variant Selection: EU Provider (69408) vs US Provider (33719)
+            selected_variant_id = 69408 if country_code in EU_COUNTRIES else 33719
+            print(f"DEBUG ASSIGNED VARIANT ID: {selected_variant_id} FOR COUNTRY: {country_code}")
+
             send_printify_order(
                 product_id=product_id,
-                variant_id=33719,
+                variant_id=selected_variant_id,
                 shipping_address=shipping_info
             )
 

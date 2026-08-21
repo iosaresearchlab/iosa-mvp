@@ -1,8 +1,9 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
+import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ExternalLink, CheckCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ExternalLink, CheckCircle, ArrowLeft } from 'lucide-react';
 import ClaimForm from './ClaimForm';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -43,7 +44,7 @@ export default function ClaimPage({
   const [isExpired, setIsExpired] = useState(false);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
 
-  // Rileva lo stato di successo dal re-indirizzamento di Stripe (?status=success)
+  // Detect success status from Stripe checkout redirect (?status=success)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -83,7 +84,7 @@ export default function ClaimPage({
               setProductReady(true);
             }
           } catch (err) {
-            console.error("Errore di inizializzazione prodotto Printify:", err);
+            console.error("Printify product initialization error:", err);
           } finally {
             setProductInitializing(false);
           }
@@ -98,7 +99,7 @@ export default function ClaimPage({
         } else {
           setPost(null);
         }
-      } finally {
+      } font-mono {
         setLoading(false);
         setProductInitializing(false);
       }
@@ -197,12 +198,21 @@ export default function ClaimPage({
             Institute for Open Social Analytics
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full">
-          <ShieldCheck className="w-4 h-4 text-[#00E5FF]" /> VERIFIED ACCREDITATION
+
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/" 
+            className="flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white bg-gray-900/80 hover:bg-gray-800/80 border border-gray-800 px-3 py-1.5 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Return to Home
+          </Link>
+          <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full">
+            <ShieldCheck className="w-4 h-4 text-[#00E5FF]" /> VERIFIED ACCREDITATION
+          </div>
         </div>
       </header>
 
-      {/* Banner di Successo Ordine */}
+      {/* Success Order Banner */}
       {isOrderSuccess && (
         <div className="max-w-5xl mx-auto mb-8 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-4">
@@ -284,7 +294,7 @@ export default function ClaimPage({
             <p className="text-xs font-mono text-gray-400 mb-6">Viral Performance Index Accredited</p>
           </div>
 
-          {/* Block Information (Alzata senza spazio vuoto) */}
+          {/* Information Block */}
           <div className="w-full border-t border-gray-800/80 pt-5 text-left space-y-3 font-mono text-xs text-gray-300 bg-black/40 p-4 rounded-xl border border-gray-800/60">
             <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
