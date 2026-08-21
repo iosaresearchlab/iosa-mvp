@@ -36,6 +36,7 @@ export default function ClaimPage({
   const [trophyLoading, setTrophyLoading] = useState(true);
   const [productInitializing, setProductInitializing] = useState(true);
   const [productReady, setProductReady] = useState(false);
+  const [realMockupUrl, setRealMockupUrl] = useState<string>('');
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
   const [timeLeft, setTimeLeft] = useState({ days: 14, hours: 23, minutes: 59, seconds: 59 });
@@ -64,6 +65,12 @@ export default function ClaimPage({
               method: 'POST',
             });
             if (res.ok) {
+              const initData = await res.json();
+              if (initData && initData.mockup_url) {
+                setRealMockupUrl(initData.mockup_url);
+              } else if (initData && initData.preview_url) {
+                setRealMockupUrl(initData.preview_url); // Fallback nel caso la chiave si chiami diversamente
+              }
               setProductReady(true);
             }
           } catch (err) {
@@ -162,8 +169,8 @@ export default function ClaimPage({
 
   const previewImageUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
   
-  // URL dinamico per il mockup della tazza
-  const mockupUrl = `https://images.printify.com/mockup/6a8789cfa16053a90f092c49/33719/6400/iosa-official-trophy-at-${post.author_handle?.replace('@', '').toLowerCase()}.jpg?camera_label=front&s=640&use_cdn_redirect=true`;
+  // URL dinamico di fallback per il mockup (se l'API non ne restituisce uno valido)
+  const mockupUrlFallback = `https://images.printify.com/mockup/6a8789cfa16053a90f092c49/33719/6400/iosa-official-trophy-at-${post.author_handle?.replace('@', '').toLowerCase()}.jpg?camera_label=front&s=640&use_cdn_redirect=true`;
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans p-6 md:p-12 relative overflow-hidden">
@@ -293,7 +300,7 @@ export default function ClaimPage({
               <div className="flex items-center justify-between pt-1 border-t border-gray-800">
                 <span className="text-gray-400 text-[11px]">Mug Product Catalog Reference</span>
                 <a 
-                  href={mockupUrl} 
+                  href={realMockupUrl || mockupUrlFallback} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[#00E5FF] bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 px-3 py-1.5 rounded-lg transition-colors"
