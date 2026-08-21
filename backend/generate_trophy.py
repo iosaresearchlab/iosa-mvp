@@ -1,3 +1,4 @@
+import base64
 import concurrent.futures
 import uuid
 import asyncio
@@ -5,7 +6,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 # ------------------------------------------------------------------------------
-# TEMPLATE DIGITAL PLAQUE / CERTIFICATO HORIZONTAL (2700x1120)
+# DIGITAL PLAQUE / HORIZONTAL CERTIFICATE TEMPLATE (2700x1120)
 # ------------------------------------------------------------------------------
 TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -31,10 +32,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body class="bg-white text-gray-900 p-0 m-0 font-sans-tech w-[2700px] h-[1120px] flex items-center justify-center">
 
-  <!-- CONTENITORE PULITO -->
+  <!-- Main Container -->
   <div class="w-[2700px] h-[1120px] bg-white overflow-hidden p-12 flex justify-between items-center relative gap-8">
     
-    <!-- PANNELLO SINISTRA -->
+    <!-- Left Panel -->
     <div class="w-[23%] bg-gray-50 text-gray-900 flex flex-col justify-between h-full py-10 px-8 relative z-10 border-2 border-gray-200 shadow-sm rounded-3xl">
       <div class="space-y-2 text-center">
         <div class="text-2xl font-mono-tech text-emerald-700 font-extrabold tracking-wider">METHODOLOGY</div>
@@ -75,7 +76,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- PANNELLO CENTRALE -->
+    <!-- Center Panel -->
     <div class="w-[50%] bg-[#070A10] text-center flex flex-col justify-between h-full py-12 px-10 relative z-10 rounded-3xl border-4 border-emerald-500 shadow-2xl bg-grid">
       <div class="flex items-center justify-center gap-3">
         <div class="flex items-end gap-1">
@@ -90,7 +91,6 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         </span>
       </div>
 
-      <!-- TITOLO MULTI-RIGA FINO A 3 RIGHE -->
       <div class="space-y-4 my-auto">
         <div class="text-7xl font-mono-tech font-black text-[#00E5FF] tracking-wide uppercase drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
           {user_handle}
@@ -109,7 +109,6 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- BADGE LIVELLO MOLTO PIÙ EVIDENTE -->
       <div>
         <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl bg-amber-500/20 text-amber-300 border-4 border-amber-400 font-black tracking-widest shadow-[0_0_35px_rgba(245,158,11,0.4)]">
           ACCREDITATION: LVL 5 — OUTLIER
@@ -117,7 +116,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- PANNELLO DESTRA -->
+    <!-- Right Panel -->
     <div class="w-[23%] bg-gray-50 text-gray-900 flex flex-col justify-between items-center h-full py-10 px-8 relative z-10 border-2 border-gray-200 shadow-sm rounded-3xl text-center">
       <div class="space-y-2">
         <div class="text-2xl font-mono-tech text-emerald-700 font-extrabold tracking-wider">VERIFICATION</div>
@@ -144,7 +143,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 # ------------------------------------------------------------------------------
-# TEMPLATE MUG PREVIEW / TAZZA CERAMICA (1200x1200)
+# WHITE CERAMIC MUG PREVIEW TEMPLATE (1200x1200)
 # ------------------------------------------------------------------------------
 MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -155,79 +154,59 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
     .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
-    
-    /* Ombra e riflesso ceramica */
-    .mug-body {{
-      background: linear-gradient(135deg, #111827 0%, #030712 50%, #1f2937 100%);
-      box-shadow: 
-        inset -25px 0 35px rgba(0,0,0,0.8),
-        inset 15px 0 25px rgba(255,255,255,0.15),
-        0 30px 60px rgba(0,0,0,0.6);
-    }}
-    .mug-handle {{
-      box-shadow: inset 4px 0 10px rgba(255,255,255,0.15), 0 15px 25px rgba(0,0,0,0.5);
-    }}
   </style>
 </head>
 <body class="bg-[#090D16] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center">
 
   <div class="relative w-[1200px] h-[1200px] flex items-center justify-center overflow-hidden">
-    <!-- Glow di Sfondo -->
+    <!-- Ambient Glow -->
     <div class="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px]"></div>
 
-    <!-- CONTENITORE TAZZA MOCKUP 3D -->
-    <div class="relative flex items-center">
+    <!-- MUG CONTAINER -->
+    <div class="relative flex items-center justify-center w-[900px] h-[900px]">
       
-      # CORPO PRINCIPALE DELLA TAZZA
-      <div class="mug-body w-[520px] h-[640px] rounded-[60px] border-t-[8px] border-gray-700 relative z-20 flex flex-col justify-between p-10 overflow-hidden">
-        
-        <!-- Bordo Superiore (Apertura Tazza) -->
-        <div class="absolute top-0 left-0 right-0 h-8 bg-gradient-to-r from-gray-800 via-gray-700 to-gray-900 rounded-t-[60px] border-b border-gray-600/40"></div>
+      <!-- Base White Mug Image / CSS Fallback -->
+      {mug_bg_element}
 
-        <!-- HEADER TAZZA / LOGO IOSA -->
-        <div class="pt-6 flex justify-between items-center relative z-10">
-          <div class="flex items-center gap-2">
-            <svg class="h-8 w-6 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-              <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
-            </svg>
-            <span class="font-mono-tech font-black text-2xl tracking-tighter text-white">OSA</span>
-          </div>
-          <span class="text-xs font-mono-tech px-3 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30 font-bold">
-            11oz CERAMIC
-          </span>
+      <!-- PRINTED OVERLAY GRAPHICS -->
+      <div class="absolute w-[360px] h-[480px] left-[260px] top-[220px] z-20 flex flex-col justify-between items-center text-center p-6 text-slate-900 pointer-events-none">
+        
+        <!-- Header Logo -->
+        <div class="flex items-center gap-2">
+          <svg class="h-7 w-5 text-[#0092B3]" viewBox="0 0 18.5 32" fill="none">
+            <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="14" cy="3" r="3" fill="#0092B3"/>
+          </svg>
+          <span class="font-mono-tech font-black text-xl tracking-tighter text-slate-900">OSA</span>
         </div>
 
-        <!-- CONTENUTO GRAFICO STAMPATO SULLA TAZZA -->
-        <div class="space-y-4 text-center my-auto relative z-10 py-6">
-          <div class="text-4xl font-mono-tech font-black text-[#00E5FF] tracking-wider uppercase drop-shadow-[0_0_20px_rgba(0,229,255,0.4)]">
+        <!-- Dynamic User Data -->
+        <div class="space-y-2 text-center my-auto">
+          <div class="text-3xl font-mono-tech font-black text-[#0080A0] tracking-wider uppercase">
             {user_handle}
           </div>
-          <div class="text-7xl font-mono-tech font-black text-white tracking-tight leading-none">
-            {vpi_score} <span class="text-[#00E5FF]">VPI</span>
+          <div class="text-6xl font-mono-tech font-black text-slate-900 tracking-tight leading-none">
+            {vpi_score} <span class="text-[#0080A0]">VPI</span>
           </div>
-          <p class="text-gray-400 font-mono-tech text-xs tracking-widest uppercase pt-2">
+          <p class="text-slate-500 font-mono-tech text-[10px] tracking-widest uppercase pt-1 font-bold">
             VIRAL PERFORMANCE ARTIFACT
           </p>
         </div>
 
-        <!-- FOOTER BADGE TAZZA -->
-        <div class="relative z-10 pb-4 text-center">
-          <span class="inline-block text-xs font-mono-tech px-6 py-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/60 font-black tracking-widest">
+        <!-- Accreditation Badge -->
+        <div class="pb-2">
+          <span class="inline-block text-[10px] font-mono-tech px-4 py-1.5 rounded-lg bg-amber-500/15 text-amber-700 border border-amber-500/40 font-black tracking-widest uppercase">
             ACCREDITED OUTLIER
           </span>
         </div>
 
       </div>
 
-      <!-- MANICO DELLA TAZZA -->
-      <div class="mug-handle w-[140px] h-[380px] border-[38px] border-gray-900 rounded-r-[100px] -ml-6 z-10 relative"></div>
-
     </div>
 
-    <!-- Didascalia inferiore -->
+    <!-- Footer Caption -->
     <div class="absolute bottom-10 left-0 right-0 text-center font-mono-tech text-gray-500 text-sm tracking-widest uppercase">
-      IOSA Physical Artifact — 11oz Black Glossy Ceramic Mug
+      IOSA Physical Artifact — 11oz White Ceramic Mug
     </div>
   </div>
 
@@ -236,7 +215,7 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 # ------------------------------------------------------------------------------
-# RENDERING PLAQUE (SYNC & ASYNC)
+# PLAQUE RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
 def _render_png_sync(
     record_id: str,
@@ -313,8 +292,35 @@ async def generate_trophy_png(
 
 
 # ------------------------------------------------------------------------------
-# RENDERING MUG PREVIEW (SYNC & ASYNC)
+# MUG PREVIEW RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
+def _get_mug_bg_html() -> str:
+    """Check for local white mug image file (.png or .jpg) and return HTML image element or CSS fallback."""
+    possible_paths = [
+        (Path(__file__).resolve().parent / "white_mug.png", "image/png"),
+        (Path(__file__).resolve().parent / "white_mug.jpg", "image/jpeg"),
+        (Path(__file__).resolve().parent / "white_mug_2.png", "image/png"),
+        (Path(__file__).resolve().parent / "white_mug_2.jpg", "image/jpeg"),
+        (Path.cwd() / "white_mug.png", "image/png"),
+        (Path.cwd() / "white_mug.jpg", "image/jpeg"),
+        (Path.cwd() / "white_mug_2.png", "image/png"),
+        (Path.cwd() / "white_mug_2.jpg", "image/jpeg"),
+    ]
+    for p, mime_type in possible_paths:
+        if p.exists():
+            img_bytes = p.read_bytes()
+            encoded_img = base64.b64encode(img_bytes).decode('utf-8')
+            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-[850px] h-[850px] object-contain relative z-10" alt="White Ceramic Mug" />'
+
+    # Fallback styled ceramic mug container if image file is not found
+    return """
+    <div class="relative flex items-center justify-center">
+      <div class="w-[480px] h-[580px] bg-gradient-to-r from-gray-200 via-white to-gray-300 rounded-[50px] border-t-[8px] border-gray-300 relative z-10 shadow-2xl"></div>
+      <div class="w-[120px] h-[360px] border-[32px] border-gray-200 rounded-r-[80px] absolute -right-[100px] top-[110px] z-0"></div>
+    </div>
+    """
+
+
 def _render_mug_preview_sync(
     record_id: str,
     vpi_score: str,
@@ -325,10 +331,12 @@ def _render_mug_preview_sync(
     out_path.mkdir(parents=True, exist_ok=True)
 
     final_output_path = out_path / f"mug_preview_{record_id}.png"
+    mug_bg_element = _get_mug_bg_html()
 
     html_content = MUG_PREVIEW_HTML_TEMPLATE.format(
         user_handle=user_handle,
-        vpi_score=vpi_score
+        vpi_score=vpi_score,
+        mug_bg_element=mug_bg_element
     )
 
     with sync_playwright() as p:
@@ -364,7 +372,7 @@ async def generate_mug_preview_png(
 
 
 # ------------------------------------------------------------------------------
-# HELPER LEGACY PER COMPATIBILITÀ
+# LEGACY HELPER FOR BACKWARD COMPATIBILITY
 # ------------------------------------------------------------------------------
 def create_trophy_image(
     author: str,

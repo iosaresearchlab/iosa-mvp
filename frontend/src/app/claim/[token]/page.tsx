@@ -36,7 +36,7 @@ export default function ClaimPage({
   const [loading, setLoading] = useState(true);
   const [artifactLoading, setArtifactLoading] = useState(true);
   
-  // Toggle per alternare la vista tra la Tazza (Physical Artifact) e la Targa (Digital Plaque)
+  // Toggle between Physical Artifact (Mug) and Digital Plaque
   const [activeTab, setActiveTab] = useState<'mug' | 'plaque'>('mug');
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
@@ -87,8 +87,8 @@ export default function ClaimPage({
     const expiresAt = new Date(createdAt.getTime() + 15 * 24 * 60 * 60 * 1000);
 
     setTokenWindow({
-      start: createdAt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
-      end: expiresAt.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
+      start: createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+      end: expiresAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
     });
 
     const updateCountdown = () => {
@@ -154,71 +154,69 @@ export default function ClaimPage({
       : '2026-08-20',
   };
 
-  // URL Mockup Tazza Fotorealistica 3D (Render Istantaneo Locale)
   const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
-  
-  // URL Targa Grafica Certificato Digitale
   const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
 
   const currentPreviewUrl = activeTab === 'mug' ? mugMockupUrl : plaquePreviewUrl;
 
   return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans p-4 sm:p-6 md:p-12 relative overflow-hidden">
-      {/* 1. Pulsante Return to Home isolato in cima */}
-      <nav className="max-w-5xl mx-auto mb-6">
-        <Link 
-          href="/" 
-          className="inline-flex items-center gap-2 text-xs font-mono text-white bg-gray-900/90 hover:bg-gray-800 border border-gray-700/80 hover:border-[#00E5FF]/50 px-4 py-2 rounded-full transition-all shadow-md active:scale-95 group"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#00E5FF] group-hover:-translate-x-0.5 transition-transform" /> 
-          <span className="font-semibold tracking-wide">Return to Home</span>
-        </Link>
-      </nav>
+    <main className="min-h-screen bg-[#030508] text-white font-sans p-4 sm:p-6 md:p-8 relative overflow-hidden">
+      {/* Integrated Compact Header and Navigation */}
+      <header className="max-w-5xl mx-auto border-b border-gray-800/80 pb-4 mb-5 flex flex-row justify-between items-center gap-4">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-end gap-1.5">
+              <svg className="h-7 w-4 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+                <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
+              </svg>
+              <span className="font-mono font-black text-xl tracking-tighter text-white leading-none">OSA</span>
+            </div>
 
-      {/* Header compatto */}
-      <header className="max-w-5xl mx-auto border-b border-gray-800/80 pb-6 mb-8 flex flex-row justify-between items-center gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-end gap-1.5">
-            <svg className="h-8 w-5 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-              <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
-            </svg>
-            <span className="font-mono font-black text-2xl tracking-tighter text-white leading-none">OSA</span>
+            {/* Compact Return to Home Button */}
+            <Link 
+              href="/" 
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono text-gray-300 hover:text-white bg-gray-900/90 hover:bg-gray-800 border border-gray-700/70 hover:border-[#00E5FF]/50 px-2.5 py-1 rounded-full transition-all shadow-sm active:scale-95 group"
+            >
+              <ArrowLeft className="w-3 h-3 text-[#00E5FF] group-hover:-translate-x-0.5 transition-transform" /> 
+              <span className="font-semibold tracking-wide">Return to Home</span>
+            </Link>
           </div>
-          <span className="text-[10px] font-mono text-gray-400 tracking-widest uppercase opacity-90">
+          <span className="text-[9px] font-mono text-gray-400 tracking-widest uppercase opacity-90">
             Institute for Open Social Analytics
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3.5 py-2 rounded-full shadow-sm">
-          <ShieldCheck className="w-4 h-4 text-[#00E5FF] shrink-0" /> 
-          <span className="text-[11px] sm:text-xs font-bold tracking-wider">VERIFIED ACCREDITATION</span>
+        {/* Verified Accreditation Badge with Green Shield */}
+        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1.5 rounded-full shadow-sm">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" /> 
+          <span className="text-[10px] sm:text-xs font-bold tracking-wider">VERIFIED ACCREDITATION</span>
         </div>
       </header>
 
-      {/* Banner Ordine Confermato */}
+      {/* Order Confirmation Banner */}
       {isOrderSuccess && (
-        <div className="max-w-5xl mx-auto mb-8 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="max-w-5xl mx-auto mb-5 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            <div className="w-10 h-10 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className="font-mono font-bold text-base text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
+              <h3 className="font-mono font-bold text-sm text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
               <p className="text-xs text-gray-300 font-sans mt-0.5">
                 Payment verified. Your official metric award for <span className="font-bold text-white">{post.author_handle}</span> is now queued for production and dispatch.
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-full uppercase tracking-wider shrink-0">
+          <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full uppercase tracking-wider shrink-0">
             Status: In Production
           </span>
         </div>
       )}
 
-      {/* Info validità temporale */}
-      <div className="max-w-5xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-lg">
+      {/* Temporal Validity Info */}
+      <div className="max-w-5xl mx-auto mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 flex items-center gap-3 shadow-lg">
           <Calendar className="w-4 h-4 text-[#00E5FF] shrink-0" />
           <div>
             <span className="text-gray-400 block text-[10px]">POST VALIDITY WINDOW (15 DAYS)</span>
@@ -226,7 +224,7 @@ export default function ClaimPage({
           </div>
         </div>
 
-        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-red-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3.5 flex items-center gap-3 shadow-lg`}>
+        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-red-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3 flex items-center gap-3 shadow-lg`}>
           <Timer className={`w-4 h-4 ${isExpired ? 'text-red-400' : 'text-amber-400 animate-pulse'} shrink-0`} />
           <div>
             <span className="opacity-80 block text-[10px]">CLAIM TOKEN EXPIRES IN</span>
@@ -237,13 +235,13 @@ export default function ClaimPage({
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        {/* Colonna Sinistra: Visualizzatore Showcase (Tazza Custom vs Targa) */}
-        <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-6 md:p-8 flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* Left Column: Showcase Container */}
+        <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 md:p-6 flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-40 h-40 bg-[#00E5FF]/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Selettore/Toggle per cambiare vista */}
-          <div className="flex items-center gap-1.5 p-1 bg-black/60 border border-gray-800 rounded-xl mb-6 w-full max-w-[320px]">
+          {/* Tab Selector */}
+          <div className="flex items-center gap-1.5 p-1 bg-black/60 border border-gray-800 rounded-xl mb-4 w-full max-w-[320px]">
             <button
               onClick={() => { setActiveTab('mug'); setArtifactLoading(true); }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
@@ -267,8 +265,8 @@ export default function ClaimPage({
           </div>
 
           <div className="w-full flex flex-col items-center">
-            {/* Box Display dell'Artifact */}
-            <div className="w-full max-w-[320px] aspect-[4/3] rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-5 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
+            {/* Artifact Preview Box */}
+            <div className="w-full max-w-[320px] aspect-[4/3] rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-4 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#00E5FF]" />
@@ -287,24 +285,6 @@ export default function ClaimPage({
               />
             </div>
 
-            {/* Feature Badges per Aumentare Valore Percepito (Solo se vista Tazza) */}
-            {activeTab === 'mug' && (
-              <div className="grid grid-cols-2 gap-2 w-full max-w-[320px] mb-5 font-mono text-[10px] text-gray-300">
-                <div className="bg-black/50 border border-gray-800 rounded-lg p-2 text-center">
-                  ✨ Ceramica Premium 11oz
-                </div>
-                <div className="bg-black/50 border border-gray-800 rounded-lg p-2 text-center">
-                  🔥 Stampa HD Lucida
-                </div>
-                <div className="bg-black/50 border border-gray-800 rounded-lg p-2 text-center">
-                  🧼 Lavabile in Lavastoviglie
-                </div>
-                <div className="bg-black/50 border border-gray-800 rounded-lg p-2 text-center">
-                  🚀 Spedizione Locale Rapida
-                </div>
-              </div>
-            )}
-
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-2">
               {post.vpi_level_name}
             </span>
@@ -312,14 +292,14 @@ export default function ClaimPage({
             <h2 className="text-4xl font-black font-mono tracking-tight text-white mb-1">
               +{formattedVpi}x <span className="text-[#00E5FF]">VPI</span>
             </h2>
-            <p className="text-xs font-mono text-gray-400 mb-6">Viral Performance Index Accredited</p>
+            <p className="text-xs font-mono text-gray-400 mb-4">Viral Performance Index Accredited</p>
           </div>
 
-          {/* Dettagli Metrici Post */}
-          <div className="w-full border-t border-gray-800/80 pt-5 text-left space-y-3 font-mono text-xs text-gray-300 bg-black/40 p-4 rounded-xl border border-gray-800/60">
+          {/* Accredited Post Details */}
+          <div className="w-full border-t border-gray-800/80 pt-4 text-left space-y-2.5 font-mono text-xs text-gray-300 bg-black/40 p-3.5 rounded-xl border border-gray-800/60">
             <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
-              <span className="font-bold text-white text-sm leading-snug">{postTitle}</span>
+              <span className="font-bold text-white text-xs leading-snug">{postTitle}</span>
             </div>
 
             <div className="flex justify-between items-center">
@@ -330,7 +310,7 @@ export default function ClaimPage({
             <div className="flex justify-between items-center">
               <span className="text-gray-500 text-[11px]">PUBLISHED DATE:</span>
               <span className="text-gray-300 font-medium">
-                {post.created_at ? new Date(post.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                {post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
               </span>
             </div>
 
@@ -351,15 +331,15 @@ export default function ClaimPage({
           </div>
         </div>
 
-        {/* Colonna Destra: Claim Form & Pagamento */}
-        <div className="bg-[#070A10]/80 border border-gray-800 rounded-2xl p-8 shadow-2xl flex flex-col justify-between">
+        {/* Right Column: Claim Form */}
+        <div className="bg-[#070A10]/80 border border-gray-800 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
           <div>
             <h1 className="text-2xl font-extrabold mb-2 font-mono">Claim Physical Award</h1>
-            <p className="text-xs text-gray-400 leading-relaxed mb-6">
+            <p className="text-xs text-gray-400 leading-relaxed mb-5">
               Congratulations <span className="text-white font-semibold">{post.author_handle}</span>! Your post was indexed with a performance spike of <span className="text-[#00E5FF] font-bold">+{formattedVpi}x</span> over baseline. Claim your custom ceramic mug trophy directly from OSA.
             </p>
 
-            <div className="bg-black/60 border border-gray-800 rounded-xl p-4 mb-6 text-xs font-mono space-y-3">
+            <div className="bg-black/60 border border-gray-800 rounded-xl p-3.5 mb-5 text-xs font-mono space-y-2">
               <div className="flex items-center gap-2 text-[#00E5FF] font-bold">
                 <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
                 <span>Instant High-Res Customization</span>
@@ -378,7 +358,7 @@ export default function ClaimPage({
             )}
           </div>
 
-          <p className="text-[10px] text-gray-500 font-mono text-center mt-6 flex items-center justify-center gap-1">
+          <p className="text-[10px] text-gray-500 font-mono text-center mt-5 flex items-center justify-center gap-1">
             <CheckCircle2 className="w-3 h-3 text-cyan-400" /> Powered by OSA Open Data Standard
           </p>
         </div>
