@@ -27,6 +27,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+print(f"DEBUG: FRONTEND_URL è impostato a: {FRONTEND_URL}")
 
 if not STRIPE_SECRET_KEY:
     print("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
