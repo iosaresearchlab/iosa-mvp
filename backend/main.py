@@ -254,14 +254,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         if STRIPE_WEBHOOK_SECRET:
             event = stripe.Webhook.construct_event(
                 payload, stripe_signature, STRIPE_WEBHOOK_SECRET
-            )
+            ).to_dict()  # <--- AGGIUNGI QUESTO .to_dict() QUI!
         else:
             import json
             event = json.loads(payload)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Webhook Error: {str(e)}")
-
+    
     if event.get("type") == "checkout.session.completed":
         session = event["data"]["object"]
         
