@@ -26,6 +26,7 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 if not STRIPE_SECRET_KEY:
     print("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
@@ -236,8 +237,8 @@ def create_checkout_session(req: CheckoutSessionRequest):
                 'printify_product_id': printify_product_id
             },
             mode='payment',
-            success_url=f'http://localhost:3000/claim/{req.claimToken}?status=success',
-            cancel_url=f'http://localhost:3000/claim/{req.claimToken}?status=cancelled',
+            success_url=f'{FRONTEND_URL}/claim/{req.claimToken}?status=success',
+            cancel_url=f'{FRONTEND_URL}/claim/{req.claimToken}?status=cancelled',
         )
         return {"checkout_url": checkout_session.url}
     except Exception as e:
