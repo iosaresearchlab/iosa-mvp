@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Load environment variables
 env_path = Path(__file__).resolve().parent / ".env"
@@ -38,13 +38,13 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def calculate_vpi_ratio(views: float, baseline: float) -> float:
-    """Calculates VPI ratio normalized against channel baseline (rounded to 1 decimal place)[cite: 4]."""
+    """Calculates VPI ratio normalized against channel baseline (rounded to 1 decimal place)."""
     if not baseline or baseline <= 0:
         return 1.0
     return round(views / baseline, 1)
 
 def get_vpi_metadata(vpi_ratio: float):
-    """Returns (vpi_level, vpi_level_name, vpi_color) based on the 10-Level VPI Scale[cite: 4]."""
+    """Returns (vpi_level, vpi_level_name, vpi_color) based on the 10-Level VPI Scale."""
     if vpi_ratio >= 50.0:
         return 10, "Lvl 10 - Hyper Outlier", "#FF0055"
     elif vpi_ratio >= 25.0:
@@ -67,7 +67,7 @@ def get_vpi_metadata(vpi_ratio: float):
         return 1, "Lvl 1 - Standard", "#888888"
 
 def fetch_channels_metadata(channel_ids: list) -> dict:
-    """Retrieves real subscriber count and calculates average view baseline per channel[cite: 4]."""
+    """Retrieves real subscriber count and calculates average view baseline per channel."""
     if not channel_ids:
         return {}
     
@@ -87,7 +87,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         total_views = int(stats.get("viewCount", 0))
         video_count = max(int(stats.get("videoCount", 1)), 1)
         
-        # Real calculated baseline: average views per video on the channel[cite: 4]
+        # Real calculated baseline: average views per video on the channel
         avg_views = max(int(total_views / video_count), 5_000)
 
         channels_data[ch_id] = {
@@ -106,7 +106,6 @@ def fetch_and_ingest_real_youtube_content():
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
 
-    # Seleziona 3 Paesi e 2 Categorie ad ogni scan per variazione continua[cite: 4]
     selected_countries = random.sample(TARGET_COUNTRIES, k=3)
     selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=2)
 
@@ -148,21 +147,17 @@ def fetch_and_ingest_real_youtube_content():
                 subscribers = ch_info["subscribers"]
                 baseline = ch_info["baseline"]
 
-                # Filtro limite iscritti[cite: 4]
                 if subscribers > MAX_SUBSCRIBERS:
                     continue
 
-                # Calcolo VPI[cite: 4]
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
 
-                # SOGLIA DI INGRESSO: VPI deve essere rigorosamente > 1.0[cite: 4]
                 if vpi_ratio <= 1.0:
                     continue
 
                 vpi_level, level_name, vpi_color = get_vpi_metadata(vpi_ratio)
                 claim_token = f"iosa_{secrets.token_urlsafe(12)}"
 
-                # Deduplica tramite external_post_id[cite: 4]
                 existing = supabase.table("posts").select("id").eq("external_post_id", vid_id).execute()
                 if not existing.data:
                     supabase.table("posts").insert({
@@ -190,7 +185,7 @@ def fetch_and_ingest_real_youtube_content():
 
 def purge_expired_campaign_data():
     """
-    Routine di pulizia automatica che elimina tutti i post più vecchi di 15 giorni[cite: 4].
+    Routine di pulizia automatica che elimina tutti i post più vecchi di 15 giorni.
     """
     print("🧹 Esecuzione pulizia dati campagna (rimozione record > 15 giorni)...")
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=CAMPAIGN_DAYS)).isoformat()
@@ -200,19 +195,29 @@ def purge_expired_campaign_data():
     except Exception as e:
         print(f"❌ Errore durante la pulizia del database: {e}")
 
-if __name__ == "__main__":
-    # Esecuzione immediata all'avvio[cite: 4]
-    fetch_and_ingest_real_youtube_content()
-
-    # Inizializzazione scheduler[cite: 4]
-    scheduler = BlockingScheduler()
-    # Ingestion ogni 15 minuti[cite: 4]
+def start_engine():
+    """
+    Initializes and starts the background scheduler and triggers immediate scan.
+    """
+    print("⏱️ Avvio IOSA Background Ingestion Engine...")
+    scheduler = BackgroundScheduler()
+    
+    # Scheduled jobs: ingestion every 15 minutes, cleanup every 24 hours
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=15)
-    # Controllo e pulizia automatica ogni 24 ore[cite: 4]
     scheduler.add_job(purge_expired_campaign_data, 'interval', hours=24)
-
-    print("⏱️ IOSA Ingestion Engine attivo. Ingestion ogni 15 min, Pulizia ogni 24h. Premere Ctrl+C per fermare.")
+    
+    scheduler.start()
+    
+    # Run immediate scan on application startup
     try:
-        scheduler.start()
+        fetch_and_ingest_real_youtube_content()
+    except Exception as e:
+        print(f"❌ Errore durante il primo scan all'avvio: {e}")
+
+if __name__ == "__main__":
+    start_engine()
+    try:
+        while True:
+            time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         print("🛑 Ingestion Engine fermato.")

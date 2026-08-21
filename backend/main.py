@@ -20,6 +20,7 @@ from supabase import create_client
 from trophy_pipeline import generate_and_publish_trophy
 from printify_service import send_printify_order
 from generate_trophy import generate_trophy_png
+from vpi_engine import start_engine
 
 load_dotenv()
 
@@ -40,6 +41,10 @@ if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="IOSA Trophy API")
+
+@app.on_event("startup")
+def startup_event():
+    start_engine()
 
 app.add_middleware(
     CORSMiddleware,
