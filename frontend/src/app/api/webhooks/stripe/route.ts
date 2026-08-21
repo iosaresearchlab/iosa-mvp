@@ -20,9 +20,12 @@ export async function POST(req: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const { claimToken, productType } = session.metadata || {};
-    const shippingDetails = session.shipping_details;
+    
+    // Utilizziamo un cast a 'any' per evitare errori di type checking di TypeScript su shipping_details
+    const sessionAny = session as any;
+    const shippingDetails = sessionAny.shipping_details;
 
-    // 1. Salva/Aggiorna la tabella 'claims' su Supabase
+    // 1. Salva/Aggiorna la tabella 'claims' su Supabase[cite: 2]
     await supabase.from('claims').insert({
       status: 'paid',
       product_selected: productType,
@@ -32,7 +35,7 @@ export async function POST(req: Request) {
       shipping_address: shippingDetails?.address,
     });
 
-    // 2. Invia l'ordine a Printify via API
+    // 2. Invia l'ordine a Printify via API[cite: 2]
     if (process.env.PRINTIFY_API_TOKEN && process.env.PRINTIFY_SHOP_ID) {
       await fetch(`https://api.printify.com/v1/shops/${process.env.PRINTIFY_SHOP_ID}/orders.json`, {
         method: 'POST',
@@ -44,8 +47,8 @@ export async function POST(req: Request) {
           external_id: session.id,
           line_items: [
             {
-              product_id: 'ID_PRODOTTO_PRINTIFY', // ID del prodotto creato su Printify
-              variant_id: 12345, // ID variante (es. Tazza Standard)
+              product_id: 'ID_PRODOTTO_PRINTIFY', // ID del prodotto creato su Printify[cite: 2]
+              variant_id: 12345, // ID variante (es. Tazza Standard)[cite: 2]
               quantity: 1,
             },
           ],
