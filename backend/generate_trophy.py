@@ -154,6 +154,14 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
     .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
+    
+    /* VPI 3D CYLINDRICAL WARP & BLEND */
+    .mug-warp {{
+      transform: perspective(700px) rotateY(-12deg) rotateX(3deg) skewY(-2deg) scaleX(0.92);
+      mix-blend-mode: multiply;
+      opacity: 0.88;
+      filter: contrast(1.15) drop-shadow(1px 1px 1px rgba(255,255,255,0.3));
+    }}
   </style>
 </head>
 <body class="bg-[#090D16] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center">
@@ -168,8 +176,8 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
       <!-- Base White Mug Image / CSS Fallback -->
       {mug_bg_element}
 
-      <!-- PRINTED OVERLAY GRAPHICS -->
-      <div class="absolute w-[360px] h-[480px] left-[260px] top-[220px] z-20 flex flex-col justify-between items-center text-center p-6 text-slate-900 pointer-events-none">
+      <!-- PRINTED OVERLAY GRAPHICS (WITH 3D WARP) -->
+      <div class="absolute w-[350px] h-[460px] left-[265px] top-[225px] z-20 flex flex-col justify-between items-center text-center p-6 text-slate-900 pointer-events-none mug-warp">
         
         <!-- Header Logo -->
         <div class="flex items-center gap-2">

@@ -14,11 +14,11 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Elenco dei paesi europei per il routing locale della stampa
+# Elenco rigoroso dei codici ISO europei supportati per il routing locale
 EU_COUNTRIES = {
     'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 
     'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 
-    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'GB', 'CH', 'NO'
+    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'CH', 'NO', 'GB'
 }
 
 def upload_image_to_printify(image_path="trophy_design.png"):
@@ -33,18 +33,30 @@ def upload_image_to_printify(image_path="trophy_design.png"):
 
     response = requests.post(f"{BASE_URL}/uploads/images.json", json=payload, headers=headers)
     if not response.ok:
-        print(f"Errore caricamento immagine Printify ({response.status_code}): {response.text}")
+        print(f"❌ Errore caricamento immagine Printify ({response.status_code}): {response.text}")
         response.raise_for_status()
 
     image_data = response.json()
-    print(f"Immagine caricata su Printify con successo. ID: {image_data['id']}")
+    print(f"✅ Immagine caricata su Printify. ID: {image_data['id']}")
     return image_data["id"]
 
-def get_blueprint_setup(blueprint_id=68, target_country="US"):
+def get_blueprint_setup(blueprint_id=68, target_country=None):
     """
-    Seleziona un Print Provider e la variante corretta in base alla nazione di destinazione dell'acquirente,
-    garantendo costi di spedizione locali e veloci.
+    Seleziona il Print Provider locale imponendo una validazione rigida della nazione.
+    Impedisce fallback accidentali sugli USA se la nazione non è valida.
     """
+    if not target_country:
+        raise ValueError("❌ ERRORE CRITICO: target_country non può essere vuoto o None! Impossibile determinare il routing di stampa.")
+
+    target_country = target_country.upper().strip()
+    
+    # Normalizzazione nomi estesi comuni per evitare fallimenti
+    country_mapping = {
+        "ITALY": "IT", "FRANCE": "FR", "GERMANY": "DE", "SPAIN": "ES", 
+        "UNITED STATES": "US", "USA": "US", "UNITED KINGDOM": "GB", "UK": "GB"
+    }
+    target_country = country_mapping.get(target_country, target_country)
+
     providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
     p_res = requests.get(providers_url, headers=headers)
     p_res.raise_for_status()
@@ -53,33 +65,44 @@ def get_blueprint_setup(blueprint_id=68, target_country="US"):
     if not providers:
         raise Exception(f"Nessun Print Provider trovato per il blueprint {blueprint_id}")
 
-    target_country = (target_country or "US").upper()
-    is_eu_target = target_country in EU_COUNTRIES
-
     selected_provider = None
 
-    # Ricerca provider in base al Paese di destinazione
-    if is_eu_target:
+    # 1. Match esatto per nazione (es. IT -> IT, GB -> GB)
+    for p in providers:
+        p_country = p.get("location", {}).get("country", "").upper()
+        if p_country == target_country:
+            selected_provider = p
+            print(f"🌍 [ROUTING] Match esatto trovato nel Paese: {p_country}")
+            break
+
+    # 2. Match Regionale Europeo (se l'utente è in UE, cerca un provider europeo)
+    if not selected_provider and target_country in EU_COUNTRIES:
         for p in providers:
             p_country = p.get("location", {}).get("country", "").upper()
             if p_country in EU_COUNTRIES:
                 selected_provider = p
+                print(f"🇪🇺 [ROUTING] Match europeo trovato. Stampato in: {p_country} per acquirente in {target_country}")
                 break
-    else:
+
+    # 3. Fallback USA solo se l'utente è effettivamente negli USA o Nord America
+    if not selected_provider and target_country == "US":
         for p in providers:
             p_country = p.get("location", {}).get("country", "").upper()
             if p_country == "US":
                 selected_provider = p
+                print(f"🇺🇸 [ROUTING] Fallback su provider USA.")
                 break
 
-    # Fallback al primo provider disponibile se non viene trovata una corrispondenza esatta
+    # 4. Se proprio non trova nulla ma la nazione è valida, prende il primo disponibile loggando un warning
     if not selected_provider:
+        print(f"⚠️ [ATTENZIONE] Nessun provider locale perfetto per [{target_country}]. Uso il primo disponibile.")
         selected_provider = providers[0]
 
     provider_id = selected_provider["id"]
     provider_title = selected_provider.get("title", f"Provider #{provider_id}")
     provider_country = selected_provider.get("location", {}).get("country", "Unknown")
-    print(f"📍 Provider selezionato per Paese [{target_country}]: {provider_title} (ID: {provider_id}, Nazione: {provider_country})")
+    
+    print(f"📍 Destinazione Finale: [{target_country}] -> Print Provider: {provider_title} (ID: {provider_id}, stabilimento in: {provider_country})")
 
     # Recupera le varianti attive per questo specifico provider
     variants_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers/{provider_id}/variants.json"
@@ -91,14 +114,13 @@ def get_blueprint_setup(blueprint_id=68, target_country="US"):
         raise Exception(f"Nessuna variante trovata per il provider {provider_id}")
 
     variant_ids = [variants[0]["id"]]
-    print(f"Variante selezionata dal catalogo: ID {variant_ids[0]}")
-
     return provider_id, variant_ids
 
-def create_dynamic_mug_product(image_id, creator_name="Rick Astley", target_country="US"):
-    """Crea un prodotto Tazza Ceramica personalizzato su Printify ottimizzato per il Paese di destinazione."""
-    blueprint_id = 68  # White Ceramic Mug 11oz
-    
+def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=None, blueprint_id=68):
+    """Crea il prodotto tazza richiedendo obbligatoriamente il Paese di destinazione e parametrizzando il blueprint_id."""
+    if not target_country:
+        raise ValueError("❌ target_country obbligatorio mancante in create_dynamic_mug_product.")
+
     provider_id, variant_ids = get_blueprint_setup(blueprint_id, target_country=target_country)
 
     payload = {
@@ -109,7 +131,7 @@ def create_dynamic_mug_product(image_id, creator_name="Rick Astley", target_coun
         "variants": [
             {
                 "id": vid,
-                "price": 1900,  # $19.00
+                "price": 1900,
                 "is_enabled": True
             } for vid in variant_ids
         ],
@@ -138,24 +160,18 @@ def create_dynamic_mug_product(image_id, creator_name="Rick Astley", target_coun
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"\n[ERRORE PRINTIFY API] Codice {response.status_code}:")
-        try:
-            print(response.json())
-        except Exception:
-            print(response.text)
+        print(f"\n❌ [ERRORE PRINTIFY API] Codice {response.status_code}: {response.text}")
         response.raise_for_status()
 
     product_data = response.json()
     product_id = product_data["id"]
     native_variant_id = variant_ids[0]
     
-    print(f"\n✅ Prodotto creato su Printify! Product ID: {product_id}, Variant ID: {native_variant_id}")
+    print(f"✅ Prodotto configurato (Blueprint: {blueprint_id})! Product ID: {product_id}, Variant ID: {native_variant_id}")
     return product_id, native_variant_id
 
 def send_printify_order(product_id, variant_id, shipping_address, line_item_title="IOSA Trophy Mug"):
-    """
-    Invia l'ordine di stampa e spedizione a Printify dopo la conferma del pagamento.
-    """
+    """Invia l'ordine di stampa e spedizione."""
     payload = {
         "external_id": f"order_{os.urandom(4).hex()}",
         "line_items": [
@@ -185,9 +201,9 @@ def send_printify_order(product_id, variant_id, shipping_address, line_item_titl
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"Errore creazione ordine Printify: {response.text}")
+        print(f"❌ Errore invio ordine Printify: {response.text}")
         response.raise_for_status()
 
     order_data = response.json()
-    print(f"✅ Ordine inviato con successo a Printify! Order ID: {order_data['id']}")
+    print(f"✅ Ordine inviato in produzione! Order ID: {order_data['id']}")
     return order_data["id"]
