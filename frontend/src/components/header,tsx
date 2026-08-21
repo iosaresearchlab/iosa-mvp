@@ -1,0 +1,55 @@
+'use client';
+
+import Link from 'next/link';
+
+export default function Header() {
+  return (
+    <header className="w-full border-b border-gray-800 bg-[#070A10]/90 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+      <div className="max-w-6xl mx-auto flex items-center justify-between">
+        
+        {/* Brand Logo & Name (Opzione 3 Definitiva) */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-end gap-0 group">
+              {/* Glyph "i" Spike corto */}
+              <svg
+                className="h-[28px] w-[18.5px] text-[#00E5FF] transition-transform group-hover:scale-105"
+                viewBox="0 0 18.5 32"
+                fill="none"
+              >
+                <path
+                  d="M1 26.5H6.5L14 8.5L17.5 14"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="14" cy="3" r="3" fill="#00E5FF" />
+              </svg>
+              <span className="font-mono font-black text-2xl tracking-tighter text-white leading-none">
+                OSA
+              </span>
+            </Link>
+
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-[#00E5FF] border border-cyan-500/30 font-bold tracking-wider">
+              OFFICIAL
+            </span>
+          </div>
+
+          <p className="text-[10px] font-mono text-gray-400 tracking-wider mt-1.5">
+            INSTITUTE FOR OPEN SOCIAL ANALYTICS
+          </p>
+        </div>
+
+        {/* Live Status Badge */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="hidden sm:inline">MONITORING</span> LIVE
+          </div>
+        </div>
+
+      </div>
+    </header>
+  );
+}
