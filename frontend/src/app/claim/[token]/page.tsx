@@ -271,7 +271,7 @@ export default function ClaimPage({
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-3">
             
             {/* Preview Container */}
-            <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex items-center justify-center mb-3 overflow-hidden relative group shadow-lg">
+            <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex items-center justify-center mb-3 overflow-hidden relative group shadow-lg p-2">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
@@ -287,9 +287,7 @@ export default function ClaimPage({
                   setArtifactLoading(false);
                   (e.target as HTMLElement).style.display = 'none';
                 }}
-                className={`max-h-full max-w-full w-auto h-auto transform group-hover:scale-102 transition-transform duration-300 ${
-                  activeTab === 'mug' ? 'object-contain object-center' : 'object-contain'
-                } ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
+                className={`w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
             </div>
 

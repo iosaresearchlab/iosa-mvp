@@ -143,7 +143,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 # ------------------------------------------------------------------------------
-# STATIC PHYSICAL ARTIFACT SAMPLE PREVIEW TEMPLATE (1200x1200)
+# STATIC PHYSICAL ARTIFACT SAMPLE PREVIEW TEMPLATE (1600x900)
 # ------------------------------------------------------------------------------
 MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -156,16 +156,15 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
     .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
   </style>
 </head>
-<body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center relative overflow-hidden">
+<body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1600px] h-[900px] flex items-center justify-center relative overflow-hidden">
 
-  <div class="relative w-[1200px] h-[1200px] flex flex-col items-center justify-center p-8 bg-[#070A10]">
+  <div class="relative w-full h-full flex flex-col items-center justify-center bg-[#070A10]">
     
-    <div class="relative w-full h-full flex items-center justify-center">
-      {mug_sample_element}
-      
-      <div class="absolute top-8 bg-amber-500 text-black font-mono-tech font-black text-2xl px-8 py-3 rounded-2xl shadow-2xl tracking-widest uppercase border-4 border-black/20 z-20">
-        SAMPLE ONLY
-      </div>
+    {mug_sample_element}
+    
+    <div class="absolute top-12 bg-amber-500 text-black font-mono-tech flex flex-col items-center justify-center px-12 py-6 rounded-3xl shadow-[0_10px_60px_rgba(245,158,11,0.5)] border-4 border-amber-600/30 z-20 text-center max-w-[90%]">
+      <span class="font-black text-5xl tracking-widest uppercase mb-3">SAMPLE ONLY</span>
+      <span class="text-2xl font-bold tracking-wide opacity-90">This is a sample and does not represent the final customized product</span>
     </div>
 
   </div>
@@ -265,9 +264,10 @@ def _get_mug_sample_element() -> str:
         if p.exists():
             img_bytes = p.read_bytes()
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-            return f'<img src="data:{mime_type};base64,{encoded_img}" class="max-h-[1050px] max-w-[1050px] w-auto h-auto object-contain rounded-2xl shadow-2xl relative z-10 mx-auto my-auto" alt="Physical Artifact Sample" />'
+            # The image will now expand to take 90% of the wider 1600x900 canvas, maximizing visibility
+            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-[90%] h-[90%] object-contain rounded-2xl relative z-10" alt="Physical Artifact Sample" />'
 
-    return '<div class="text-amber-400 text-xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
+    return '<div class="text-amber-400 text-2xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
 
 
 def _render_mug_preview_sync(
@@ -288,8 +288,9 @@ def _render_mug_preview_sync(
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
+        # Viewport adjusted to match standard 16:9 widescreen ratio
         page = browser.new_page(
-            viewport={"width": 1200, "height": 1200},
+            viewport={"width": 1600, "height": 900},
             device_scale_factor=1
         )
         page.set_content(html_content, wait_until="networkidle")
