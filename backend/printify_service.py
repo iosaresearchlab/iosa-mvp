@@ -43,11 +43,15 @@ def normalize_country(country_input):
 def get_optimal_routing(target_country):
     """
     Hybrid Routing System:
-    1. Determines the correct base Blueprint (1016 for EU/UK, 68 for Global).
+    1. Determines the correct base Blueprint (1016 for EU, 68 for UK/Global).
     2. Searches dynamically for an exact local provider match (e.g. FR -> FR).
     3. Fails back securely to a fixed regional provider if local is unavailable.
     """
     target_iso = normalize_country(target_country)
+    
+    # Security block for unsupported regions
+    if target_iso not in EU_COUNTRIES and target_iso not in UK_COUNTRIES and target_iso != 'US':
+        raise ValueError(f"Shipping to {target_iso} is currently not supported. We only ship to US, UK, and EU.")
     
     # Step 1: Define Base Strategy
     if target_iso in EU_COUNTRIES:
@@ -55,7 +59,8 @@ def get_optimal_routing(target_country):
         fallback_provider = 26  # Textildruck Europa (Germany)
         region = "EU"
     elif target_iso in UK_COUNTRIES:
-        blueprint_id = 1016
+        # Changed to 68 to fix 404 error - Blueprint 68 is universally supported for standard mugs
+        blueprint_id = 68
         fallback_provider = 72  # Print Clever (UK)
         region = "UK"
     else:

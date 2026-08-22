@@ -77,7 +77,7 @@ class CheckoutSessionRequest(BaseModel):
         v_clean = v.strip()
         regex = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
         if not re.match(regex, v_clean):
-            raise ValueError("Invalid email format. Please enter a valid email address (e.g. name@domain.com).")
+            raise ValueError("Invalid email format. Please enter a valid email address.")
         return v_clean
 
 @app.get("/")
@@ -174,14 +174,8 @@ async def get_trophy_mug_preview(
 
 @app.post("/api/claim/initialize/{token}")
 async def initialize_claim_product(token: str):
-    """
-    Validazione istantanea del token di claim. 
-    Nessuna chiamata esterna a Printify viene eseguita in questa fase.
-    """
     try:
         if not supabase:
-            if token == "REC_8F9A2B":
-                return {"status": "ready", "token": token}
             return {"status": "ready", "token": token}
 
         db_res = supabase.table("posts").select("*").eq("claim_token", token).execute()
@@ -199,7 +193,7 @@ async def initialize_claim_product(token: str):
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
     try:
-        unit_amount = 1900  # $19.00 USD
+        unit_amount = 1900
         
         vpi_ratio = "+8.7x"
         level_name = "LVL 5 — OUTLIER"
@@ -231,17 +225,19 @@ def create_checkout_session(req: CheckoutSessionRequest):
             payment_method_types=['card'],
             customer_email=req.email,
             shipping_address_collection={
+                # Strict allowed list for US, UK, and EU countries only
                 'allowed_countries': [
-                    'US', 'CA', 'GB', 'IT', 'DE', 'FR', 'ES', 'AT', 'BE', 'NL', 
-                    'AU', 'JP', 'BR', 'CH', 'SE', 'NO', 'FI', 'DK', 'IE', 'PT', 'PL'
+                    'US', 'GB', 'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 
+                    'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 
+                    'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
                 ]
             },
             shipping_options=[
                 {
                     'shipping_rate_data': {
                         'type': 'fixed_amount',
-                        'fixed_amount': {'amount': 499, 'currency': 'usd'},  # $4.99 USD Standard
-                        'display_name': 'Standard Tracked Shipping (US / EU)',
+                        'fixed_amount': {'amount': 499, 'currency': 'usd'}, 
+                        'display_name': 'Standard Tracked Shipping (US / EU / UK)',
                         'delivery_estimate': {
                             'minimum': {'unit': 'business_day', 'value': 3},
                             'maximum': {'unit': 'business_day', 'value': 7},
@@ -251,11 +247,11 @@ def create_checkout_session(req: CheckoutSessionRequest):
                 {
                     'shipping_rate_data': {
                         'type': 'fixed_amount',
-                        'fixed_amount': {'amount': 1299, 'currency': 'usd'}, # $12.99 USD Express/Int.
-                        'display_name': 'Express / International Shipping',
+                        'fixed_amount': {'amount': 1299, 'currency': 'usd'}, 
+                        'display_name': 'Express Shipping',
                         'delivery_estimate': {
-                            'minimum': {'unit': 'business_day', 'value': 7},
-                            'maximum': {'unit': 'business_day', 'value': 14},
+                            'minimum': {'unit': 'business_day', 'value': 2},
+                            'maximum': {'unit': 'business_day', 'value': 5},
                         },
                     }
                 }
@@ -364,7 +360,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             except Exception as err:
                 print(f"Error fetching post details for token {claim_token}: {err}")
 
-        print(f"🚀 EVASIONE ORDINE IN CORSO per {author} (Destinazione: {country_code})...")
+        print(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
 
         try:
             order_result = fulfill_trophy_order(
@@ -380,9 +376,20 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             if supabase and claim_token and product_id:
                 supabase.table("posts").update({"printify_product_id": product_id}).eq("claim_token", claim_token).execute()
                 
-            print(f"✅ EVASIONE COMPLETATA! Printify Order ID: {order_result.get('order_id')}")
+            print(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
+            
         except Exception as err:
-            print(f"❌ ERRORE DURANTE L'EVASIONE DELL'ORDINE: {err}")
+            print(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
             traceback.print_exc()
+            
+            # Update DB to signal failure to the frontend
+            if supabase and claim_token:
+                try:
+                    supabase.table("posts").update({"printify_product_id": "FAILED_ORDER_ERROR"}).eq("claim_token", claim_token).execute()
+                except Exception as db_err:
+                    print(f"Failed to update DB error state: {db_err}")
+                    
+            # Return HTTP 500 to Stripe so the webhook correctly registers as failed
+            raise HTTPException(status_code=500, detail=f"Order fulfillment failed: {str(err)}")
 
     return {"status": "success"}
