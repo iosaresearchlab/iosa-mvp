@@ -14,42 +14,105 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Elenco rigoroso dei codici ISO europei supportati per il routing locale[cite: 6]
+# Strict EU Customs Union definition for regional fallbacks
 EU_COUNTRIES = {
     'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 
     'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 
-    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'CH', 'NO', 'GB'
+    'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
 }
 
-# Mappatura universale per convertire i nomi estesi in inglese (restituiti da Printify) o varianti in codici ISO a 2 lettere
-COUNTRY_MAPPING = {
-    # Codici ISO (identità)
-    'AT': 'AT', 'BE': 'BE', 'BG': 'BG', 'CY': 'CY', 'CZ': 'CZ', 'DE': 'DE', 'DK': 'DK', 
-    'EE': 'EE', 'ES': 'ES', 'FI': 'FI', 'FR': 'FR', 'GR': 'GR', 'HR': 'HR', 'HU': 'HU', 
-    'IE': 'IE', 'IT': 'IT', 'LT': 'LT', 'LU': 'LU', 'LV': 'LV', 'MT': 'MT', 'NL': 'NL', 
-    'PL': 'PL', 'PT': 'PT', 'RO': 'RO', 'SE': 'SE', 'SI': 'SI', 'SK': 'SK', 'CH': 'CH', 
-    'NO': 'NO', 'GB': 'GB', 'US': 'US', 'CA': 'CA', 'AU': 'AU',
-    # Nomi estesi comuni restituiti dalle API Printify o inseriti nei form
-    'ITALY': 'IT', 'FRANCE': 'FR', 'GERMANY': 'DE', 'SPAIN': 'ES', 
-    'UNITED STATES': 'US', 'USA': 'US', 'UNITED KINGDOM': 'GB', 'UK': 'GB',
-    'NETHERLANDS': 'NL', 'POLAND': 'PL', 'CZECH REPUBLIC': 'CZ', 'CZECHIA': 'CZ',
-    'AUSTRIA': 'AT', 'BELGIUM': 'BE', 'SWITZERLAND': 'CH', 'SWEDEN': 'SE', 
-    'NORWAY': 'NO', 'DENMARK': 'DK', 'FINLAND': 'FI', 'PORTUGAL': 'PT', 
-    'IRELAND': 'IE', 'GREECE': 'GR', 'ROMANIA': 'RO', 'HUNGARY': 'HU', 
-    'CROATIA': 'HR', 'SLOVAKIA': 'SK', 'SLOVENIA': 'SI', 'ESTONIA': 'EE', 
-    'LATVIA': 'LV', 'LITHUANIA': 'LT', 'CYPRUS': 'CY', 'MALTA': 'MT', 
-    'LUXEMBOURG': 'LU', 'BULGARIA': 'BG', 'CANADA': 'CA', 'AUSTRALIA': 'AU'
-}
+UK_COUNTRIES = {'GB', 'UK'}
 
 def normalize_country(country_input):
-    """Converte qualsiasi stringa (nome esteso o codice) nel rispettivo codice ISO a 2 lettere."""
+    """Converts string inputs to standard 2-letter ISO codes."""
     if not country_input:
         return "US"
+    
     clean_input = str(country_input).upper().strip()
-    return COUNTRY_MAPPING.get(clean_input, clean_input)
+    
+    mapping = {
+        'ITALY': 'IT', 'FRANCE': 'FR', 'GERMANY': 'DE', 'SPAIN': 'ES', 
+        'UNITED STATES': 'US', 'USA': 'US', 'UNITED KINGDOM': 'GB',
+        'NETHERLANDS': 'NL', 'POLAND': 'PL', 'AUSTRIA': 'AT', 
+        'BELGIUM': 'BE', 'SWEDEN': 'SE', 'DENMARK': 'DK', 'FINLAND': 'FI', 
+        'PORTUGAL': 'PT', 'IRELAND': 'IE', 'GREECE': 'GR', 'CANADA': 'CA', 
+        'AUSTRALIA': 'AU'
+    }
+    return mapping.get(clean_input, clean_input)
+
+def get_optimal_routing(target_country):
+    """
+    Hybrid Routing System:
+    1. Determines the correct base Blueprint (1016 for EU/UK, 68 for Global).
+    2. Searches dynamically for an exact local provider match (e.g. FR -> FR).
+    3. Fails back securely to a fixed regional provider if local is unavailable.
+    """
+    target_iso = normalize_country(target_country)
+    
+    # Step 1: Define Base Strategy
+    if target_iso in EU_COUNTRIES:
+        blueprint_id = 1016
+        fallback_provider = 26  # Textildruck Europa (Germany)
+        region = "EU"
+    elif target_iso in UK_COUNTRIES:
+        blueprint_id = 1016
+        fallback_provider = 72  # Print Clever (UK)
+        region = "UK"
+    else:
+        blueprint_id = 68
+        fallback_provider = 1   # SPOKE Custom Products (US)
+        region = "US/GLOBAL"
+        
+    print(f"🌍 [ROUTING STRATEGY] Target: {target_iso} ({region}) -> Blueprint: {blueprint_id}")
+
+    # Step 2: Dynamic Search for Nearest Local Provider
+    try:
+        providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
+        response = requests.get(providers_url, headers=headers)
+        
+        if response.ok:
+            providers = response.json()
+            for p in providers:
+                p_country = p.get("location", {}).get("country", "")
+                if normalize_country(p_country) == target_iso:
+                    provider_title = p.get('title', f"ID {p['id']}")
+                    print(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title}")
+                    return blueprint_id, p["id"]
+        else:
+            print(f"⚠️ [API WARNING] Provider list fetch failed ({response.status_code})")
+            
+    except Exception as e:
+        print(f"⚠️ [API WARNING] Dynamic search error: {e}")
+        
+    # Step 3: Secure Regional Fallback
+    print(f"🛡️ [REGIONAL FALLBACK] No local provider found in {target_iso}. Falling back to default regional provider {fallback_provider}.")
+    return blueprint_id, fallback_provider
+
+def get_variant_for_provider(blueprint_id, provider_id):
+    """
+    Fetches the correct variant ID dynamically, as variant IDs differ across providers.
+    """
+    variants_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers/{provider_id}/variants.json"
+    response = requests.get(variants_url, headers=headers)
+    response.raise_for_status()
+    
+    variants = response.json().get("variants", [])
+    
+    if not variants:
+        raise Exception(f"No variants found for blueprint {blueprint_id} and provider {provider_id}")
+        
+    # Attempt to explicitly find an 11oz white mug, otherwise default to the first
+    chosen_variant = variants[0]["id"]
+    for v in variants:
+        title = v.get("title", "").lower()
+        if "white" in title or "11oz" in title:
+            chosen_variant = v["id"]
+            break
+            
+    return chosen_variant
 
 def upload_image_to_printify(image_path="trophy_design.png"):
-    """Carica l'immagine locale nello storage media di Printify via Base64[cite: 6]."""
+    """Uploads local image to Printify via Base64."""
     with open(image_path, "rb") as file:
         encoded_image = base64.b64encode(file.read()).decode('utf-8')
 
@@ -59,92 +122,22 @@ def upload_image_to_printify(image_path="trophy_design.png"):
     }
 
     response = requests.post(f"{BASE_URL}/uploads/images.json", json=payload, headers=headers)
+    
     if not response.ok:
-        print(f"❌ Errore caricamento immagine Printify ({response.status_code}): {response.text}")
+        print(f"❌ Printify upload error ({response.status_code}): {response.text}")
         response.raise_for_status()
 
     image_data = response.json()
-    print(f"✅ Immagine caricata su Printify. ID: {image_data['id']}")
+    print(f"✅ Image successfully uploaded. ID: {image_data['id']}")
     return image_data["id"]
 
-def get_blueprint_setup(blueprint_id=68, target_country=None):
-    """
-    Seleziona il Print Provider locale normalizzando rigorosamente sia la nazione di destinazione
-    sia la nazione dello stabilimento restituita da Printify (che usa i nomi estesi in inglese).
-    """
+def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=None):
+    """Creates the Mug product mapping to the optimized local/regional provider."""
     if not target_country:
-        raise ValueError("❌ ERRORE CRITICO: target_country non può essere vuoto o None! Impossibile determinare il routing di stampa[cite: 6].")
-
-    normalized_target = normalize_country(target_country)
-    print(f"🔍 [ROUTING] Target richiesto: [{target_country}] -> Normalizzato ISO: [{normalized_target}]")
-
-    providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
-    p_res = requests.get(providers_url, headers=headers)
-    p_res.raise_for_status()
-    providers = p_res.json()
-
-    if not providers:
-        raise Exception(f"Nessun Print Provider trovato per il blueprint {blueprint_id}[cite: 6]")
-
-    selected_provider = None
-
-    # 1. Match esatto basato sulla nazione normalizzata (es. IT == IT, GB == GB)
-    for p in providers:
-        raw_p_country = p.get("location", {}).get("country", "")
-        norm_p_country = normalize_country(raw_p_country)
-        if norm_p_country == normalized_target:
-            selected_provider = p
-            print(f"🌍 [ROUTING] Match esatto trovato! Stabilimento in: {raw_p_country} (ISO: {norm_p_country})")
-            break
-
-    # 2. Match Regionale Europeo (se l'utente è in UE, cerca un provider europeo)
-    if not selected_provider and normalized_target in EU_COUNTRIES:
-        for p in providers:
-            raw_p_country = p.get("location", {}).get("country", "")
-            norm_p_country = normalize_country(raw_p_country)
-            if norm_p_country in EU_COUNTRIES:
-                selected_provider = p
-                print(f"🇪🇺 [ROUTING] Match europeo trovato. Stabilimento in: {raw_p_country} (ISO: {norm_p_country}) per acquirente in [{normalized_target}]")
-                break
-
-    # 3. Fallback USA solo se l'utente è effettivamente negli USA
-    if not selected_provider and normalized_target == "US":
-        for p in providers:
-            raw_p_country = p.get("location", {}).get("country", "")
-            if normalize_country(raw_p_country) == "US":
-                selected_provider = p
-                print(f"🇺🇸 [ROUTING] Fallback su provider USA.")
-                break
-
-    # 4. Fallback di sicurezza sul primo disponibile se non si trova corrispondenza geografica perfetta
-    if not selected_provider:
-        print(f"⚠️ [ATTENZIONE] Nessun provider locale perfetto per [{normalized_target}]. Uso il primo disponibile.")
-        selected_provider = providers[0]
-
-    provider_id = selected_provider["id"]
-    provider_title = selected_provider.get("title", f"Provider #{provider_id}")
-    provider_country = selected_provider.get("location", {}).get("country", "Unknown")
-    
-    print(f"📍 Destinazione Finale: [{target_country}] -> Print Provider: {provider_title} (ID: {provider_id}, stabilimento in: {provider_country})")
-
-    # Recupera le varianti attive per questo specifico provider[cite: 6]
-    variants_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers/{provider_id}/variants.json"
-    v_res = requests.get(variants_url, headers=headers)
-    v_res.raise_for_status()
-    variants = v_res.json().get("variants", [])
-
-    if not variants:
-        raise Exception(f"Nessuna variante trovata per il provider {provider_id}[cite: 6]")
-
-    variant_ids = [variants[0]["id"]]
-    return provider_id, variant_ids
-
-def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=None, blueprint_id=68):
-    """Crea il prodotto tazza richiedendo obbligatoriamente il Paese di destinazione e parametrizzando il blueprint_id[cite: 6]."""
-    if not target_country:
-        raise ValueError("❌ target_country obbligatorio mancante in create_dynamic_mug_product[cite: 6].")
-
-    provider_id, variant_ids = get_blueprint_setup(blueprint_id, target_country=target_country)
+        raise ValueError("❌ target_country is required for geographic routing.")
+        
+    blueprint_id, provider_id = get_optimal_routing(target_country)
+    variant_id = get_variant_for_provider(blueprint_id, provider_id)
 
     payload = {
         "title": f"IOSA Official Trophy — {creator_name}",
@@ -153,14 +146,14 @@ def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=
         "print_provider_id": provider_id,
         "variants": [
             {
-                "id": vid,
+                "id": variant_id,
                 "price": 1900,
                 "is_enabled": True
-            } for vid in variant_ids
+            } 
         ],
         "print_areas": [
             {
-                "variant_ids": variant_ids,
+                "variant_ids": [variant_id],
                 "placeholders": [
                     {
                         "position": "front",
@@ -183,18 +176,16 @@ def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"\n❌ [ERRORE PRINTIFY API] Codice {response.status_code}: {response.text}")
+        print(f"\n❌ [PRINTIFY API ERROR] Code {response.status_code}: {response.text}")
         response.raise_for_status()
 
     product_data = response.json()
-    product_id = product_data["id"]
-    native_variant_id = variant_ids[0]
+    print(f"✅ Product configured for {target_country}! Product ID: {product_data['id']}")
     
-    print(f"✅ Prodotto configurato (Blueprint: {blueprint_id})! Product ID: {product_id}, Variant ID: {native_variant_id}")
-    return product_id, native_variant_id
+    return product_data["id"], variant_id
 
 def send_printify_order(product_id, variant_id, shipping_address, line_item_title="IOSA Trophy Mug"):
-    """Invia l'ordine di stampa e spedizione[cite: 6]."""
+    """Dispatches the order to production."""
     payload = {
         "external_id": f"order_{os.urandom(4).hex()}",
         "line_items": [
@@ -224,9 +215,9 @@ def send_printify_order(product_id, variant_id, shipping_address, line_item_titl
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"❌ Errore invio ordine Printify: {response.text}")
+        print(f"❌ Error submitting Printify order: {response.text}")
         response.raise_for_status()
 
     order_data = response.json()
-    print(f"✅ Ordine inviato in produzione! Order ID: {order_data['id']}")
+    print(f"✅ Order dispatched to production! Order ID: {order_data['id']}")
     return order_data["id"]

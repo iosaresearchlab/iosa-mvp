@@ -156,23 +156,25 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
     .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
   </style>
 </head>
-<body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center relative">
+<body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center relative overflow-hidden">
 
-  <div class="relative w-[1200px] h-[1200px] flex items-center justify-center overflow-hidden bg-[#070A10]">
+  <div class="relative w-[1200px] h-[1200px] flex flex-col items-center justify-center bg-[#070A10]">
     
     <!-- Sample Image Container -->
-    <div class="relative w-[1050px] h-[1050px] flex items-center justify-center">
+    <div class="relative w-[1100px] h-[1000px] flex items-center justify-center mt-[-40px]">
       {mug_sample_element}
     </div>
 
-    <!-- Sample Badge Overlay -->
-    <div class="absolute top-10 right-10 z-30 bg-amber-500 text-slate-950 font-mono-tech font-black px-6 py-3 rounded-2xl text-lg tracking-widest shadow-2xl border-2 border-amber-300 uppercase">
-      PHYSICAL ARTIFACT SAMPLE
+    <!-- Giant Watermark Overlay replacing the small badge -->
+    <div class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none opacity-20">
+        <span class="text-white font-mono-tech font-black text-[180px] tracking-widest uppercase transform -rotate-45 drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">
+            SAMPLE
+        </span>
     </div>
 
-    <!-- Footer Caption -->
-    <div class="absolute bottom-6 left-0 right-0 text-center font-mono-tech text-gray-400 text-sm tracking-widest uppercase">
-      IOSA Official Physical Artifact Sample — 11oz White Ceramic Mug
+    <!-- Enlarged Footer Caption -->
+    <div class="absolute bottom-14 left-0 right-0 text-center font-mono-tech text-gray-400 text-[32px] tracking-widest uppercase">
+      IOSA Official Physical Artifact Sample — 11oz Ceramic Mug
     </div>
   </div>
 
@@ -261,7 +263,7 @@ async def generate_trophy_png(
 # MUG SAMPLE PREVIEW RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
 def _get_mug_sample_element() -> str:
-    """Carica l'immagine statica mock_mug_sample.jpg (.png) per l'anteprima sample."""
+    """Loads static mock_mug_sample.jpg (.png) for the sample preview."""
     possible_paths = [
         (Path(__file__).resolve().parent / "mock_mug_sample.jpg", "image/jpeg"),
         (Path(__file__).resolve().parent / "mock_mug_sample.png", "image/png"),
@@ -274,7 +276,6 @@ def _get_mug_sample_element() -> str:
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
             return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-full h-full object-contain rounded-2xl shadow-2xl relative z-10" alt="Physical Artifact Sample" />'
 
-    # Fallback in caso di assenza temporanea del file immagine
     return '<div class="text-amber-400 text-xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
 
 

@@ -186,7 +186,7 @@ export default function ClaimPage({
         </div>
       </header>
 
-      {/* Relocated Navigation Element: Sotto il logo IOSA e sopra il contenuto della pagina */}
+      {/* Relocated Navigation Element */}
       <div className="max-w-5xl mx-auto w-full mb-5">
         <Link 
           href="/" 
@@ -238,14 +238,13 @@ export default function ClaimPage({
         </div>
       </div>
 
-      {/* Grid Update: items-stretch to enforce equal height columns */}
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch pb-10">
         
         {/* Left Column: Showcase Container */}
         <div className="h-full bg-[#070A10] border border-gray-800 rounded-2xl p-5 md:p-6 flex flex-col justify-between items-center text-center shadow-2xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-40 h-40 bg-[#00E5FF]/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Tab Selector: Digital Plaque on Left (default), Physical Artifact on Right */}
+          {/* Tab Selector */}
           <div className="flex items-center gap-1.5 p-1 bg-black/60 border border-gray-800 rounded-xl mb-6 w-full max-w-[320px]">
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
@@ -270,8 +269,9 @@ export default function ClaimPage({
           </div>
 
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-6">
-            {/* Artifact Preview Box */}
-            <div className="w-full h-64 sm:h-72 lg:h-80 rounded-2xl bg-black border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
+            
+            {/* Aspect Square Artifact Preview Box */}
+            <div className="w-full max-w-[450px] mx-auto aspect-square max-h-[450px] rounded-2xl bg-[#070A10] border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#00E5FF]" />
@@ -286,7 +286,7 @@ export default function ClaimPage({
                   setArtifactLoading(false);
                   (e.target as HTMLElement).style.display = 'none';
                 }}
-                className={`object-contain p-2 w-full h-full transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
+                className={`object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
             </div>
 
