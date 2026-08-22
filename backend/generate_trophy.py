@@ -160,11 +160,9 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 
   <div class="relative w-[1200px] h-[1200px] flex flex-col items-center justify-center p-8 bg-[#070A10]">
     
-    <!-- Centered Image Container with Large Explicit Sample Badge Overlay Inside -->
     <div class="relative w-full h-full flex items-center justify-center">
       {mug_sample_element}
       
-      {/* Single, large, perfectly readable sample indicator directly inside the mock area */}
       <div class="absolute top-8 bg-amber-500 text-black font-mono-tech font-black text-2xl px-8 py-3 rounded-2xl shadow-2xl tracking-widest uppercase border-4 border-black/20 z-20">
         SAMPLE ONLY
       </div>
@@ -257,7 +255,6 @@ async def generate_trophy_png(
 # MUG SAMPLE PREVIEW RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
 def _get_mug_sample_element() -> str:
-    """Loads static mock_mug_sample.jpg (.png) for the sample preview centered and contained."""
     possible_paths = [
         (Path(__file__).resolve().parent / "mock_mug_sample.jpg", "image/jpeg"),
         (Path(__file__).resolve().parent / "mock_mug_sample.png", "image/png"),

@@ -244,7 +244,7 @@ export default function ClaimPage({
         <div className="bg-[#070A10] border border-gray-800 rounded-xl p-4 flex flex-col justify-between items-center text-center shadow-xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-32 h-32 bg-[#00E5FF]/10 rounded-full blur-2xl pointer-events-none" />
 
-          {/* Widen Tab Selector to Full Width to Keep Text on Single Line */}
+          {/* Tab Selector */}
           <div className="flex items-center gap-2 p-1 bg-black/60 border border-gray-800 rounded-xl mb-3 w-full">
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
@@ -270,7 +270,7 @@ export default function ClaimPage({
 
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-3">
             
-            {/* Optimized Compact Preview Container with proper scaling */}
+            {/* Preview Container */}
             <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex items-center justify-center mb-3 overflow-hidden relative group shadow-lg">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
@@ -279,6 +279,7 @@ export default function ClaimPage({
                 </div>
               )}
               <img 
+                key={currentPreviewUrl}
                 src={currentPreviewUrl}
                 alt={activeTab === 'plaque' ? "Official Accreditation Badge" : "IOSA Physical Artifact Sample"}
                 onLoad={() => setArtifactLoading(false)}
