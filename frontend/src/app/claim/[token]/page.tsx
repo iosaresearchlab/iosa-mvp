@@ -36,7 +36,7 @@ export default function ClaimPage({
   const [loading, setLoading] = useState(true);
   const [artifactLoading, setArtifactLoading] = useState(true);
   
-  // Toggle between Digital Plaque (default on left) and Physical Artifact (on right)
+  // Toggle between Digital Plaque and Physical Artifact
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
@@ -160,121 +160,128 @@ export default function ClaimPage({
   const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
 
   return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans p-4 sm:p-6 md:p-8 relative overflow-hidden flex flex-col">
+    <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 relative overflow-x-hidden flex flex-col">
       
       {/* Integrated Compact Header */}
-      <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-4 mb-4 flex flex-row justify-between items-center gap-4">
-        <div className="flex flex-col gap-2">
+      <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-3 mb-3 flex flex-row justify-between items-center gap-4">
+        <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <div className="flex items-end gap-1.5">
-              <svg className="h-7 w-4 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+              <svg className="h-6 w-3.5 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
                 <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
               </svg>
-              <span className="font-mono font-black text-xl tracking-tighter text-white leading-none">OSA</span>
+              <span className="font-mono font-black text-lg tracking-tighter text-white leading-none">OSA</span>
             </div>
           </div>
-          <span className="text-[9px] font-mono text-gray-400 tracking-widest uppercase opacity-90">
+          <span className="text-[8px] font-mono text-gray-400 tracking-widest uppercase opacity-90">
             Institute for Open Social Analytics
           </span>
         </div>
 
         {/* Verified Accreditation Badge with Green Shield */}
-        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1.5 rounded-full shadow-sm">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" /> 
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">VERIFIED ACCREDITATION</span>
+        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
+          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">VERIFIED ACCREDITATION</span>
         </div>
       </header>
 
       {/* Relocated Navigation Element */}
-      <div className="max-w-5xl mx-auto w-full mb-5">
+      <div className="max-w-5xl mx-auto w-full mb-3">
         <Link 
           href="/" 
-          className="inline-flex items-center gap-2 text-[11px] font-mono text-gray-400 hover:text-white transition-colors group"
+          className="inline-flex items-center gap-2 text-[10px] font-mono text-gray-400 hover:text-white transition-colors group"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF] group-hover:-translate-x-1 transition-transform" /> 
+          <ArrowLeft className="w-3 h-3 text-[#00E5FF] group-hover:-translate-x-1 transition-transform" /> 
           RETURN TO HOME
         </Link>
       </div>
 
       {/* Order Confirmation Banner */}
       {isOrderSuccess && (
-        <div className="max-w-5xl mx-auto w-full mb-5 bg-emerald-950/60 border border-emerald-500/50 rounded-2xl p-5 shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+        <div className="max-w-5xl mx-auto w-full mb-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl p-4 shadow-xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h3 className="font-mono font-bold text-sm text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
-              <p className="text-xs text-gray-300 font-sans mt-0.5">
-                Payment verified. Your official metric award for <span className="font-bold text-white">{post.author_handle}</span> is now queued for production and dispatch.
+              <h3 className="font-mono font-bold text-xs text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
+              <p className="text-[11px] text-gray-300 font-sans mt-0.5">
+                Payment verified. Your official metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full uppercase tracking-wider shrink-0">
-            Status: In Production
+          <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+            In Production
           </span>
         </div>
       )}
 
       {/* Temporal Validity Info */}
-      <div className="max-w-5xl mx-auto w-full mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
-        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3.5 flex items-center gap-3 shadow-lg">
-          <Calendar className="w-4 h-4 text-[#00E5FF] shrink-0" />
+      <div className="max-w-5xl mx-auto w-full mb-3 grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
+        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 flex items-center gap-3 shadow-md">
+          <Calendar className="w-3.5 h-3.5 text-[#00E5FF] shrink-0" />
           <div>
-            <span className="text-gray-400 block text-[10px] mb-0.5">POST VALIDITY WINDOW (15 DAYS)</span>
-            <span className="text-white font-bold">{tokenWindow.start} - {tokenWindow.end}</span>
+            <span className="text-gray-400 block text-[9px] mb-0.5">POST VALIDITY WINDOW (15 DAYS)</span>
+            <span className="text-white font-bold text-[11px]">{tokenWindow.start} - {tokenWindow.end}</span>
           </div>
         </div>
 
-        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-red-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3.5 flex items-center gap-3 shadow-lg`}>
-          <Timer className={`w-4 h-4 ${isExpired ? 'text-red-400' : 'text-amber-400 animate-pulse'} shrink-0`} />
+        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-red-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3 flex items-center gap-3 shadow-md`}>
+          <Timer className={`w-3.5 h-3.5 ${isExpired ? 'text-red-400' : 'text-amber-400 animate-pulse'} shrink-0`} />
           <div>
-            <span className="opacity-80 block text-[10px] mb-0.5">CLAIM TOKEN EXPIRES IN</span>
-            <span className="font-bold">
+            <span className="opacity-80 block text-[9px] mb-0.5">CLAIM TOKEN EXPIRES IN</span>
+            <span className="font-bold text-[11px]">
               {isExpired ? 'EXPIRED' : `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch pb-10">
+      <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch pb-6">
         
         {/* Left Column: Showcase Container */}
-        <div className="h-full bg-[#070A10] border border-gray-800 rounded-2xl p-5 md:p-6 flex flex-col justify-between items-center text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute -right-12 -top-12 w-40 h-40 bg-[#00E5FF]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="bg-[#070A10] border border-gray-800 rounded-xl p-4 flex flex-col justify-between items-center text-center shadow-xl relative overflow-hidden">
+          <div className="absolute -right-12 -top-12 w-32 h-32 bg-[#00E5FF]/10 rounded-full blur-2xl pointer-events-none" />
 
-          {/* Tab Selector */}
-          <div className="flex items-center gap-1.5 p-1 bg-black/60 border border-gray-800 rounded-xl mb-6 w-full max-w-[320px]">
+          {/* Widen Tab Selector to Full Width to Keep Text on Single Line */}
+          <div className="flex items-center gap-2 p-1 bg-black/60 border border-gray-800 rounded-xl mb-3 w-full">
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-mono whitespace-nowrap transition-all ${
                 activeTab === 'plaque' 
                   ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/40 font-bold shadow-sm' 
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Award className="w-3.5 h-3.5" /> Digital Plaque
+              <Award className="w-4 h-4 shrink-0" /> Digital Plaque
             </button>
             <button
               onClick={() => { setActiveTab('mug'); setArtifactLoading(true); }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-mono transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-mono whitespace-nowrap transition-all ${
                 activeTab === 'mug' 
                   ? 'bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/40 font-bold shadow-sm' 
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <CupSoda className="w-3.5 h-3.5" /> Physical Artifact
+              <CupSoda className="w-4 h-4 shrink-0" /> Physical Artifact
             </button>
           </div>
 
-          <div className="w-full flex flex-col items-center flex-grow justify-center mb-6">
+          {/* Sample clarity note if Physical Artifact is selected */}
+          {activeTab === 'mug' && (
+            <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg py-1.5 px-3 text-[10px] font-mono text-amber-400 mb-2 flex items-center justify-center gap-1.5">
+              <span>⚠️ Visual Sample Only — Does not represent customized order</span>
+            </div>
+          )}
+
+          <div className="w-full flex flex-col items-center flex-grow justify-center mb-3">
             
-            {/* Optimized Horizontal Rectangle Preview Box (Replacing aspect-square) */}
-            <div className="w-full max-w-[480px] mx-auto aspect-[16/10] rounded-2xl bg-[#070A10] border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
+            {/* Optimized Compact Preview Container with proper scaling */}
+            <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex items-center justify-center mb-3 overflow-hidden relative group shadow-lg">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#00E5FF]" />
+                  <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
                   <span>RENDERING PREVIEW...</span>
                 </div>
               )}
@@ -286,78 +293,78 @@ export default function ClaimPage({
                   setArtifactLoading(false);
                   (e.target as HTMLElement).style.display = 'none';
                 }}
-                className={`w-full h-full transform group-hover:scale-105 transition-transform duration-300 ${
-                  activeTab === 'mug' ? 'object-cover object-top scale-105' : 'object-contain'
+                className={`max-h-full max-w-full w-auto h-auto transform group-hover:scale-102 transition-transform duration-300 ${
+                  activeTab === 'mug' ? 'object-contain object-center' : 'object-contain'
                 } ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
             </div>
 
-            <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-3">
+            <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-1.5">
               {post.vpi_level_name}
             </span>
 
-            <h2 className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white mb-2">
+            <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">
               +{formattedVpi}x <span className="text-[#00E5FF]">VPI</span>
             </h2>
-            <p className="text-xs font-mono text-gray-400">Viral Performance Index Accredited</p>
+            <p className="text-[11px] font-mono text-gray-400">Viral Performance Index Accredited</p>
           </div>
 
           {/* Accredited Post Details */}
-          <div className="w-full mt-auto border-t border-gray-800/80 pt-5 text-left space-y-3 font-mono text-xs text-gray-300 bg-black/40 p-4 rounded-xl border border-gray-800/60">
-            <div className="flex flex-col gap-1.5 pb-2.5 border-b border-gray-800/60">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
-              <span className="font-bold text-white text-xs leading-snug">{postTitle}</span>
+          <div className="w-full mt-auto border-t border-gray-800/80 pt-3 text-left space-y-2 font-mono text-xs text-gray-300 bg-black/40 p-3 rounded-xl border border-gray-800/60">
+            <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
+              <span className="text-[9px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
+              <span className="font-bold text-white text-[11px] leading-snug">{postTitle}</span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 text-[11px]">CREATOR:</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">CREATOR:</span>
               <span className="font-bold text-white">{post.author_handle}</span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 text-[11px]">PUBLISHED DATE:</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">PUBLISHED DATE:</span>
               <span className="text-gray-300 font-medium">
                 {post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
               </span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 text-[11px]">PLATFORM:</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">PLATFORM:</span>
               <span className="uppercase text-cyan-400 font-bold">{post.platform || 'YOUTUBE'}</span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 text-[11px]">BASELINE (E_base):</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">BASELINE (E_base):</span>
               <span>{post.baseline_score}</span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 text-[11px]">ACTUAL VIEWS (E_act):</span>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">ACTUAL VIEWS (E_act):</span>
               <span className="text-[#00E5FF] font-bold">{post.engagement_score}</span>
             </div>
           </div>
         </div>
 
         {/* Right Column: Claim Form */}
-        <div className="h-full bg-[#070A10]/80 border border-gray-800 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+        <div className="bg-[#070A10]/90 border border-gray-800 rounded-xl p-4 sm:p-5 shadow-xl flex flex-col justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold mb-3 font-mono">Claim Physical Award</h1>
-            <p className="text-xs text-gray-400 leading-relaxed mb-6">
-              Congratulations <span className="text-white font-semibold">{post.author_handle}</span>! Your post was indexed with a performance spike of <span className="text-[#00E5FF] font-bold">+{formattedVpi}x</span> over baseline. Claim your custom ceramic mug trophy directly from OSA.
+            <h1 className="text-xl font-extrabold mb-2 font-mono">Claim Physical Award</h1>
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              Congratulations <span className="text-white font-semibold">{post.author_handle}</span>! Your post achieved a performance spike of <span className="text-[#00E5FF] font-bold">+{formattedVpi}x</span> over baseline. Claim your custom ceramic mug trophy directly from OSA.
             </p>
 
-            <div className="bg-black/60 border border-gray-800 rounded-xl p-4 mb-6 text-xs font-mono space-y-2.5">
-              <div className="flex items-center gap-2 text-[#00E5FF] font-bold">
-                <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
+            <div className="bg-black/60 border border-gray-800 rounded-xl p-3 mb-4 text-xs font-mono space-y-2">
+              <div className="flex items-center gap-2 text-[#00E5FF] font-bold text-[11px]">
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
                 <span>Instant High-Res Customization</span>
               </div>
               <p className="text-gray-400 font-sans text-[11px] leading-relaxed">
-                Your award mug has been rendered dynamically with your handle and accredited score. Proceed to checkout to verify your shipping details and order your physical trophy.
+                Your award mug has been rendered dynamically with your handle and accredited score. Proceed to secure checkout to verify shipping details.
               </p>
             </div>
 
             {isExpired ? (
-              <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-5 text-center text-xs font-mono text-red-400 shadow-inner">
+              <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-4 text-center text-xs font-mono text-red-400 shadow-inner">
                 This claim token has expired. The 15-day validity window from publication has closed.
               </div>
             ) : (
@@ -365,7 +372,7 @@ export default function ClaimPage({
             )}
           </div>
 
-          <p className="text-[10px] text-gray-500 font-mono text-center mt-6 pt-4 border-t border-gray-800/60 flex items-center justify-center gap-1.5">
+          <p className="text-[9px] text-gray-500 font-mono text-center mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-center gap-1.5">
             <CheckCircle2 className="w-3 h-3 text-cyan-400" /> Powered by OSA Open Data Standard
           </p>
         </div>
