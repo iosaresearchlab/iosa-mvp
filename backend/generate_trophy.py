@@ -158,31 +158,18 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1200px] h-[1200px] flex items-center justify-center relative overflow-hidden">
 
-  <div class="relative w-[1200px] h-[1200px] flex flex-col items-center justify-between p-10 bg-[#070A10]">
+  <div class="relative w-[1200px] h-[1200px] flex flex-col items-center justify-center p-8 bg-[#070A10]">
     
-    <!-- Top Clear Warning Banner -->
-    <div class="w-full bg-amber-500/20 border-2 border-amber-500/50 rounded-2xl py-3 px-6 text-center z-20">
-      <span class="font-mono-tech text-amber-300 font-extrabold text-xl tracking-wider uppercase">
-        ⚠️ VISUAL SAMPLE ONLY — DOES NOT REPRESENT FINAL CUSTOMIZED PRODUCT
-      </span>
-    </div>
-
-    <!-- Centered Image Container -->
-    <div class="relative w-full flex-1 flex items-center justify-center my-2">
+    <!-- Centered Image Container with Large Explicit Sample Badge Overlay Inside -->
+    <div class="relative w-full h-full flex items-center justify-center">
       {mug_sample_element}
+      
+      {/* Single, large, perfectly readable sample indicator directly inside the mock area */}
+      <div class="absolute top-8 bg-amber-500 text-black font-mono-tech font-black text-2xl px-8 py-3 rounded-2xl shadow-2xl tracking-widest uppercase border-4 border-black/20 z-20">
+        SAMPLE ONLY
+      </div>
     </div>
 
-    <!-- Giant Watermark Overlay -->
-    <div class="absolute inset-0 z-30 flex items-center justify-center pointer-events-none opacity-20">
-        <span class="text-white font-mono-tech font-black text-[220px] tracking-widest uppercase transform -rotate-45 drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">
-            SAMPLE
-        </span>
-    </div>
-
-    <!-- Footer Caption -->
-    <div class="text-center font-mono-tech text-gray-400 text-2xl tracking-widest uppercase z-20 pb-2">
-      IOSA Official Physical Artifact Sample — 11oz Ceramic Mug
-    </div>
   </div>
 
 </body>
@@ -281,7 +268,7 @@ def _get_mug_sample_element() -> str:
         if p.exists():
             img_bytes = p.read_bytes()
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-            return f'<img src="data:{mime_type};base64,{encoded_img}" class="max-h-[880px] max-w-[1050px] w-auto h-auto object-contain rounded-2xl shadow-2xl relative z-10 mx-auto my-auto" alt="Physical Artifact Sample" />'
+            return f'<img src="data:{mime_type};base64,{encoded_img}" class="max-h-[1050px] max-w-[1050px] w-auto h-auto object-contain rounded-2xl shadow-2xl relative z-10 mx-auto my-auto" alt="Physical Artifact Sample" />'
 
     return '<div class="text-amber-400 text-xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
 

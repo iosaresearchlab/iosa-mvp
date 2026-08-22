@@ -268,13 +268,6 @@ export default function ClaimPage({
             </button>
           </div>
 
-          {/* Sample clarity note if Physical Artifact is selected */}
-          {activeTab === 'mug' && (
-            <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-lg py-1.5 px-3 text-[10px] font-mono text-amber-400 mb-2 flex items-center justify-center gap-1.5">
-              <span>⚠️ Visual Sample Only — Does not represent customized order</span>
-            </div>
-          )}
-
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-3">
             
             {/* Optimized Compact Preview Container with proper scaling */}
