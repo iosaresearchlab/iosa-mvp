@@ -158,12 +158,13 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body class="bg-[#070A10] text-white p-0 m-0 font-sans-tech w-[1600px] h-[900px] flex items-center justify-center relative overflow-hidden">
 
-  <div class="relative w-full h-full flex flex-col items-center justify-center bg-[#070A10]">
+  <!-- Inner container mirroring the exact dimensions of the image background -->
+  <div class="relative w-[90%] h-[90%] flex flex-col items-center justify-center">
     
     {mug_sample_element}
     
-    <!-- Modified Sample Banner overlay positioned at bottom -->
-    <div class="absolute bottom-8 w-full bg-gray-500/[0.48] text-white font-sans-tech flex items-center justify-center py-5 z-20 text-center">
+    <!-- Modified Sample Banner overlay positioned inside the image bounds with a bottom gap -->
+    <div class="absolute bottom-4 w-full bg-gray-500/[0.48] text-white font-sans-tech flex items-center justify-center py-5 z-20 text-center">
       <span class="text-4xl font-normal tracking-wide">
         This is a <span class="text-orange-600 font-bold uppercase">SAMPLE</span> and does not represent the customized product
       </span>
@@ -266,8 +267,8 @@ def _get_mug_sample_element() -> str:
         if p.exists():
             img_bytes = p.read_bytes()
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-            # The image will now expand to take 90% of the wider 1600x900 canvas, maximizing visibility
-            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-[90%] h-[90%] object-contain rounded-2xl relative z-10" alt="Physical Artifact Sample" />'
+            # Changed width and height to 100% to fill the new relative wrapper fully
+            return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-full h-full object-contain rounded-2xl relative z-10" alt="Physical Artifact Sample" />'
 
     return '<div class="text-amber-400 text-2xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
 
