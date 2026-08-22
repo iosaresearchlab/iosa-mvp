@@ -43,9 +43,9 @@ def normalize_country(country_input):
 def get_optimal_routing(target_country):
     """
     Hybrid Routing System:
-    1. Determines the correct base Blueprint (1016 for EU, 68 for UK/Global).
-    2. Searches dynamically for an exact local provider match (e.g. Harrier in UK) to ensure domestic shipping rates.
-    3. Fails back securely to a valid active catalog provider if local is unavailable.
+    1. Uses Blueprint 1125 (Standard Ceramic Mugs) universally for reliable mug fulfillment.
+    2. Dynamically scans and prioritizes UK local providers (such as Harrier or T Shirt and Sons) for UK orders.
+    3. Fails back securely to verified regional providers for EU and US.
     """
     target_iso = normalize_country(target_country)
     
@@ -53,24 +53,22 @@ def get_optimal_routing(target_country):
     if target_iso not in EU_COUNTRIES and target_iso not in UK_COUNTRIES and target_iso != 'US':
         raise ValueError(f"Shipping to {target_iso} is currently not supported. We only ship to US, UK, and EU.")
     
-    # Step 1: Define Base Strategy
+    # Step 1: Define Base Strategy (Blueprint 1125 is standard for mugs)
+    blueprint_id = 1125
+    
     if target_iso in EU_COUNTRIES:
-        blueprint_id = 1016
         fallback_provider = 26  # Textildruck Europa (Germany)
         region = "EU"
     elif target_iso in UK_COUNTRIES:
-        # Blueprint 68 is used for UK mugs, dynamically routed to local UK provider (e.g. Harrier) for low domestic shipping
-        blueprint_id = 68
-        fallback_provider = None  
+        fallback_provider = 94  # Default UK fallback (Harrier)
         region = "UK"
     else:
-        blueprint_id = 68
         fallback_provider = 1   # SPOKE Custom Products (US)
         region = "US/GLOBAL"
         
     print(f"🌍 [ROUTING STRATEGY] Target: {target_iso} ({region}) -> Blueprint: {blueprint_id}")
 
-    # Step 2: Dynamic Search for Nearest Local Provider (Checking Printify Catalog API)
+    # Step 2: Dynamic Search for Nearest Local Provider on Blueprint 1125
     try:
         providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
         response = requests.get(providers_url, headers=headers)
@@ -78,25 +76,25 @@ def get_optimal_routing(target_country):
         if response.ok:
             providers = response.json()
             
-            # 1. Search for a provider physically located in the target country (e.g., GB for UK)
+            # 1. Search for an exact local country match in the provider list
             for p in providers:
                 p_country = normalize_country(p.get("location", {}).get("country", ""))
                 if p_country == target_iso:
                     provider_title = p.get('title', f"ID {p['id']}")
-                    print(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title}")
+                    print(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title} (ID {p['id']})")
                     return blueprint_id, p["id"]
             
-            # 2. If target is UK, explicitly scan for UK-based facilities (like Harrier) in the provider list
+            # 2. If target is UK, explicitly scan for recognized UK providers (Harrier, T Shirt and Sons, etc.)
             if target_iso in UK_COUNTRIES:
                 for p in providers:
-                    p_country = normalize_country(p.get("location", {}).get("country", ""))
                     p_title = p.get("title", "").lower()
-                    if p_country in UK_COUNTRIES or "harrier" in p_title:
+                    p_country = normalize_country(p.get("location", {}).get("country", ""))
+                    if p_country in UK_COUNTRIES or "harrier" in p_title or "t shirt" in p_title:
                         provider_title = p.get('title', f"ID {p['id']}")
-                        print(f"🎯 [UK REGIONAL MATCH FOUND] Routing to UK provider: {provider_title}")
+                        print(f"🎯 [UK PROVIDER MATCH FOUND] Routing to UK provider: {provider_title} (ID {p['id']})")
                         return blueprint_id, p["id"]
 
-            # 3. Catalog fallback: pick the first available active provider for this blueprint to prevent 404 errors
+            # 3. Catalog fallback: pick the first available active provider for this blueprint
             if providers:
                 valid_fallback_id = providers[0]["id"]
                 print(f"🛡️ [CATALOG FALLBACK] No direct local provider found in {target_iso}. Falling back to active catalog provider ID {valid_fallback_id}.")
@@ -108,11 +106,8 @@ def get_optimal_routing(target_country):
         print(f"⚠️ [API WARNING] Dynamic search error: {e}")
         
     # Step 3: Hardcoded Fallback safety net
-    if fallback_provider:
-        print(f"🛡️ [REGIONAL FALLBACK] Using default fallback provider {fallback_provider}.")
-        return blueprint_id, fallback_provider
-    else:
-        raise Exception(f"No valid print providers found for blueprint {blueprint_id} and target {target_iso}")
+    print(f"🛡️ [REGIONAL FALLBACK] Using default regional provider {fallback_provider}.")
+    return blueprint_id, fallback_provider
 
 def get_variant_for_provider(blueprint_id, provider_id):
     """
