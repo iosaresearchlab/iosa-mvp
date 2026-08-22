@@ -162,9 +162,11 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
     
     {mug_sample_element}
     
-    <div class="absolute top-12 bg-amber-500 text-black font-mono-tech flex flex-col items-center justify-center px-12 py-6 rounded-3xl shadow-[0_10px_60px_rgba(245,158,11,0.5)] border-4 border-amber-600/30 z-20 text-center max-w-[90%]">
-      <span class="font-black text-5xl tracking-widest uppercase mb-3">SAMPLE ONLY</span>
-      <span class="text-2xl font-bold tracking-wide opacity-90">This is a sample and does not represent the final customized product</span>
+    <!-- Modified Sample Banner overlay positioned at bottom -->
+    <div class="absolute bottom-8 w-full bg-gray-500/[0.48] text-white font-sans-tech flex items-center justify-center py-5 z-20 text-center">
+      <span class="text-4xl font-normal tracking-wide">
+        This is a <span class="text-orange-600 font-bold uppercase">SAMPLE</span> and does not represent the customized product
+      </span>
     </div>
 
   </div>
