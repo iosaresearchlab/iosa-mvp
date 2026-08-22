@@ -270,8 +270,8 @@ export default function ClaimPage({
 
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-6">
             
-            {/* Aspect Square Artifact Preview Box */}
-            <div className="w-full max-w-[450px] mx-auto aspect-square max-h-[450px] rounded-2xl bg-[#070A10] border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
+            {/* Optimized Horizontal Rectangle Preview Box (Replacing aspect-square) */}
+            <div className="w-full max-w-[480px] mx-auto aspect-[16/10] rounded-2xl bg-[#070A10] border border-[#00E5FF]/30 flex items-center justify-center mb-6 overflow-hidden relative group shadow-xl shadow-cyan-950/50">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#00E5FF]" />
@@ -286,7 +286,9 @@ export default function ClaimPage({
                   setArtifactLoading(false);
                   (e.target as HTMLElement).style.display = 'none';
                 }}
-                className={`object-contain w-full h-full transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
+                className={`w-full h-full transform group-hover:scale-105 transition-transform duration-300 ${
+                  activeTab === 'mug' ? 'object-cover object-top scale-105' : 'object-contain'
+                } ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
             </div>
 
