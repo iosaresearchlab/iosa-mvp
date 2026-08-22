@@ -44,8 +44,8 @@ def get_optimal_routing(target_country):
     """
     Hybrid Routing System:
     1. Determines the correct base Blueprint (1016 for EU, 68 for UK/Global).
-    2. Searches dynamically for an exact local provider match (e.g. FR -> FR).
-    3. Fails back securely to a fixed regional provider if local is unavailable.
+    2. Searches dynamically for an exact local provider match (e.g. Harrier in UK) to ensure domestic shipping rates.
+    3. Fails back securely to a valid active catalog provider if local is unavailable.
     """
     target_iso = normalize_country(target_country)
     
@@ -59,9 +59,9 @@ def get_optimal_routing(target_country):
         fallback_provider = 26  # Textildruck Europa (Germany)
         region = "EU"
     elif target_iso in UK_COUNTRIES:
-        # Changed to 68 to fix 404 error - Blueprint 68 is universally supported for standard mugs
+        # Blueprint 68 is used for UK mugs, dynamically routed to local UK provider (e.g. Harrier) for low domestic shipping
         blueprint_id = 68
-        fallback_provider = 72  # Print Clever (UK)
+        fallback_provider = None  
         region = "UK"
     else:
         blueprint_id = 68
@@ -70,28 +70,49 @@ def get_optimal_routing(target_country):
         
     print(f"🌍 [ROUTING STRATEGY] Target: {target_iso} ({region}) -> Blueprint: {blueprint_id}")
 
-    # Step 2: Dynamic Search for Nearest Local Provider
+    # Step 2: Dynamic Search for Nearest Local Provider (Checking Printify Catalog API)
     try:
         providers_url = f"{BASE_URL}/catalog/blueprints/{blueprint_id}/print_providers.json"
         response = requests.get(providers_url, headers=headers)
         
         if response.ok:
             providers = response.json()
+            
+            # 1. Search for a provider physically located in the target country (e.g., GB for UK)
             for p in providers:
-                p_country = p.get("location", {}).get("country", "")
-                if normalize_country(p_country) == target_iso:
+                p_country = normalize_country(p.get("location", {}).get("country", ""))
+                if p_country == target_iso:
                     provider_title = p.get('title', f"ID {p['id']}")
                     print(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title}")
                     return blueprint_id, p["id"]
+            
+            # 2. If target is UK, explicitly scan for UK-based facilities (like Harrier) in the provider list
+            if target_iso in UK_COUNTRIES:
+                for p in providers:
+                    p_country = normalize_country(p.get("location", {}).get("country", ""))
+                    p_title = p.get("title", "").lower()
+                    if p_country in UK_COUNTRIES or "harrier" in p_title:
+                        provider_title = p.get('title', f"ID {p['id']}")
+                        print(f"🎯 [UK REGIONAL MATCH FOUND] Routing to UK provider: {provider_title}")
+                        return blueprint_id, p["id"]
+
+            # 3. Catalog fallback: pick the first available active provider for this blueprint to prevent 404 errors
+            if providers:
+                valid_fallback_id = providers[0]["id"]
+                print(f"🛡️ [CATALOG FALLBACK] No direct local provider found in {target_iso}. Falling back to active catalog provider ID {valid_fallback_id}.")
+                return blueprint_id, valid_fallback_id
         else:
             print(f"⚠️ [API WARNING] Provider list fetch failed ({response.status_code})")
             
     except Exception as e:
         print(f"⚠️ [API WARNING] Dynamic search error: {e}")
         
-    # Step 3: Secure Regional Fallback
-    print(f"🛡️ [REGIONAL FALLBACK] No local provider found in {target_iso}. Falling back to default regional provider {fallback_provider}.")
-    return blueprint_id, fallback_provider
+    # Step 3: Hardcoded Fallback safety net
+    if fallback_provider:
+        print(f"🛡️ [REGIONAL FALLBACK] Using default fallback provider {fallback_provider}.")
+        return blueprint_id, fallback_provider
+    else:
+        raise Exception(f"No valid print providers found for blueprint {blueprint_id} and target {target_iso}")
 
 def get_variant_for_provider(blueprint_id, provider_id):
     """
