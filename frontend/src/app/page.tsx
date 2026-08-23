@@ -33,7 +33,6 @@ export default function Home() {
   const [campaignDates, setCampaignDates] = useState({ start: '', end: '' });
 
   useEffect(() => {
-    // Finestra mobile (rolling window): ultimi 15 giorni rispetto a oggi
     const updateRollingWindow = () => {
       const now = new Date();
       const past15Days = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
@@ -52,6 +51,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
+        .eq('status', 'ACTIVE') // Filtra escludendo i trofei scaduti (EXPIRED)
         .gt('vpi_ratio', 1.0)
         .order('vpi_ratio', { ascending: false });
 
@@ -88,6 +88,7 @@ export default function Home() {
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
+      if (post.status && post.status !== 'ACTIVE') return false;
       if (!post.vpi_ratio || Number(post.vpi_ratio) <= 1.0) return false;
 
       const matchPlatform =
@@ -131,14 +132,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans relative">
-      {/* Header Fisso Ancorato */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-6 md:px-12 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <svg
-            className="h-7 w-4 text-[#00E5FF]"
-            viewBox="0 0 18.5 32"
-            fill="none"
-          >
+          <svg className="h-7 w-4 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
             <path
               d="M1 26.5H6.5L14 8.5L17.5 14"
               stroke="currentColor"
@@ -159,7 +155,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Pulsante rapido per richiamare la sezione How it Works */}
           <button
             onClick={scrollToHowItWorks}
             className="flex items-center gap-1.5 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 px-3 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
@@ -178,10 +173,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Spaziatura pt-24 per adattarsi all'header */}
       <div className="pt-24 pb-12 px-4 md:px-8 max-w-6xl mx-auto space-y-6">
-        
-        {/* Banner Periodo di Rilevazione (Rolling Window) */}
         <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 text-center text-xs font-mono text-cyan-300 flex items-center justify-center gap-2 shadow-lg">
           <Calendar className="w-4 h-4 text-[#00E5FF] shrink-0" />
           <span>
@@ -189,7 +181,6 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Hero Banner */}
         <section className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-2xl p-6 md:p-8 relative shadow-2xl">
           <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
             <div className="absolute top-0 right-0 w-80 h-80 bg-[#00E5FF]/10 rounded-full blur-3xl" />
@@ -208,7 +199,6 @@ export default function Home() {
               Search your handle or link to verify physical metric accreditation status within the active 15-day window.
             </p>
 
-            {/* Search Box con Dropdown ad alta priorità z-index */}
             <div className="relative max-w-xl mx-auto z-30">
               <div className="relative flex items-center bg-black/90 border border-cyan-500/50 rounded-xl p-2 shadow-2xl focus-within:border-[#00E5FF] transition-all">
                 <Search className="w-5 h-5 text-[#00E5FF] ml-2 mr-2" />
@@ -229,7 +219,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Dropdown Live Search */}
               {searchQuery.trim().length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B101B] border border-cyan-500/50 rounded-xl shadow-2xl z-50 overflow-hidden text-left p-3 animate-in fade-in slide-in-from-top-2">
                   <div className="flex justify-between items-center pb-2 border-b border-gray-800 text-[11px] font-mono text-gray-400">
@@ -295,7 +284,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Filters */}
         <section className="bg-[#070A10] border border-gray-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
           <div className="flex items-center gap-2 text-gray-400 font-bold uppercase tracking-wider">
             <Filter className="w-3.5 h-3.5 text-[#00E5FF]" /> Filters:
@@ -354,7 +342,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Directory Table */}
         <section id="directory-table" className="bg-[#070A10] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
           <div className="p-4 border-b border-gray-800 font-mono text-xs text-gray-400 flex justify-between items-center bg-black/40">
             <span>
@@ -452,7 +439,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works Section (con ID per l'ancoraggio) */}
         <section id="how-it-works" className="pt-6">
           <div className="text-center mb-6">
             <h2 className="text-[10px] font-mono tracking-widest text-[#00E5FF] uppercase font-bold mb-1">

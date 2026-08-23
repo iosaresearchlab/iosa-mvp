@@ -17,11 +17,20 @@ SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL"
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+# YouTube OAuth 2.0 Credentials for dynamic token generation
+YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID")
+YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
+YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")
+
+BASE_DOMAIN = os.getenv("NEXT_PUBLIC_SITE_URL", "https://iosaresearch.com")
+OPTOUT_EMAIL = "optout@iosaresearch.com"
+
 # Maximum subscriber threshold (excludes overly large channels)
 MAX_SUBSCRIBERS = 500_000 
+MIN_SUBSCRIBERS = 1_000
 CAMPAIGN_DAYS = 15
 
-# Rotazione globale per democraticità di nicchie e paesi
+# Global Country/Category map
 TARGET_COUNTRIES = ['US', 'IT', 'GB', 'DE', 'FR', 'ES', 'BR', 'JP', 'IN', 'CA', 'AU']
 CATEGORY_MAP = {
     '10': 'Music',
@@ -32,13 +41,26 @@ CATEGORY_MAP = {
     '22': 'People'
 }
 
+VPI_TEMPLATES = {
+    1: "Hey @{creator}, our algorithms at IOSA Research Lab recorded your latest upload hitting Level 1 - Standard baseline. Make this moment memorable and view your certified VPI report here: {reward_link} (Autonomous metric tracking, not spam. To opt out, email {optout_email}.) 📊",
+    2: "Congrats @{creator}! IOSA Research Lab flagged this video reaching Level 2 - Moderate growth. Make this moment memorable by claiming your accredited performance report and award options at {reward_link} (Independent research index. Email {optout_email} to opt out.) 📈",
+    3: "Nice work @{creator}! Our automated trackers logged a Level 3 - Rising performance on this upload. Make this moment memorable and check your certified VPI report and award options here: {reward_link} (Data tracking, zero spam. Contact {optout_email} to opt out.) 🚀",
+    4: "Hey @{creator}, IOSA Research Lab detected a major spike—your video achieved Level 4 - Trending status! Make this moment memorable and claim your official physical trophy at {reward_link} (Automated research audit. Opt-out anytime via {optout_email}.) 🔥",
+    5: "Incredible momentum @{creator}! Our systems flagged this upload hitting Level 5 - Breakout status in performance. Make this moment memorable and claim your physical award at {reward_link} (Independent analytics bot. Email {optout_email} to stop alerts.) ✨",
+    6: "Boom! @{creator}, IOSA Research Lab registered an official viral event—Level 6 - Viral unlocked! Make this moment memorable and access your accredited trophy at {reward_link} (Pure data, zero spam. Opt-out via {optout_email}.) 💥",
+    7: "Massive performance @{creator}! IOSA Research Lab audited your video and confirmed a Level 7 - Super Viral rank. Make this moment memorable and claim your certified milestone award here: {reward_link} (Autonomous research lab. To opt-out, contact {optout_email}.) ⚡",
+    8: "Outstanding result @{creator}! Our indexing nodes marked this upload as a Level 8 - Outlier performance. Make this moment memorable and claim your official physical trophy at {reward_link} (Not spam, just data. Opt-out: {optout_email}.) 🏆",
+    9: "Legendary numbers @{creator}! IOSA Research Lab recorded a Level 9 - Mega Outlier event on this video. Make this moment memorable and claim your accredited award at {reward_link} (Autonomous tracking node. Opt-out via {optout_email}.) 👑",
+    10: "Historical peak @{creator}! IOSA Research Lab logged a Level 10 - Hyper Outlier anomaly on your channel. Make this moment memorable and access your top-tier accredited trophy at {reward_link} (Independent research lab. To stop receiving alerts, email {optout_email}.) 🌟"
+}
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("❌ Missing Supabase credentials in environment variables.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def calculate_vpi_ratio(views: float, baseline: float) -> float:
-    """Calculates VPI ratio normalized against channel baseline (rounded to 1 decimal place)."""
+    """Calculates VPI ratio normalized against channel baseline."""
     if not baseline or baseline <= 0:
         return 1.0
     return round(views / baseline, 1)
@@ -87,7 +109,6 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         total_views = int(stats.get("viewCount", 0))
         video_count = max(int(stats.get("videoCount", 1)), 1)
         
-        # Real calculated baseline: average views per video on the channel
         avg_views = max(int(total_views / video_count), 5_000)
 
         channels_data[ch_id] = {
@@ -98,10 +119,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
     return channels_data
 
 def fetch_and_ingest_real_youtube_content():
-    """
-    Scans YouTube trending videos rotating countries and categories to cover democratic global niches.
-    Filters out creators exceeding subscriber limit or VPI <= 1.0.
-    """
+    """Scans YouTube trending videos and ingests outliers into Supabase."""
     if not YOUTUBE_API_KEY:
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
@@ -109,8 +127,7 @@ def fetch_and_ingest_real_youtube_content():
     selected_countries = random.sample(TARGET_COUNTRIES, k=3)
     selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=2)
 
-    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
-    
+    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries})...")
     total_ingested = 0
 
     for country in selected_countries:
@@ -126,8 +143,7 @@ def fetch_and_ingest_real_youtube_content():
             if res.status_code != 200:
                 continue
 
-            data = res.json()
-            items = data.get("items", [])
+            items = res.json().get("items", [])
             if not items:
                 continue
 
@@ -151,7 +167,6 @@ def fetch_and_ingest_real_youtube_content():
                     continue
 
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
-
                 if vpi_ratio <= 1.0:
                     continue
 
@@ -165,6 +180,7 @@ def fetch_and_ingest_real_youtube_content():
                         "external_post_id": vid_id,
                         "author_handle": f"@{channel_title.replace(' ', '')}",
                         "author_name": channel_title,
+                        "subscribers": subscribers,
                         "post_url": f"https://www.youtube.com/watch?v={vid_id}",
                         "content_text": title,
                         "category": cat_name,
@@ -176,43 +192,155 @@ def fetch_and_ingest_real_youtube_content():
                         "vpi_level_name": level_name,
                         "vpi_color": vpi_color,
                         "claim_token": claim_token,
+                        "status": "ACTIVE",
+                        "comment_sent": False,
                         "created_at": published_at
                     }).execute()
                     total_ingested += 1
-                    print(f"   📥 Ingested [{country}/{cat_name}]: [{channel_title}] ({subscribers:,} subs) | Views: {int(views):,} vs Avg: {int(baseline):,} | VPI: +{vpi_ratio}x")
 
-    print(f"✅ Scan completato: {total_ingested} nuovi outlier accreditati scritti su Supabase.\n")
+    print(f"✅ Scan completato: {total_ingested} nuovi record aggiunti.\n")
 
-def purge_expired_campaign_data():
-    """
-    Routine di pulizia automatica che elimina tutti i post più vecchi di 15 giorni.
-    """
-    print("🧹 Esecuzione pulizia dati campagna (rimozione record > 15 giorni)...")
+def mark_expired_campaign_data():
+    """Soft-delete: marca come EXPIRED i record più vecchi di 15 giorni invece di eliminarli."""
+    print("🧹 Verifica ed eventuale scadenza record (> 15 giorni)...")
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=CAMPAIGN_DAYS)).isoformat()
     try:
-        supabase.table("posts").delete().lt("created_at", cutoff_date).execute()
-        print("🗑️ Pulizia completata con successo.")
+        res = supabase.table("posts").update({"status": "EXPIRED"}).lt("created_at", cutoff_date).eq("status", "ACTIVE").execute()
+        expired_count = len(res.data) if res.data else 0
+        print(f"🟡 {expired_count} record marcati come EXPIRED.")
     except Exception as e:
-        print(f"❌ Errore durante la pulizia del database: {e}")
+        print(f"❌ Errore durante la disattivazione dei vecchi record: {e}")
+
+def get_valid_youtube_access_token() -> str:
+    """Rigenera autonomamente l'Access Token temporaneo a partire dal Refresh Token permanente."""
+    if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
+        print("⚠️ Credenziali OAuth YouTube mancanti nel file .env o nelle variabili d'ambiente.")
+        return ""
+    
+    url = "https://oauth2.googleapis.com/token"
+    payload = {
+        "client_id": YOUTUBE_CLIENT_ID,
+        "client_secret": YOUTUBE_CLIENT_SECRET,
+        "refresh_token": YOUTUBE_REFRESH_TOKEN,
+        "grant_type": "refresh_token"
+    }
+    
+    try:
+        res = requests.post(url, data=payload, timeout=10)
+        if res.status_code == 200:
+            return res.json().get("access_token", "")
+        else:
+            print(f"❌ Errore refresh token OAuth YouTube ({res.status_code}): {res.text}")
+            return ""
+    except Exception as e:
+        print(f"❌ Eccezione durante il refresh token OAuth: {e}")
+        return ""
+
+def post_youtube_comment(video_id: str, comment_text: str) -> bool:
+    """Invia un commento su YouTube richiedendo dinamicamente un Access Token valido."""
+    access_token = get_valid_youtube_access_token()
+    
+    if not access_token:
+        print(f"⚠️ [MOCK MODE] Impossibile recuperare Access Token OAuth. Commento non inviato per video {video_id}:\n   {comment_text}")
+        return False
+
+    url = "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "snippet": {
+            "videoId": video_id,
+            "topLevelComment": {
+                "snippet": {
+                    "textOriginal": comment_text
+                }
+            }
+        }
+    }
+    
+    try:
+        res = requests.post(url, json=body, headers=headers, timeout=10)
+        if res.status_code in [200, 201]:
+            print(f"🚀 Commento pubblicato con successo su YouTube per il video {video_id}!")
+            return True
+        else:
+            print(f"❌ Errore pubblicazione commento YouTube ({res.status_code}): {res.text}")
+            return False
+    except Exception as e:
+        print(f"❌ Eccezione durante l'invio del commento: {e}")
+        return False
+
+def dispatch_cautious_outreach():
+    """
+    Invia commenti a massimo 10 creator US con subs tra 1.000 e 500k,
+    ordinati per iscritti crescenti (subs ASC) e VPI decrescente (vpi_ratio DESC).
+    """
+    print("🎯 Avvio modulo outreach cautelativo (Target: 10 US creators)...")
+    try:
+        res = (
+            supabase.table("posts")
+            .select("*")
+            .eq("country", "US")
+            .eq("status", "ACTIVE")
+            .eq("comment_sent", False)
+            .gte("subscribers", MIN_SUBSCRIBERS)
+            .lte("subscribers", MAX_SUBSCRIBERS)
+            .order("subscribers", desc=False)
+            .order("vpi_ratio", desc=True)
+            .limit(10)
+            .execute()
+        )
+
+        candidates = res.data or []
+        if not candidates:
+            print("ℹ️ Nessun candidato idoneo trovato per l'outreach al momento.")
+            return
+
+        for record in candidates:
+            vpi_level = record.get("vpi_level", 1)
+            template = VPI_TEMPLATES.get(vpi_level, VPI_TEMPLATES[1])
+            reward_link = f"{BASE_DOMAIN}/claim/{record['claim_token']}"
+
+            formatted_msg = template.format(
+                creator=record["author_name"],
+                reward_link=reward_link,
+                optout_email=OPTOUT_EMAIL
+            )
+
+            # Invia commento su YouTube usando OAuth automatizzato
+            success = post_youtube_comment(record["external_post_id"], formatted_msg)
+            
+            if success:
+                # Segna come inviato nel DB solo se la pubblicazione è andata a buon fine
+                supabase.table("posts").update({
+                    "comment_sent": True,
+                    "commented_at": datetime.now(timezone.utc).isoformat()
+                }).eq("id", record["id"]).execute()
+
+            time.sleep(2) # Pausa precauzionale tra gli invii
+
+    except Exception as e:
+        print(f"❌ Errore durante l'esecuzione dell'outreach: {e}")
 
 def start_engine():
-    """
-    Initializes and starts the background scheduler and triggers immediate scan.
-    """
-    print("⏱️ Avvio IOSA Background Ingestion Engine...")
+    """Initializes and starts background tasks."""
+    print("⏱️ Avvio IOSA Background Ingestion & Outreach Engine...")
     scheduler = BackgroundScheduler()
     
-    # Scheduled jobs: ingestion every 15 minutes, cleanup every 24 hours
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=15)
-    scheduler.add_job(purge_expired_campaign_data, 'interval', hours=24)
+    scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
+    scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1)
     
     scheduler.start()
     
-    # Run immediate scan on application startup
     try:
         fetch_and_ingest_real_youtube_content()
+        mark_expired_campaign_data()
+        dispatch_cautious_outreach()
     except Exception as e:
-        print(f"❌ Errore durante il primo scan all'avvio: {e}")
+        print(f"❌ Errore durante l'avvio: {e}")
 
 if __name__ == "__main__":
     start_engine()
@@ -220,4 +348,4 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
-        print("🛑 Ingestion Engine fermato.")
+        print("🛑 Engine fermato.")
