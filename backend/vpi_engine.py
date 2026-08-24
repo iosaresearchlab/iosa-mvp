@@ -360,9 +360,9 @@ def dispatch_cautious_outreach():
             success = post_youtube_comment(record["external_post_id"], formatted_msg)
             
             if success:
+                # Update comment_sent flag in database (commented_at removed as it does not exist in posts table)
                 supabase.table("posts").update({
-                    "comment_sent": True,
-                    "commented_at": datetime.now(timezone.utc).isoformat()
+                    "comment_sent": True
                 }).eq("id", record["id"]).execute()
                 print(f"✅ Commento registrato nel DB per post ID: {record['id']}")
             else:
