@@ -18,6 +18,7 @@ const MOCK_POSTS: Record<string, any> = {
     vpi_level_name: 'LVL 5 — OUTLIER',
     title: 'Rick Astley - Never Gonna Give You Up',
     created_at: '2026-08-20',
+    detected_at: '2026-08-21',
     platform: 'youtube',
     baseline_score: '10.0K',
     engagement_score: '87.2K',
@@ -70,7 +71,7 @@ export default function ClaimPage({
         setPost(currentPost || null);
       } catch {
         setPost(MOCK_POSTS[token] || null);
-      } finally {
+      } font-mono finally {
         setLoading(false);
       }
     }
@@ -158,6 +159,10 @@ export default function ClaimPage({
   const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
 
   const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
+
+  const formattedDetectedDate = post.detected_at 
+    ? new Date(post.detected_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+    : (post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 relative overflow-x-hidden flex flex-col">
@@ -317,6 +322,13 @@ export default function ClaimPage({
               <span className="text-gray-500">PUBLISHED DATE:</span>
               <span className="text-gray-300 font-medium">
                 {post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-gray-500">DETECTION DATE:</span>
+              <span className="text-[#00E5FF] font-medium">
+                {formattedDetectedDate}
               </span>
             </div>
 

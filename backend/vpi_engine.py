@@ -172,6 +172,7 @@ def fetch_and_ingest_real_youtube_content():
 
                 vpi_level, level_name, vpi_color = get_vpi_metadata(vpi_ratio)
                 claim_token = f"iosa_{secrets.token_urlsafe(12)}"
+                now_utc = datetime.now(timezone.utc).isoformat()
 
                 existing = supabase.table("posts").select("id").eq("external_post_id", vid_id).execute()
                 if not existing.data:
@@ -194,7 +195,8 @@ def fetch_and_ingest_real_youtube_content():
                         "claim_token": claim_token,
                         "status": "ACTIVE",
                         "comment_sent": False,
-                        "created_at": published_at
+                        "created_at": published_at,
+                        "detected_at": now_utc
                     }).execute()
                     total_ingested += 1
 
