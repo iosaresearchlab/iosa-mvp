@@ -71,7 +71,7 @@ export default function ClaimPage({
         setPost(currentPost || null);
       } catch {
         setPost(MOCK_POSTS[token] || null);
-      } font-mono finally {
+      } finally {
         setLoading(false);
       }
     }

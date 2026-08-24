@@ -25,8 +25,8 @@ YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")
 BASE_DOMAIN = os.getenv("NEXT_PUBLIC_SITE_URL", "https://iosaresearch.com")
 OPTOUT_EMAIL = "optout@iosaresearch.com"
 
-# Maximum subscriber threshold (excludes overly large channels)
-MAX_SUBSCRIBERS = 500_000 
+# Maximum subscriber threshold (increased to 1.5M to include small/medium channels)
+MAX_SUBSCRIBERS = 1_500_000 
 MIN_SUBSCRIBERS = 1_000
 CAMPAIGN_DAYS = 15
 
@@ -124,10 +124,19 @@ def fetch_and_ingest_real_youtube_content():
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
 
-    selected_countries = random.sample(TARGET_COUNTRIES, k=3)
-    selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=2)
+    # Always include US + 3 random rotating countries (4 countries total)
+    other_countries = [c for c in TARGET_COUNTRIES if c != 'US']
+    selected_countries = ['US'] + random.sample(other_countries, k=3)
 
-    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries})...")
+    # Doubled category scanning (4 categories sampled per run instead of 2)
+    selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=4)
+
+    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
+    
+    scanned_total = 0
+    skipped_subs = 0
+    skipped_vpi = 0
+    already_exists = 0
     total_ingested = 0
 
     for country in selected_countries:
@@ -141,6 +150,7 @@ def fetch_and_ingest_real_youtube_content():
 
             res = requests.get(url, timeout=10)
             if res.status_code != 200:
+                print(f"⚠️ Errore API YouTube ({res.status_code}) per {country}/{cat_name}: {res.text}")
                 continue
 
             items = res.json().get("items", [])
@@ -151,6 +161,7 @@ def fetch_and_ingest_real_youtube_content():
             channels_meta = fetch_channels_metadata(channel_ids)
 
             for vid_data in items:
+                scanned_total += 1
                 vid_id = vid_data["id"]
                 snippet = vid_data["snippet"]
                 ch_id = snippet["channelId"]
@@ -163,11 +174,14 @@ def fetch_and_ingest_real_youtube_content():
                 subscribers = ch_info["subscribers"]
                 baseline = ch_info["baseline"]
 
+                # Subscriber filter (<= 1.500.000)
                 if subscribers > MAX_SUBSCRIBERS:
+                    skipped_subs += 1
                     continue
 
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
                 if vpi_ratio <= 1.0:
+                    skipped_vpi += 1
                     continue
 
                 vpi_level, level_name, vpi_color = get_vpi_metadata(vpi_ratio)
@@ -175,32 +189,40 @@ def fetch_and_ingest_real_youtube_content():
                 now_utc = datetime.now(timezone.utc).isoformat()
 
                 existing = supabase.table("posts").select("id").eq("external_post_id", vid_id).execute()
-                if not existing.data:
-                    supabase.table("posts").insert({
-                        "platform": "YOUTUBE",
-                        "external_post_id": vid_id,
-                        "author_handle": f"@{channel_title.replace(' ', '')}",
-                        "author_name": channel_title,
-                        "subscribers": subscribers,
-                        "post_url": f"https://www.youtube.com/watch?v={vid_id}",
-                        "content_text": title,
-                        "category": cat_name,
-                        "country": country,
-                        "engagement_score": views,
-                        "baseline_score": baseline,
-                        "vpi_ratio": vpi_ratio,
-                        "vpi_level": vpi_level,
-                        "vpi_level_name": level_name,
-                        "vpi_color": vpi_color,
-                        "claim_token": claim_token,
-                        "status": "ACTIVE",
-                        "comment_sent": False,
-                        "created_at": published_at,
-                        "detected_at": now_utc
-                    }).execute()
-                    total_ingested += 1
+                if existing.data:
+                    already_exists += 1
+                    continue
 
-    print(f"✅ Scan completato: {total_ingested} nuovi record aggiunti.\n")
+                supabase.table("posts").insert({
+                    "platform": "YOUTUBE",
+                    "external_post_id": vid_id,
+                    "author_handle": f"@{channel_title.replace(' ', '')}",
+                    "author_name": channel_title,
+                    "subscribers": subscribers,
+                    "post_url": f"https://www.youtube.com/watch?v={vid_id}",
+                    "content_text": title,
+                    "category": cat_name,
+                    "country": country,
+                    "engagement_score": views,
+                    "baseline_score": baseline,
+                    "vpi_ratio": vpi_ratio,
+                    "vpi_level": vpi_level,
+                    "vpi_level_name": level_name,
+                    "vpi_color": vpi_color,
+                    "claim_token": claim_token,
+                    "status": "ACTIVE",
+                    "comment_sent": False,
+                    "created_at": published_at,
+                    "detected_at": now_utc
+                }).execute()
+                total_ingested += 1
+
+    print("📊 [LOG INGESTION SUMMARY]")
+    print(f"   ├─ Video analizzati in totale: {scanned_total}")
+    print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs}")
+    print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
+    print(f"   ├─ Già presenti nel DB: {already_exists}")
+    print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
 
 def mark_expired_campaign_data():
     """Soft-delete: marca come EXPIRED i record più vecchi di 15 giorni invece di eliminarli."""
@@ -276,11 +298,12 @@ def post_youtube_comment(video_id: str, comment_text: str) -> bool:
 
 def dispatch_cautious_outreach():
     """
-    Invia commenti a massimo 10 creator US con subs tra 1.000 e 500k,
-    ordinati per iscritti crescenti (subs ASC) e VPI decrescente (vpi_ratio DESC).
+    Invia commenti a massimo 10 creator idonei con subs tra MIN_SUBSCRIBERS e MAX_SUBSCRIBERS.
+    Privilegia i post US e include fallback su tutti i paesi per evitare stalli.
     """
-    print("🎯 Avvio modulo outreach cautelativo (Target: 10 US creators)...")
+    print("🎯 Avvio modulo outreach cautelativo...")
     try:
+        # First attempt: Target US posts
         res = (
             supabase.table("posts")
             .select("*")
@@ -296,6 +319,26 @@ def dispatch_cautious_outreach():
         )
 
         candidates = res.data or []
+
+        # Fallback: If no US candidate, fetch from any active country
+        if not candidates:
+            print("ℹ️ Nessun candidato US trovato nel DB, fallback su tutti i paesi attivi...")
+            res_fallback = (
+                supabase.table("posts")
+                .select("*")
+                .eq("status", "ACTIVE")
+                .eq("comment_sent", False)
+                .gte("subscribers", MIN_SUBSCRIBERS)
+                .lte("subscribers", MAX_SUBSCRIBERS)
+                .order("subscribers", desc=False)
+                .order("vpi_ratio", desc=True)
+                .limit(10)
+                .execute()
+            )
+            candidates = res_fallback.data or []
+
+        print(f"🔍 Candidati idonei trovati per outreach: {len(candidates)}")
+
         if not candidates:
             print("ℹ️ Nessun candidato idoneo trovato per l'outreach al momento.")
             return
@@ -311,17 +354,21 @@ def dispatch_cautious_outreach():
                 optout_email=OPTOUT_EMAIL
             )
 
-            # Invia commento su YouTube usando OAuth automatizzato
+            print(f"💬 Tentativo invio commento a @{record['author_name']} (Subs: {record['subscribers']:,}, VPI: {record['vpi_ratio']}x, Paese: {record['country']})...")
+
+            # Post comment to YouTube via OAuth
             success = post_youtube_comment(record["external_post_id"], formatted_msg)
             
             if success:
-                # Segna come inviato nel DB solo se la pubblicazione è andata a buon fine
                 supabase.table("posts").update({
                     "comment_sent": True,
                     "commented_at": datetime.now(timezone.utc).isoformat()
                 }).eq("id", record["id"]).execute()
+                print(f"✅ Commento registrato nel DB per post ID: {record['id']}")
+            else:
+                print(f"❌ Impossibile inviare commento per post ID: {record['id']}")
 
-            time.sleep(2) # Pausa precauzionale tra gli invii
+            time.sleep(2)
 
     except Exception as e:
         print(f"❌ Errore durante l'esecuzione dell'outreach: {e}")
