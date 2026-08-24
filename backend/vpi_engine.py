@@ -235,159 +235,138 @@ def mark_expired_campaign_data():
     except Exception as e:
         print(f"❌ Errore durante la disattivazione dei vecchi record: {e}")
 
-def get_valid_youtube_access_token() -> str:
-    """Rigenera autonomamente l'Access Token temporaneo a partire dal Refresh Token permanente."""
-    if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
-        print("⚠️ Credenziali OAuth YouTube mancanti nel file .env o nelle variabili d'ambiente.")
-        return ""
-    
-    url = "https://oauth2.googleapis.com/token"
-    payload = {
-        "client_id": YOUTUBE_CLIENT_ID,
-        "client_secret": YOUTUBE_CLIENT_SECRET,
-        "refresh_token": YOUTUBE_REFRESH_TOKEN,
-        "grant_type": "refresh_token"
-    }
-    
-    try:
-        res = requests.post(url, data=payload, timeout=10)
-        if res.status_code == 200:
-            return res.json().get("access_token", "")
-        else:
-            print(f"❌ Errore refresh token OAuth YouTube ({res.status_code}): {res.text}")
-            return ""
-    except Exception as e:
-        print(f"❌ Eccezione durante il refresh token OAuth: {e}")
-        return ""
+# ==============================================================================
+# OUTREACH VIA YOUTUBE COMMENTS - DISABLED / COMMENTED OUT TO PREVENT BAN
+# ==============================================================================
 
-def post_youtube_comment(video_id: str, comment_text: str) -> bool:
-    """Invia un commento su YouTube richiedendo dinamicamente un Access Token valido."""
-    access_token = get_valid_youtube_access_token()
-    
-    if not access_token:
-        print(f"⚠️ [MOCK MODE] Impossibile recuperare Access Token OAuth. Commento non inviato per video {video_id}:\n   {comment_text}")
-        return False
+# def get_valid_youtube_access_token() -> str:
+#     """Rigenera autonomamente l'Access Token temporaneo a partire dal Refresh Token permanente."""
+#     if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
+#         print("⚠️ Credenziali OAuth YouTube mancanti nel file .env o nelle variabili d'ambiente.")
+#         return ""
+#     
+#     url = "https://oauth2.googleapis.com/token"
+#     payload = {
+#         "client_id": YOUTUBE_CLIENT_ID,
+#         "client_secret": YOUTUBE_CLIENT_SECRET,
+#         "refresh_token": YOUTUBE_REFRESH_TOKEN,
+#         "grant_type": "refresh_token"
+#     }
+#     
+#     try:
+#         res = requests.post(url, data=payload, timeout=10)
+#         if res.status_code == 200:
+#             return res.json().get("access_token", "")
+#         else:
+#             print(f"❌ Errore refresh token OAuth YouTube ({res.status_code}): {res.text}")
+#             return ""
+#     except Exception as e:
+#         print(f"❌ Eccezione durante il refresh token OAuth: {e}")
+#         return ""
 
-    url = "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    body = {
-        "snippet": {
-            "videoId": video_id,
-            "topLevelComment": {
-                "snippet": {
-                    "textOriginal": comment_text
-                }
-            }
-        }
-    }
-    
-    try:
-        res = requests.post(url, json=body, headers=headers, timeout=10)
-        if res.status_code in [200, 201]:
-            print(f"🚀 Commento pubblicato con successo su YouTube per il video {video_id}!")
-            return True
-        else:
-            print(f"❌ Errore pubblicazione commento YouTube ({res.status_code}): {res.text}")
-            return False
-    except Exception as e:
-        print(f"❌ Eccezione durante l'invio del commento: {e}")
-        return False
+# def post_youtube_comment(video_id: str, comment_text: str) -> bool:
+#     """Invia un commento su YouTube richiedendo dinamicamente un Access Token valido."""
+#     access_token = get_valid_youtube_access_token()
+#     
+#     if not access_token:
+#         print(f"⚠️ [MOCK MODE] Impossibile recuperare Access Token OAuth. Commento non inviato per video {video_id}:\n   {comment_text}")
+#         return False
+#
+#     url = "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet"
+#     headers = {
+#         "Authorization": f"Bearer {access_token}",
+#         "Content-Type": "application/json"
+#     }
+#     body = {
+#         "snippet": {
+#             "videoId": video_id,
+#             "topLevelComment": {
+#                 "snippet": {
+#                     "textOriginal": comment_text
+#                 }
+#             }
+#         }
+#     }
+#     
+#     try:
+#         res = requests.post(url, json=body, headers=headers, timeout=10)
+#         if res.status_code in [200, 201]:
+#             print(f"🚀 Commento pubblicato con successo su YouTube per il video {video_id}!")
+#             return True
+#         else:
+#             print(f"❌ Errore pubblicazione commento YouTube ({res.status_code}): {res.text}")
+#             return False
+#     except Exception as e:
+#         print(f"❌ Eccezione durante l'invio del commento: {e}")
+#         return False
 
 def dispatch_cautious_outreach():
-    """
-    Invia commenti a massimo 10 creator idonei con subs tra MIN_SUBSCRIBERS e MAX_SUBSCRIBERS.
-    Privilegia i post US e include fallback su tutti i paesi per evitare stalli.
-    """
-    print("🎯 Avvio modulo outreach cautelativo...")
-    try:
-        # First attempt: Target US posts
-        res = (
-            supabase.table("posts")
-            .select("*")
-            .eq("country", "US")
-            .eq("status", "ACTIVE")
-            .eq("comment_sent", False)
-            .gte("subscribers", MIN_SUBSCRIBERS)
-            .lte("subscribers", MAX_SUBSCRIBERS)
-            .order("subscribers", desc=False)
-            .order("vpi_ratio", desc=True)
-            .limit(10)
-            .execute()
-        )
-
-        candidates = res.data or []
-
-        # Fallback: If no US candidate, fetch from any active country
-        if not candidates:
-            print("ℹ️ Nessun candidato US trovato nel DB, fallback su tutti i paesi attivi...")
-            res_fallback = (
-                supabase.table("posts")
-                .select("*")
-                .eq("status", "ACTIVE")
-                .eq("comment_sent", False)
-                .gte("subscribers", MIN_SUBSCRIBERS)
-                .lte("subscribers", MAX_SUBSCRIBERS)
-                .order("subscribers", desc=False)
-                .order("vpi_ratio", desc=True)
-                .limit(10)
-                .execute()
-            )
-            candidates = res_fallback.data or []
-
-        print(f"🔍 Candidati idonei trovati per outreach: {len(candidates)}")
-
-        if not candidates:
-            print("ℹ️ Nessun candidato idoneo trovato per l'outreach al momento.")
-            return
-
-        for record in candidates:
-            vpi_level = record.get("vpi_level", 1)
-            template = VPI_TEMPLATES.get(vpi_level, VPI_TEMPLATES[1])
-            reward_link = f"{BASE_DOMAIN}/claim/{record['claim_token']}"
-
-            formatted_msg = template.format(
-                creator=record["author_name"],
-                reward_link=reward_link,
-                optout_email=OPTOUT_EMAIL
-            )
-
-            print(f"💬 Tentativo invio commento a @{record['author_name']} (Subs: {record['subscribers']:,}, VPI: {record['vpi_ratio']}x, Paese: {record['country']})...")
-
-            # Post comment to YouTube via OAuth
-            success = post_youtube_comment(record["external_post_id"], formatted_msg)
-            
-            if success:
-                # Update comment_sent flag in database (commented_at removed as it does not exist in posts table)
-                supabase.table("posts").update({
-                    "comment_sent": True
-                }).eq("id", record["id"]).execute()
-                print(f"✅ Commento registrato nel DB per post ID: {record['id']}")
-            else:
-                print(f"❌ Impossibile inviare commento per post ID: {record['id']}")
-
-            time.sleep(2)
-
-    except Exception as e:
-        print(f"❌ Errore durante l'esecuzione dell'outreach: {e}")
+    """OUTREACH DISABLED: YouTube comments deactivated to prevent platform spam flags."""
+    print("🛑 Outreach via commenti YouTube disattivato permanentemente.")
+    return
+    # Code preserved below for future email outreach migration:
+    # try:
+    #     res = (
+    #         supabase.table("posts")
+    #         .select("*")
+    #         .eq("country", "US")
+    #         .eq("status", "ACTIVE")
+    #         .eq("comment_sent", False)
+    #         .gte("subscribers", MIN_SUBSCRIBERS)
+    #         .lte("subscribers", MAX_SUBSCRIBERS)
+    #         .order("subscribers", desc=False)
+    #         .order("vpi_ratio", desc=True)
+    #         .limit(10)
+    #         .execute()
+    #     )
+    #     candidates = res.data or []
+    #     if not candidates:
+    #         res_fallback = (
+    #             supabase.table("posts")
+    #             .select("*")
+    #             .eq("status", "ACTIVE")
+    #             .eq("comment_sent", False)
+    #             .gte("subscribers", MIN_SUBSCRIBERS)
+    #             .lte("subscribers", MAX_SUBSCRIBERS)
+    #             .order("subscribers", desc=False)
+    #             .order("vpi_ratio", desc=True)
+    #             .limit(10)
+    #             .execute()
+    #         )
+    #         candidates = res_fallback.data or []
+    #     if not candidates:
+    #         return
+    #     for record in candidates:
+    #         vpi_level = record.get("vpi_level", 1)
+    #         template = VPI_TEMPLATES.get(vpi_level, VPI_TEMPLATES[1])
+    #         reward_link = f"{BASE_DOMAIN}/claim/{record['claim_token']}"
+    #         formatted_msg = template.format(
+    #             creator=record["author_name"],
+    #             reward_link=reward_link,
+    #             optout_email=OPTOUT_EMAIL
+    #         )
+    #         success = post_youtube_comment(record["external_post_id"], formatted_msg)
+    #         if success:
+    #             supabase.table("posts").update({"comment_sent": True}).eq("id", record["id"]).execute()
+    #         time.sleep(2)
+    # except Exception as e:
+    #     print(f"❌ Errore outreach: {e}")
 
 def start_engine():
     """Initializes and starts background tasks."""
-    print("⏱️ Avvio IOSA Background Ingestion & Outreach Engine...")
+    print("⏱️ Avvio IOSA Background Ingestion Engine...")
     scheduler = BackgroundScheduler()
     
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=15)
     scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
-    scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1)
+    # scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1) # DISABLED OUTREACH
     
     scheduler.start()
     
     try:
         fetch_and_ingest_real_youtube_content()
         mark_expired_campaign_data()
-        dispatch_cautious_outreach()
+        # dispatch_cautious_outreach() # DISABLED OUTREACH
     except Exception as e:
         print(f"❌ Errore durante l'avvio: {e}")
 
