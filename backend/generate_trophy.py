@@ -1,5 +1,6 @@
 import base64
 import concurrent.futures
+import re
 import uuid
 import asyncio
 from pathlib import Path
@@ -26,6 +27,70 @@ def format_count(val) -> str:
     elif num >= 1_000:
         return f"{num / 1_000:.1f}K"
     return str(int(num) if num.is_integer() else num)
+
+
+def resolve_level_and_style(level_name: str, vpi_score: str):
+    """Calculates level name and dynamic color styling if not explicitly provided or defaulted."""
+    vpi_num = 0.0
+    try:
+        cleaned_vpi = str(vpi_score).replace('+', '').replace('x', '').replace(',', '').strip()
+        vpi_num = float(cleaned_vpi)
+    except (ValueError, TypeError):
+        vpi_num = 1.0
+
+    # Determine computed level based on VPI
+    if vpi_num >= 100:
+        computed_level_num = 10
+        computed_name = "LVL 10 — APEX OUTLIER"
+    elif vpi_num >= 50:
+        computed_level_num = 9
+        computed_name = "LVL 9 — HYPER OUTLIER"
+    elif vpi_num >= 25:
+        computed_level_num = 8
+        computed_name = "LVL 8 — SUPER OUTLIER"
+    elif vpi_num >= 15:
+        computed_level_num = 7
+        computed_name = "LVL 7 — EXTREME OUTLIER"
+    elif vpi_num >= 10:
+        computed_level_num = 6
+        computed_name = "LVL 6 — MAJOR OUTLIER"
+    elif vpi_num >= 5:
+        computed_level_num = 5
+        computed_name = "LVL 5 — OUTLIER"
+    elif vpi_num >= 3:
+        computed_level_num = 4
+        computed_name = "LVL 4 — HIGH PERFORMANCE"
+    elif vpi_num >= 2:
+        computed_level_num = 3
+        computed_name = "LVL 3 — ABOVE AVERAGE"
+    elif vpi_num >= 1.5:
+        computed_level_num = 2
+        computed_name = "LVL 2 — MODERATE"
+    else:
+        computed_level_num = 1
+        computed_name = "LVL 1 — BASELINE"
+
+    if not level_name or level_name in ["LVL 5 — OUTLIER", "LVL 5 - OUTLIER"]:
+        final_level_name = computed_name
+    else:
+        final_level_name = level_name
+        match = re.search(r'LVL\s*(\d+)', level_name, re.IGNORECASE)
+        if match:
+            computed_level_num = int(match.group(1))
+
+    # Dynamic color styling according to level number
+    if computed_level_num >= 10:
+        badge_style = "bg-gradient-to-r from-amber-500/30 via-yellow-500/30 to-amber-500/30 text-yellow-300 border-4 border-yellow-400 shadow-[0_0_40px_rgba(234,179,8,0.6)]"
+    elif computed_level_num >= 8:
+        badge_style = "bg-purple-500/20 text-purple-300 border-4 border-purple-400 shadow-[0_0_35px_rgba(168,85,247,0.5)]"
+    elif computed_level_num >= 5:
+        badge_style = "bg-amber-500/20 text-amber-300 border-4 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.4)]"
+    elif computed_level_num >= 3:
+        badge_style = "bg-cyan-500/20 text-cyan-300 border-4 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.4)]"
+    else:
+        badge_style = "bg-slate-500/20 text-slate-300 border-4 border-slate-400 shadow-[0_0_25px_rgba(148,163,184,0.3)]"
+
+    return final_level_name, badge_style
 
 
 # ------------------------------------------------------------------------------
@@ -133,7 +198,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
 
       <div>
-        <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl bg-amber-500/20 text-amber-300 border-4 border-amber-400 font-black tracking-widest shadow-[0_0_35px_rgba(245,158,11,0.4)]">
+        <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl {level_badge_style} font-black tracking-widest">
           ACCREDITATION: {level_name}
         </span>
       </div>
@@ -148,11 +213,11 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
       <div class="bg-white p-6 rounded-2xl border-2 border-emerald-600 flex flex-col items-center gap-3 shadow-md my-auto">
         <img 
-          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://iosa-lab.org/claim/{record_id}&color=070A10&bgbw=0" 
+          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={claim_base_url}/claim/{record_id}&color=070A10&bgbw=0" 
           alt="Verification QR Code" 
           class="w-48 h-48"
         />
-        <span class="text-sm font-mono-tech text-gray-800 font-black tracking-wider">IOSA-LAB.ORG</span>
+        <span class="text-sm font-mono-tech text-gray-800 font-black tracking-wider">{domain_display}</span>
       </div>
 
       <div class="text-sm font-mono-tech text-gray-500 font-bold border-t border-gray-200 pt-4 w-full">
@@ -212,7 +277,8 @@ def _render_png_sync(
     gamma: str = "1.0x",
     recorded_date: str = "2026-08-20",
     output_dir: str = "renders",
-    level_name: str = "LVL 5 — OUTLIER"
+    level_name: str = None,
+    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
@@ -226,6 +292,11 @@ def _render_png_sync(
     formatted_e_act = format_count(e_act)
     formatted_e_base = format_count(e_base)
 
+    final_level_name, level_badge_style = resolve_level_and_style(level_name, vpi_score)
+
+    clean_base_url = claim_base_url.rstrip("/")
+    domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
+
     html_content = TROPHY_HTML_TEMPLATE.format(
         record_id=record_id,
         vpi_score=vpi_score,
@@ -234,9 +305,12 @@ def _render_png_sync(
         e_act=formatted_e_act,
         e_base=formatted_e_base,
         gamma=gamma,
-        level_name=level_name,
+        level_name=final_level_name,
+        level_badge_style=level_badge_style,
         recorded_date=recorded_date,
-        record_hash=record_hash
+        record_hash=record_hash,
+        claim_base_url=clean_base_url,
+        domain_display=domain_display
     )
 
     with sync_playwright() as p:
@@ -266,7 +340,8 @@ async def generate_trophy_png(
     gamma: str = "1.0x",
     recorded_date: str = "2026-08-20",
     output_dir: str = "renders",
-    level_name: str = "LVL 5 — OUTLIER"
+    level_name: str = None,
+    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
     return await asyncio.to_thread(
         _render_png_sync,
@@ -279,7 +354,8 @@ async def generate_trophy_png(
         gamma=gamma,
         recorded_date=recorded_date,
         output_dir=output_dir,
-        level_name=level_name
+        level_name=level_name,
+        claim_base_url=claim_base_url
     )
 
 
@@ -356,14 +432,15 @@ async def generate_mug_preview_png(
 def create_trophy_image(
     author: str,
     vpi_ratio: str,
-    level_name: str = "LVL 5 — OUTLIER",
+    level_name: str = None,
     content_title: str = "",
     date_str: str = "2026-08-20",
     output_path: str = "renders/trophy.png",
     e_act: str = "87.2K",
     e_base: str = "10.0K",
     gamma: str = "1.0x",
-    record_id: str = None
+    record_id: str = None,
+    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
     out_file = Path(output_path)
     out_dir = out_file.parent if out_file.parent else Path("renders")
@@ -384,6 +461,7 @@ def create_trophy_image(
             gamma=gamma,
             recorded_date=date_str,
             output_dir=str(out_dir),
-            level_name=level_name
+            level_name=level_name,
+            claim_base_url=claim_base_url
         )
         return future.result()

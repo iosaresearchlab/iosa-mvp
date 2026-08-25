@@ -34,6 +34,38 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // English comment: Define active modal state type for transparent user policy dialogs
 type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
 
+function getBadgeStyle(levelName?: string, vpiScore?: any): string {
+  let lvl = 0;
+  if (levelName) {
+    const match = levelName.match(/LVL\s*(\d+)/i);
+    if (match) lvl = parseInt(match[1], 10);
+  }
+  if (!lvl && vpiScore) {
+    const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
+    if (v >= 100) lvl = 10;
+    else if (v >= 50) lvl = 9;
+    else if (v >= 25) lvl = 8;
+    else if (v >= 15) lvl = 7;
+    else if (v >= 10) lvl = 6;
+    else if (v >= 5) lvl = 5;
+    else if (v >= 3) lvl = 4;
+    else if (v >= 2) lvl = 3;
+    else if (v >= 1.5) lvl = 2;
+    else lvl = 1;
+  }
+
+  if (lvl >= 10) {
+    return 'bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-yellow-300 border border-yellow-400/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
+  } else if (lvl >= 8) {
+    return 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]';
+  } else if (lvl >= 5) {
+    return 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
+  } else if (lvl >= 3) {
+    return 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]';
+  }
+  return 'bg-slate-500/20 text-slate-300 border border-slate-400/40 shadow-[0_0_10px_rgba(148,163,184,0.2)]';
+}
+
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
@@ -47,6 +79,10 @@ export default function Home() {
   // Modal management state
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showFormulaTooltip, setShowFormulaTooltip] = useState<boolean>(false);
+
+  useEffect(() => {
+    document.title = 'IOSA — Viral Performance Index';
+  }, []);
 
   useEffect(() => {
     const updateRollingWindow = () => {
@@ -457,7 +493,7 @@ export default function Home() {
                           <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
                             {post.country || 'GLOBAL'}
                           </span>
-                          <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase">
+                          <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${getBadgeStyle(post.vpi_level_name, post.vpi_ratio)}`}>
                             {post.vpi_level_name || 'OUTLIER'}
                           </span>
                         </div>
