@@ -3,6 +3,7 @@ import concurrent.futures
 import re
 import uuid
 import asyncio
+import urllib.parse
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -231,10 +232,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="text-sm font-mono-tech text-gray-500 font-semibold">SCAN TO VERIFY</div>
       </div>
 
-      <!-- Verification QR Code pointing directly to https://iosa-mvp-psi.vercel.app/claim/[token] -->
+      <!-- Verification QR Code pointing directly to https://iosa-mvp-psi.vercel.app/claim/[record_id] -->
       <div class="bg-white p-6 rounded-2xl border-2 border-emerald-600 flex flex-col items-center gap-3 shadow-md my-auto">
         <img 
-          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={claim_url}&color=070A10&bgbw=0" 
+          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={encoded_claim_url}&color=070A10&bgbw=0" 
           alt="Verification QR Code" 
           class="w-48 h-48"
         />
@@ -317,7 +318,10 @@ def _render_png_sync(
 
     clean_base_url = claim_base_url.rstrip("/")
     domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
+    
+    # Construct exact claim URL and URL-encode it safely for the QR generator API
     claim_url = f"{clean_base_url}/claim/{record_id}"
+    encoded_claim_url = urllib.parse.quote(claim_url, safe='')
 
     html_content = TROPHY_HTML_TEMPLATE.format(
         record_id=record_id,
@@ -331,7 +335,7 @@ def _render_png_sync(
         level_badge_style=level_badge_style,
         recorded_date=recorded_date,
         record_hash=record_hash,
-        claim_url=claim_url,
+        encoded_claim_url=encoded_claim_url,
         domain_display=domain_display
     )
 

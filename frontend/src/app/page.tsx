@@ -34,7 +34,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // English comment: Define active modal state type for transparent user policy dialogs
 type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
 
-// English comment: Level badge styling aligned with 10-tier VPI color hierarchy
+// English comment: Level badge styling aligned strictly with the 10-tier high-contrast VPI color hierarchy
 function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   let lvl = 0;
   if (levelName) {
@@ -43,11 +43,11 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
   if (!lvl && vpiScore) {
     const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    if (v >= 50) lvl = 10;
-    else if (v >= 25) lvl = 9;
-    else if (v >= 15) lvl = 8;
-    else if (v >= 10) lvl = 7;
-    else if (v >= 7.5) lvl = 6;
+    if (v >= 100) lvl = 10;
+    else if (v >= 50) lvl = 9;
+    else if (v >= 25) lvl = 8;
+    else if (v >= 15) lvl = 7;
+    else if (v >= 10) lvl = 6;
     else if (v >= 5) lvl = 5;
     else if (v >= 3) lvl = 4;
     else if (v >= 2) lvl = 3;
@@ -57,26 +57,36 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
 
   switch (lvl) {
     case 10:
-      return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
+      // Mythic Gold
+      return 'bg-amber-950/60 text-amber-300 border border-amber-300 shadow-[0_0_15px_rgba(255,215,0,0.6)]';
     case 9:
-      return 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+      // Electric Cyan
+      return 'bg-cyan-950/50 text-cyan-300 border border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.5)]';
     case 8:
-      return 'bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.3)]';
+      // Deep Violet
+      return 'bg-purple-950/70 text-purple-400 border border-purple-700 shadow-[0_0_15px_rgba(124,58,237,0.5)]';
     case 7:
-      return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]';
+      // Light Pink
+      return 'bg-pink-950/50 text-pink-300 border border-pink-400 shadow-[0_0_15px_rgba(244,114,182,0.4)]';
     case 6:
-      return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
+      // Crimson Red
+      return 'bg-red-950/50 text-red-400 border border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]';
     case 5:
-      return 'bg-lime-500/20 text-lime-300 border border-lime-500/40 shadow-[0_0_15px_rgba(132,204,22,0.3)]';
+      // Vibrant Orange
+      return 'bg-orange-950/50 text-orange-400 border border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]';
     case 4:
-      return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+      // Canary Yellow
+      return 'bg-yellow-950/50 text-yellow-400 border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)]';
     case 3:
-      return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]';
+      // Neon Lime
+      return 'bg-lime-950/50 text-lime-400 border border-lime-500 shadow-[0_0_15px_rgba(132,204,22,0.4)]';
     case 2:
-      return 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-[0_0_15px_rgba(99,102,241,0.3)]';
+      // Forest Green
+      return 'bg-green-950/80 text-green-500 border border-green-700 shadow-[0_0_15px_rgba(21,128,61,0.4)]';
     case 1:
     default:
-      return 'bg-slate-500/20 text-slate-300 border border-slate-400/40 shadow-[0_0_10px_rgba(148,163,184,0.2)]';
+      // Slate Gray
+      return 'bg-slate-950/50 text-slate-400 border border-slate-600 shadow-[0_0_10px_rgba(100,116,139,0.3)]';
   }
 }
 
@@ -90,9 +100,8 @@ export default function Home() {
 
   const [campaignDates, setCampaignDates] = useState({ start: '', end: '' });
   
-  // Modal management state
+  // English comment: Modal management state for transparent governance popups
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-  const [showFormulaTooltip, setShowFormulaTooltip] = useState<boolean>(false);
 
   useEffect(() => {
     document.title = 'IOSA — Viral Performance Index';
@@ -508,7 +517,7 @@ export default function Home() {
                             {post.country || 'GLOBAL'}
                           </span>
                           <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${getBadgeStyle(post.vpi_level_name, post.vpi_ratio)}`}>
-                            {post.vpi_level_name || 'OUTLIER'}
+                            {post.vpi_level_name || 'LVL 5 — OUTLIER'}
                           </span>
                         </div>
 
@@ -765,84 +774,85 @@ export default function Home() {
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
                     <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">Outlier Qualification Thresholds (10 Levels)</h3>
                     <div className="space-y-1.5 font-mono text-[11px] max-h-64 overflow-y-auto pr-1">
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      
+                      <div className="flex items-center justify-between p-1.5 rounded bg-amber-950/40 border border-amber-300/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF0055' }}></span>
-                          <strong className="text-white">Lvl 10 - Hyper Outlier</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-300 shadow-[0_0_8px_rgba(255,215,0,0.8)]"></span>
+                          <strong className="text-amber-300">Lvl 10 — Apex Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 50.0x</span>
+                        <span className="text-amber-300 font-bold">VPI ≥ 100.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-cyan-950/40 border border-cyan-400/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF2A00' }}></span>
-                          <strong className="text-white">Lvl 9 - Mega Outlier</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                          <strong className="text-cyan-300">Lvl 9 — Hyper Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 25.0x</span>
+                        <span className="text-cyan-300 font-bold">VPI ≥ 50.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-purple-950/40 border border-purple-500/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF5500' }}></span>
-                          <strong className="text-white">Lvl 8 - Outlier</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-purple-400 shadow-[0_0_8px_rgba(124,58,237,0.8)]"></span>
+                          <strong className="text-purple-300">Lvl 8 — Super Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 15.0x</span>
+                        <span className="text-purple-300 font-bold">VPI ≥ 25.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-pink-950/40 border border-pink-400/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF8800' }}></span>
-                          <strong className="text-white">Lvl 7 - Super Viral</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-pink-300 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></span>
+                          <strong className="text-pink-300">Lvl 7 — Extreme Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 10.0x</span>
+                        <span className="text-pink-300 font-bold">VPI ≥ 15.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-red-950/40 border border-red-500/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FFAA00' }}></span>
-                          <strong className="text-white">Lvl 6 - Viral</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                          <strong className="text-red-300">Lvl 6 — Major Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 7.5x</span>
+                        <span className="text-red-300 font-bold">VPI ≥ 10.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-orange-950/40 border border-orange-500/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FFCC00' }}></span>
-                          <strong className="text-white">Lvl 5 - Breakout</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>
+                          <strong className="text-orange-300">Lvl 5 — Outlier</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 5.0x</span>
+                        <span className="text-orange-300 font-bold">VPI ≥ 5.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-yellow-950/40 border border-yellow-500/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#00CC88' }}></span>
-                          <strong className="text-white">Lvl 4 - Trending</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.8)]"></span>
+                          <strong className="text-yellow-300">Lvl 4 — High Performance</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 3.0x</span>
+                        <span className="text-yellow-300 font-bold">VPI ≥ 3.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-lime-950/40 border border-lime-500/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#0099FF' }}></span>
-                          <strong className="text-white">Lvl 3 - Rising</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-lime-400 shadow-[0_0_8px_rgba(132,204,22,0.8)]"></span>
+                          <strong className="text-lime-300">Lvl 3 — Above Average</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 2.0x</span>
+                        <span className="text-lime-300 font-bold">VPI ≥ 2.0x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-green-950/40 border border-green-600/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#7755FF' }}></span>
-                          <strong className="text-white">Lvl 2 - Moderate</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-green-500 shadow-[0_0_8px_rgba(21,128,61,0.8)]"></span>
+                          <strong className="text-green-300">Lvl 2 — Moderate</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI ≥ 1.5x</span>
+                        <span className="text-green-300 font-bold">VPI ≥ 1.5x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-slate-950/40 border border-slate-600/40">
                         <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#888888' }}></span>
-                          <strong className="text-white">Lvl 1 - Standard</strong>
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-400 shadow-[0_0_8px_rgba(100,116,139,0.5)]"></span>
+                          <strong className="text-slate-300">Lvl 1 — Baseline</strong>
                         </span>
-                        <span className="text-[#00E5FF] font-bold">VPI &gt; 1.0x</span>
+                        <span className="text-slate-300 font-bold">VPI &gt; 1.0x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-red-950/20 border border-red-500/20 opacity-70">
