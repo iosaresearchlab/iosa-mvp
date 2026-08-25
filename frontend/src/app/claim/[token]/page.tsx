@@ -11,6 +11,27 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+function formatCount(val: any): string {
+  if (val === null || val === undefined) return 'N/A';
+  let num: number;
+  if (typeof val === 'number') {
+    num = val;
+  } else if (typeof val === 'string') {
+    const cleaned = val.replace(/,/g, '').trim();
+    num = Number(cleaned);
+    if (isNaN(num)) return val;
+  } else {
+    return String(val);
+  }
+
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1)}M`;
+  } else if (num >= 1_000) {
+    return `${(num / 1_000).toFixed(1)}K`;
+  }
+  return Number.isInteger(num) ? String(num) : String(num);
+}
+
 const MOCK_POSTS: Record<string, any> = {
   'REC_8F9A2B': {
     author_handle: '@TEARDOWNMAYHEM',
@@ -153,6 +174,8 @@ export default function ClaimPage({
     date_str: post.created_at
       ? new Date(post.created_at).toISOString().split('T')[0]
       : '2026-08-20',
+    e_act: formatCount(post.engagement_score ?? post.e_act),
+    e_base: formatCount(post.baseline_score ?? post.e_base),
   };
 
   const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
@@ -357,12 +380,12 @@ export default function ClaimPage({
 
             <div className="flex justify-between items-center text-[11px]">
               <span className="text-gray-500">BASELINE (E_base):</span>
-              <span>{post.baseline_score}</span>
+              <span>{formatCount(post.baseline_score ?? post.e_base)}</span>
             </div>
 
             <div className="flex justify-between items-center text-[11px]">
               <span className="text-gray-500">ACTUAL VIEWS (E_act):</span>
-              <span className="text-[#00E5FF] font-bold">{post.engagement_score}</span>
+              <span className="text-[#00E5FF] font-bold">{formatCount(post.engagement_score ?? post.e_act)}</span>
             </div>
           </div>
         </div>

@@ -5,6 +5,29 @@ import asyncio
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+
+def format_count(val) -> str:
+    """Helper for formatting raw numbers into human-readable compact notation (e.g., 32593211 -> 32.6M, 79976 -> 80.0K)."""
+    if val is None:
+        return "N/A"
+    if isinstance(val, (int, float)):
+        num = float(val)
+    elif isinstance(val, str):
+        cleaned = val.replace(',', '').strip()
+        try:
+            num = float(cleaned)
+        except ValueError:
+            return val
+    else:
+        return str(val)
+
+    if num >= 1_000_000:
+        return f"{num / 1_000_000:.1f}M"
+    elif num >= 1_000:
+        return f"{num / 1_000:.1f}K"
+    return str(int(num) if num.is_integer() else num)
+
+
 # ------------------------------------------------------------------------------
 # DIGITAL PLAQUE / HORIZONTAL CERTIFICATE TEMPLATE (2700x1120)
 # ------------------------------------------------------------------------------
@@ -111,7 +134,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
       <div>
         <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl bg-amber-500/20 text-amber-300 border-4 border-amber-400 font-black tracking-widest shadow-[0_0_35px_rgba(245,158,11,0.4)]">
-          ACCREDITATION: LVL 5 — OUTLIER
+          ACCREDITATION: {level_name}
         </span>
       </div>
     </div>
@@ -186,9 +209,10 @@ def _render_png_sync(
     content_title: str,
     e_act: str,
     e_base: str,
-    gamma: str,
-    recorded_date: str,
-    output_dir: str
+    gamma: str = "1.0x",
+    recorded_date: str = "2026-08-20",
+    output_dir: str = "renders",
+    level_name: str = "LVL 5 — OUTLIER"
 ) -> str:
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
@@ -199,14 +223,18 @@ def _render_png_sync(
     if content_title and len(content_title) > 130:
         content_title = content_title[:127] + "..."
 
+    formatted_e_act = format_count(e_act)
+    formatted_e_base = format_count(e_base)
+
     html_content = TROPHY_HTML_TEMPLATE.format(
         record_id=record_id,
         vpi_score=vpi_score,
         user_handle=user_handle,
         content_title=content_title,
-        e_act=e_act,
-        e_base=e_base,
+        e_act=formatted_e_act,
+        e_base=formatted_e_base,
         gamma=gamma,
+        level_name=level_name,
         recorded_date=recorded_date,
         record_hash=record_hash
     )
@@ -237,7 +265,8 @@ async def generate_trophy_png(
     e_base: str = "10.0K",
     gamma: str = "1.0x",
     recorded_date: str = "2026-08-20",
-    output_dir: str = "renders"
+    output_dir: str = "renders",
+    level_name: str = "LVL 5 — OUTLIER"
 ) -> str:
     return await asyncio.to_thread(
         _render_png_sync,
@@ -249,7 +278,8 @@ async def generate_trophy_png(
         e_base,
         gamma,
         recorded_date,
-        output_dir
+        output_dir,
+        level_name
     )
 
 
@@ -267,7 +297,6 @@ def _get_mug_sample_element() -> str:
         if p.exists():
             img_bytes = p.read_bytes()
             encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-            # Changed width and height to 100% to fill the new relative wrapper fully
             return f'<img src="data:{mime_type};base64,{encoded_img}" class="w-full h-full object-contain rounded-2xl relative z-10" alt="Physical Artifact Sample" />'
 
     return '<div class="text-amber-400 text-2xl font-mono-tech border-2 border-amber-400 p-8 rounded-2xl">⚠️ mock_mug_sample.jpg not found in root directory!</div>'
@@ -291,7 +320,6 @@ def _render_mug_preview_sync(
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        # Viewport adjusted to match standard 16:9 widescreen ratio
         page = browser.new_page(
             viewport={"width": 1600, "height": 900},
             device_scale_factor=1
@@ -331,11 +359,18 @@ def create_trophy_image(
     level_name: str = "LVL 5 — OUTLIER",
     content_title: str = "",
     date_str: str = "2026-08-20",
-    output_path: str = "renders/trophy.png"
+    output_path: str = "renders/trophy.png",
+    e_act: str = "87.2K",
+    e_base: str = "10.0K",
+    gamma: str = "1.0x",
+    record_id: str = None
 ) -> str:
     out_file = Path(output_path)
     out_dir = out_file.parent if out_file.parent else Path("renders")
-    record_id = out_file.stem.replace("trophy_", "").replace("preview_", "")
+
+    if not record_id:
+        extracted = out_file.stem.replace("trophy_", "").replace("preview_", "")
+        record_id = extracted if extracted != "trophy" else "preview"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(
@@ -344,10 +379,11 @@ def create_trophy_image(
             vpi_ratio,
             author,
             content_title if content_title else "Viral Content Title",
-            "87.2K",
-            "10.0K",
-            "1.0x",
+            e_act,
+            e_base,
+            gamma,
             date_str,
-            str(out_dir)
+            str(out_dir),
+            level_name
         )
         return future.result()
