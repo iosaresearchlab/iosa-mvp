@@ -270,16 +270,16 @@ async def generate_trophy_png(
 ) -> str:
     return await asyncio.to_thread(
         _render_png_sync,
-        record_id,
-        vpi_score,
-        user_handle,
-        content_title,
-        e_act,
-        e_base,
-        gamma,
-        recorded_date,
-        output_dir,
-        level_name
+        record_id=record_id,
+        vpi_score=vpi_score,
+        user_handle=user_handle,
+        content_title=content_title,
+        e_act=e_act,
+        e_base=e_base,
+        gamma=gamma,
+        recorded_date=recorded_date,
+        output_dir=output_dir,
+        level_name=level_name
     )
 
 
@@ -351,7 +351,7 @@ async def generate_mug_preview_png(
 
 
 # ------------------------------------------------------------------------------
-# LEGACY HELPER FOR BACKWARD COMPATIBILITY
+# HELPER FOR BACKWARD COMPATIBILITY & ROUTER CALLS
 # ------------------------------------------------------------------------------
 def create_trophy_image(
     author: str,
@@ -375,15 +375,15 @@ def create_trophy_image(
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(
             _render_png_sync,
-            record_id,
-            vpi_ratio,
-            author,
-            content_title if content_title else "Viral Content Title",
-            e_act,
-            e_base,
-            gamma,
-            date_str,
-            str(out_dir),
-            level_name
+            record_id=record_id,
+            vpi_score=vpi_ratio,
+            user_handle=author,
+            content_title=content_title if content_title else "Viral Content Title",
+            e_act=e_act,
+            e_base=e_base,
+            gamma=gamma,
+            recorded_date=date_str,
+            output_dir=str(out_dir),
+            level_name=level_name
         )
         return future.result()
