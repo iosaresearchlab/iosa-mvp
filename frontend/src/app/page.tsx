@@ -229,7 +229,7 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="pt-14 pb-5 px-3 md:px-8 max-w-6xl mx-auto space-y-2 flex-grow w-full">
         
-        {/* Top Section: WHO WE ARE (Replaces redundant banner) */}
+        {/* Top Section: WHO WE ARE */}
         <section className="bg-gradient-to-r from-cyan-950/60 via-black to-cyan-950/60 border border-cyan-500/30 rounded-xl p-3 px-4 shadow-md font-sans">
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="w-4 h-4 text-[#00E5FF] shrink-0" />
@@ -249,7 +249,6 @@ export default function Home() {
           </div>
 
           <div className="relative z-10 max-w-4xl mx-auto text-center">
-            {/* Rolling Window Badge replacing independent trend index badge */}
             <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-3 py-0.5 rounded-full mb-2">
               <Calendar className="w-3 h-3 text-[#00E5FF]" />
               <span>Rolling Window: <strong className="text-white">{campaignDates.start} — {campaignDates.end}</strong></span>
@@ -714,19 +713,102 @@ export default function Home() {
                   </div>
 
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">Outlier Qualification Thresholds</h3>
-                    <ul className="list-disc list-inside space-y-1 text-gray-300">
-                      <li><strong>LVL 1 — SURGE:</strong> VPI ratio between +1.5x and +2.9x baseline.</li>
-                      <li><strong>LVL 2 — BREAKOUT:</strong> VPI ratio between +3.0x and +4.9x baseline.</li>
-                      <li><strong>LVL 3 — VIRAL:</strong> VPI ratio between +5.0x and +9.9x baseline.</li>
-                      <li><strong>LVL 5 — OUTLIER:</strong> VPI ratio exceeding +10.0x baseline.</li>
-                    </ul>
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">Outlier Qualification Thresholds (10 Levels)</h3>
+                    <div className="space-y-1.5 font-mono text-[11px] max-h-64 overflow-y-auto pr-1">
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF0055' }}></span>
+                          <strong className="text-white">Lvl 10 - Hyper Outlier</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 50.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF2A00' }}></span>
+                          <strong className="text-white">Lvl 9 - Mega Outlier</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 25.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF5500' }}></span>
+                          <strong className="text-white">Lvl 8 - Outlier</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 15.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FF8800' }}></span>
+                          <strong className="text-white">Lvl 7 - Super Viral</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 10.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FFAA00' }}></span>
+                          <strong className="text-white">Lvl 6 - Viral</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 7.5x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#FFCC00' }}></span>
+                          <strong className="text-white">Lvl 5 - Breakout</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 5.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#00CC88' }}></span>
+                          <strong className="text-white">Lvl 4 - Trending</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 3.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#0099FF' }}></span>
+                          <strong className="text-white">Lvl 3 - Rising</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 2.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#7755FF' }}></span>
+                          <strong className="text-white">Lvl 2 - Moderate</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI ≥ 1.5x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-black/50 border border-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#888888' }}></span>
+                          <strong className="text-white">Lvl 1 - Standard</strong>
+                        </span>
+                        <span className="text-[#00E5FF] font-bold">VPI &gt; 1.0x</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-1.5 rounded bg-red-950/20 border border-red-500/20 opacity-70">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-600"></span>
+                          <strong className="text-gray-400">Not Indexed</strong>
+                        </span>
+                        <span className="text-gray-500 font-bold">VPI ≤ 1.0x</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
                     <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">15-Day Rolling Audit Window</h3>
                     <p>
-                      Posts are monitored continuously across active 15-day windows. Indices are recalculated automatically to ensure baseline integrity against artificial spikes.
+                      Posts are monitored continuously across active 15-day windows. Indices are recalculated automatically to ensure baseline integrity against artificial spikes. Content with VPI ≤ 1.0x is excluded from indexing.
                     </p>
                   </div>
                 </div>
