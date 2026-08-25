@@ -165,10 +165,10 @@ export default function ClaimPage({
     : (post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
   return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 relative overflow-x-hidden flex flex-col">
+    <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 pt-0 sm:pt-0 md:pt-0 relative overflow-x-hidden flex flex-col">
       
-      {/* Header Container */}
-      <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-3 mb-3 flex flex-row justify-between items-center gap-4">
+      {/* Fixed Header Container */}
+      <header className="sticky top-0 z-50 bg-[#030508]/90 backdrop-blur-md max-w-5xl mx-auto w-full border-b border-gray-800/80 py-3 mb-3 flex flex-row justify-between items-center gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <div className="flex items-end gap-1.5">
@@ -184,7 +184,7 @@ export default function ClaimPage({
           </span>
         </div>
 
-        {/* Updated Badge: Clean Verified Accreditation Status */}
+        {/* Badge: Clean Verified Accreditation Status */}
         <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
           <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">VERIFIED ACCREDITATION</span>
@@ -243,7 +243,7 @@ export default function ClaimPage({
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch pb-6">
+      <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch pb-2">
         
         {/* Left Showcase Box */}
         <div className="bg-[#070A10] border border-gray-800 rounded-xl p-4 flex flex-col justify-between items-center text-center shadow-xl relative overflow-hidden">
@@ -375,7 +375,7 @@ export default function ClaimPage({
               <h1 className="text-xl font-extrabold font-mono">Support IOSA Research</h1>
             </div>
 
-            {/* Consolidated Support Box with Increased Font Size (text-sm / 14px) */}
+            {/* Consolidated Support Box */}
             <div className="bg-black/60 border border-gray-800 rounded-xl p-4 mb-4 font-mono space-y-2">
               <div className="flex items-center gap-2 text-[#00E5FF] font-bold text-xs tracking-wide">
                 <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
@@ -407,7 +407,7 @@ export default function ClaimPage({
       </div>
 
       {/* Footer Disclaimer */}
-      <footer className="max-w-5xl mx-auto w-full mt-6 pt-4 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
+      <footer className="max-w-5xl mx-auto w-full mt-2 pt-2 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
         <p>
           <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent non-profit data research initiative. This platform and its metric certifications (VPI) are not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, or any other third-party social media platform.
         </p>
