@@ -37,7 +37,7 @@ export default function ClaimPage({
   const [loading, setLoading] = useState(true);
   const [artifactLoading, setArtifactLoading] = useState(true);
   
-  // Toggle between Digital Plaque and Physical Artifact
+  // Tab state switcher
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
@@ -167,7 +167,7 @@ export default function ClaimPage({
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 relative overflow-x-hidden flex flex-col">
       
-      {/* Integrated Compact Header */}
+      {/* Header Container */}
       <header className="max-w-5xl mx-auto w-full border-b border-gray-800/80 pb-3 mb-3 flex flex-row justify-between items-center gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
@@ -184,14 +184,14 @@ export default function ClaimPage({
           </span>
         </div>
 
-        {/* Independent Accreditation Badge */}
+        {/* Updated Badge: Clean Verified Accreditation Status */}
         <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">INDEPENDENT ACCREDITATION</span>
+          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">VERIFIED ACCREDITATION</span>
         </div>
       </header>
 
-      {/* Relocated Navigation Element */}
+      {/* Navigation Return Link */}
       <div className="max-w-5xl mx-auto w-full mb-3">
         <Link 
           href="/" 
@@ -202,7 +202,7 @@ export default function ClaimPage({
         </Link>
       </div>
 
-      {/* Order Confirmation Banner */}
+      {/* Confirmation Order Banner */}
       {isOrderSuccess && (
         <div className="max-w-5xl mx-auto w-full mb-3 bg-emerald-950/60 border border-emerald-500/50 rounded-xl p-4 shadow-xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -212,7 +212,7 @@ export default function ClaimPage({
             <div>
               <h3 className="font-mono font-bold text-xs text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
               <p className="text-[11px] text-gray-300 font-sans mt-0.5">
-                Payment verified. Your independent commemorative metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
+                Payment verified. Your commemorative metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
               </p>
             </div>
           </div>
@@ -222,7 +222,7 @@ export default function ClaimPage({
         </div>
       )}
 
-      {/* Temporal Validity Info */}
+      {/* Validity Banner */}
       <div className="max-w-5xl mx-auto w-full mb-3 grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
         <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 flex items-center gap-3 shadow-md">
           <Calendar className="w-3.5 h-3.5 text-[#00E5FF] shrink-0" />
@@ -245,11 +245,11 @@ export default function ClaimPage({
 
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch pb-6">
         
-        {/* Left Column: Showcase Container */}
+        {/* Left Showcase Box */}
         <div className="bg-[#070A10] border border-gray-800 rounded-xl p-4 flex flex-col justify-between items-center text-center shadow-xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-32 h-32 bg-[#00E5FF]/10 rounded-full blur-2xl pointer-events-none" />
 
-          {/* Tab Selector */}
+          {/* Switcher Tab */}
           <div className="flex items-center gap-2 p-1 bg-black/60 border border-gray-800 rounded-xl mb-3 w-full">
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
@@ -275,7 +275,7 @@ export default function ClaimPage({
 
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-2">
             
-            {/* Preview Container with Integrated Download Action */}
+            {/* Download and Preview Viewport */}
             <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex flex-col items-center justify-center mb-2 overflow-hidden relative group shadow-lg p-2">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
@@ -286,7 +286,7 @@ export default function ClaimPage({
               <img 
                 key={currentPreviewUrl}
                 src={currentPreviewUrl}
-                alt={activeTab === 'plaque' ? "Independent Accreditation Badge" : "IOSA Physical Artifact Sample"}
+                alt={activeTab === 'plaque' ? "Accreditation Plaque Preview" : "IOSA Physical Artifact Sample"}
                 onLoad={() => setArtifactLoading(false)}
                 onError={(e) => {
                   setArtifactLoading(false);
@@ -295,7 +295,6 @@ export default function ClaimPage({
                 className={`w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
 
-              {/* Integrated Download Action inside Plaque Viewport */}
               {activeTab === 'plaque' && !artifactLoading && (
                 <div className="absolute bottom-2 inset-x-2 flex flex-col items-center z-20">
                   <a
@@ -311,7 +310,6 @@ export default function ClaimPage({
               )}
             </div>
 
-            {/* Micro-copy under viewport */}
             <p className="text-[10px] font-mono text-gray-400 mb-2 flex items-center justify-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes verified QR code for instant authenticity proof.
             </p>
@@ -326,7 +324,7 @@ export default function ClaimPage({
             <p className="text-[11px] font-mono text-gray-400">Viral Performance Index Accredited</p>
           </div>
 
-          {/* Accredited Post Details */}
+          {/* Post Metrics Details */}
           <div className="w-full mt-auto border-t border-gray-800/80 pt-3 text-left space-y-2 font-mono text-xs text-gray-300 bg-black/40 p-3 rounded-xl border border-gray-800/60">
             <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
               <span className="text-[9px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
@@ -369,24 +367,22 @@ export default function ClaimPage({
           </div>
         </div>
 
-        {/* Right Column: Support & Physical Award Form */}
+        {/* Right Column: Order Form with Single Consolidated Support Notice */}
         <div className="bg-[#070A10]/90 border border-gray-800 rounded-xl p-4 sm:p-5 shadow-xl flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Heart className="w-4 h-4 text-[#00E5FF]" />
+            <div className="flex items-center gap-2 mb-3">
+              <Heart className="w-5 h-5 text-[#00E5FF]" />
               <h1 className="text-xl font-extrabold font-mono">Support IOSA Research</h1>
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              IOSA is an independent data research project funded by community passion. All analytical reports and digital certificates are <span className="text-white font-semibold">100% free forever</span>. If you wish to support our open infrastructure, you can optionally order a physical commemorative award below.
-            </p>
 
-            <div className="bg-black/60 border border-gray-800 rounded-xl p-3 mb-4 text-xs font-mono space-y-2">
-              <div className="flex items-center gap-2 text-[#00E5FF] font-bold text-[11px]">
-                <Sparkles className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-                <span>100% Optional Support</span>
+            {/* Consolidated Support Box with Increased Font Size (text-sm / 14px) */}
+            <div className="bg-black/60 border border-gray-800 rounded-xl p-4 mb-4 font-mono space-y-2">
+              <div className="flex items-center gap-2 text-[#00E5FF] font-bold text-xs tracking-wide">
+                <Sparkles className="w-4 h-4 shrink-0 text-cyan-400" />
+                <span>100% OPTIONAL SUPPORT</span>
               </div>
-              <p className="text-gray-400 font-sans text-[11px] leading-relaxed">
-                Your support directly powers our open-source tracking nodes and algorithm audits. Thank you in advance if you decide to support us!
+              <p className="text-sm font-sans text-gray-300 leading-relaxed">
+                Digital plaques and analytical reports are <span className="text-white font-semibold">100% free forever</span>. Ordering a physical trophy is completely optional and directly powers our open-source tracking nodes and algorithm audits.
               </p>
             </div>
 
@@ -410,10 +406,10 @@ export default function ClaimPage({
         </div>
       </div>
 
-      {/* Mandatory Non-Affiliation Disclaimer to prevent platform trademark disputes */}
+      {/* Footer Disclaimer */}
       <footer className="max-w-5xl mx-auto w-full mt-6 pt-4 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
         <p>
-          <strong className="text-gray-400">INDEPENDENT PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent non-profit data research initiative. This platform and its metric certifications (VPI) are not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, or any other third-party social media platform.
+          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent non-profit data research initiative. This platform and its metric certifications (VPI) are not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, or any other third-party social media platform.
         </p>
       </footer>
     </main>

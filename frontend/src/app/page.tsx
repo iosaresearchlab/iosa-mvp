@@ -30,6 +30,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// English comment: Define active modal state type for transparent user policy dialogs
+type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
+
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
@@ -39,7 +42,9 @@ export default function Home() {
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
   const [campaignDates, setCampaignDates] = useState({ start: '', end: '' });
-  const [showFaqModal, setShowFaqModal] = useState<boolean>(false);
+  
+  // Modal management state
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showFormulaTooltip, setShowFormulaTooltip] = useState<boolean>(false);
 
   useEffect(() => {
@@ -194,7 +199,7 @@ export default function Home() {
 
         <div className="flex items-center gap-2 md:gap-3">
           <button
-            onClick={() => setShowFaqModal(true)}
+            onClick={() => setActiveModal('faq')}
             className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5 text-[#00E5FF]" />
@@ -237,77 +242,55 @@ export default function Home() {
               <Calendar className="w-3 h-3 text-[#00E5FF]" />
               <span>Rolling Window: <strong>{campaignDates.start} - {campaignDates.end}</strong></span>
             </div>
-
-            {/* Formula Tooltip Trigger */}
-            <div className="relative inline-block">
-              <button
-                onMouseEnter={() => setShowFormulaTooltip(true)}
-                onMouseLeave={() => setShowFormulaTooltip(false)}
-                onClick={() => setShowFormulaTooltip(!showFormulaTooltip)}
-                className="flex items-center gap-1 bg-cyan-950/80 border border-cyan-500/40 hover:border-[#00E5FF] px-2 py-0.5 rounded text-[10px] text-[#00E5FF] font-bold cursor-pointer transition-colors"
-              >
-                <Calculator className="w-3 h-3" />
-                <span>VPI = E<sub>act</sub> / E<sub>base</sub></span>
-              </button>
-
-              {showFormulaTooltip && (
-                <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#0B101B] border border-cyan-500/60 p-2.5 rounded-lg shadow-2xl z-50 text-[10px] font-sans text-gray-300 space-y-1">
-                  <div className="font-mono font-bold text-white border-b border-gray-800 pb-1 flex justify-between">
-                    <span>VIRAL PERFORMANCE INDEX</span>
-                    <span className="text-[#00E5FF]">FORMULA</span>
-                  </div>
-                  <p className="leading-tight pt-0.5">
-                    Calculated as <strong className="text-white">Actual Views (E<sub>act</sub>)</strong> divided by creator's <strong className="text-white">Historical 10-Post Median (E<sub>base</sub>)</strong>.
-                  </p>
-                  <p className="text-gray-400 italic text-[9px]">
-                    Only values with VPI &gt; 1.0x are indexed.
-                  </p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-xl p-3 md:p-4 relative shadow-xl">
+        <section className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-xl p-4 md:p-6 relative shadow-xl">
           <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E5FF]/10 rounded-full blur-3xl" />
           </div>
 
-          <div className="relative z-10 max-w-3xl mx-auto text-center">
-            <div className="inline-flex items-center gap-1 text-[9px] font-mono text-[#00E5FF] bg-cyan-950/50 border border-cyan-500/30 px-2 py-0.5 rounded-full mb-1">
+          <div className="relative z-10 max-w-4xl mx-auto text-center">
+            <div className="inline-flex items-center gap-1 text-[9px] font-mono text-[#00E5FF] bg-cyan-950/50 border border-cyan-500/30 px-2.5 py-0.5 rounded-full mb-2">
               <Sparkles className="w-2.5 h-2.5" /> INDEPENDENT PUBLIC TREND INDEX
             </div>
 
-            <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight text-white mb-1 leading-tight">
+            <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white mb-2 leading-tight">
               Did Your Content Outperform Statistical Baselines?
             </h1>
 
-            <p className="text-gray-400 text-[11px] leading-tight mb-2 font-sans max-w-lg mx-auto">
+            <p className="text-gray-400 text-xs md:text-sm leading-relaxed mb-4 font-sans max-w-2xl mx-auto">
               Search handle or URL to view observed public metric data within active 15-day window.
             </p>
 
-            {/* Direct Prominent Notice Banner */}
-            <p className="text-[10px] font-mono text-gray-400 bg-black/40 border border-gray-800/80 px-3 py-1.5 rounded-lg max-w-xl mx-auto mb-3 text-center">
-              <strong className="text-gray-300">Notice:</strong> IOSA is a fully independent third-party research index. We are not affiliated, associated, authorized, endorsed by, or in any way officially connected with YouTube, TikTok, Instagram, or Meta.
-            </p>
+            {/* English comment: WHO WE ARE presentation banner - full width, enlarged text */}
+            <div className="w-full bg-black/60 border border-cyan-500/30 rounded-xl p-4 mb-5 text-left font-sans shadow-lg">
+              <span className="text-[11px] font-mono font-bold tracking-widest text-[#00E5FF] uppercase block mb-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" /> WHO WE ARE
+              </span>
+              <p className="text-xs md:text-sm text-gray-200 leading-relaxed font-sans">
+                The Institute for Open Social Analytics (IOSA) is an independent, non-profit data research initiative dedicated to auditing public social media metrics against statistical baselines. We provide open-access trend data and digital metric verifications. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
+              </p>
+            </div>
 
-            <div className="relative max-w-lg mx-auto z-30">
+            {/* Search Bar Container */}
+            <div className="relative max-w-xl mx-auto z-30 mb-5">
               <div className="relative flex items-center bg-black/90 border border-cyan-500/50 rounded-xl p-1 shadow-2xl focus-within:border-[#00E5FF] transition-all">
-                <Search className="w-3.5 h-3.5 text-[#00E5FF] ml-2 mr-1.5" />
+                <Search className="w-4 h-4 text-[#00E5FF] ml-2.5 mr-2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search handle (e.g. @MrBeast) or video link..."
-                  className="w-full bg-transparent text-white placeholder-gray-500 text-xs focus:outline-none font-mono py-0.5"
+                  className="w-full bg-transparent text-white placeholder-gray-500 text-xs md:text-sm focus:outline-none font-mono py-1"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
                     className="p-1 text-gray-500 hover:text-white font-mono"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -346,21 +329,34 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-2 font-mono text-center max-w-xl mx-auto mt-2.5 border-t border-gray-800/80 pt-2">
-            <div>
-              <div className="text-[8px] text-gray-500 uppercase">INDEXED OUTLIERS</div>
-              <div className="text-sm font-black text-white">{posts.length}</div>
+            {/* English comment: Integrated VPI Formula into the Hero Metrics Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-center w-full border-t border-gray-800/80 pt-4 bg-black/40 p-3.5 rounded-xl border border-gray-800/60">
+              <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
+                <div className="text-[9px] text-[#00E5FF] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                  <Calculator className="w-3 h-3" /> VPI FORMULA
+                </div>
+                <div className="text-xs md:text-sm font-black text-[#00E5FF] font-mono">
+                  VPI = E<sub>act</sub> / E<sub>base</sub>
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">INDEXED OUTLIERS</div>
+                <div className="text-sm md:text-base font-black text-white">{posts.length}</div>
+              </div>
+
+              <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">AVG SPIKE RATIO</div>
+                <div className="text-sm md:text-base font-black text-[#00E5FF]">{avgSpike}</div>
+              </div>
+
+              <div className="flex flex-col justify-center items-center">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">NODE STATUS</div>
+                <div className="text-sm md:text-base font-black text-emerald-400">ACTIVE</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[8px] text-gray-500 uppercase">AVG SPIKE RATIO</div>
-              <div className="text-sm font-black text-[#00E5FF]">{avgSpike}</div>
-            </div>
-            <div>
-              <div className="text-[8px] text-gray-500 uppercase">NODE STATUS</div>
-              <div className="text-sm font-black text-emerald-400">ACTIVE</div>
-            </div>
+
           </div>
         </section>
 
@@ -572,67 +568,186 @@ export default function Home() {
         </section>
       </div>
 
-      {/* FAQ & Governance Modal */}
-      {showFaqModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+      {/* English comment: Unified Pop-up Dialog Modals (FAQ, Privacy, Terms, Methodology) */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-[#0B101B] border border-cyan-500/50 rounded-2xl max-w-xl w-full p-5 max-h-[85vh] overflow-y-auto relative shadow-2xl">
             <button
-              onClick={() => setShowFaqModal(false)}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-white font-mono"
+              onClick={() => setActiveModal(null)}
+              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-white font-mono cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
-              <ShieldCheck className="w-4 h-4" /> TRANSPARENCY & GOVERNANCE FAQ
-            </div>
+            {/* FAQ Modal */}
+            {activeModal === 'faq' && (
+              <>
+                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
+                  <ShieldCheck className="w-4 h-4" /> TRANSPARENCY & GOVERNANCE FAQ
+                </div>
 
-            <h2 className="text-xl font-bold font-mono text-white mb-4">
-              Frequently Asked Questions
-            </h2>
+                <h2 className="text-xl font-bold font-mono text-white mb-4">
+                  Frequently Asked Questions
+                </h2>
 
-            <div className="space-y-4 font-sans text-xs">
-              <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
-                <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Are digital metric cards really 100% free?
-                </h3>
-                <p className="text-gray-300 leading-relaxed">
-                  Yes, absolutely. Generating, viewing, and downloading digital metric cards and summary graphics is completely free forever.
-                </p>
-              </div>
+                <div className="space-y-4 font-sans text-xs">
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
+                    <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Are digital metric cards really 100% free?
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Yes, absolutely. Generating, viewing, and downloading digital metric cards and summary graphics is completely free forever.
+                    </p>
+                  </div>
 
-              <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
-                <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Is IOSA affiliated with YouTube, TikTok, or Meta?
-                </h3>
-                <p className="text-gray-300 leading-relaxed">
-                  No. IOSA is an independent third-party research project. We process publicly accessible data to provide objective trend analytics. We are not affiliated with, endorsed by, or officially connected with YouTube, TikTok, Instagram, or Meta.
-                </p>
-              </div>
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
+                    <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Is IOSA affiliated with YouTube, TikTok, or Meta?
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      No. IOSA is an independent third-party research project. We process publicly accessible data to provide objective trend analytics. We are not affiliated with, endorsed by, or officially connected with YouTube, TikTok, Instagram, or Meta.
+                    </p>
+                  </div>
 
-              <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
-                <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> How is the VPI Ratio calculated?
-                </h3>
-                <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
-                  VPI = Actual Views / Historical Baseline Views. If a creator averages 10,000 views and a video reaches 150,000 views within 15 days, their VPI is 15.0x.
-                </p>
-              </div>
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
+                    <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> How is the VPI Ratio calculated?
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
+                      VPI = Actual Views / Historical Baseline Views. If a creator averages 10,000 views and a video reaches 150,000 views within 15 days, their VPI is 15.0x.
+                    </p>
+                  </div>
 
-              <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
-                <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Are physical mementos mandatory?
-                </h3>
-                <p className="text-gray-300 leading-relaxed">
-                  No. Physical mementos are purely unofficial souvenirs (100% free of platform logos or trademarks) available for creators who wish to celebrate their milestone.
-                </p>
-              </div>
-            </div>
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
+                    <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Are physical mementos mandatory?
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      No. Physical mementos are purely unofficial souvenirs (100% free of platform logos or trademarks) available for creators who wish to celebrate their milestone.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Privacy Policy Modal */}
+            {activeModal === 'privacy' && (
+              <>
+                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" /> DATA GOVERNANCE & PRIVACY
+                </div>
+
+                <h2 className="text-xl font-bold font-mono text-white mb-4">
+                  Privacy Policy
+                </h2>
+
+                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">1. Public Metric Data Processing</h3>
+                    <p>
+                      IOSA strictly collects and processes publicly visible metrics (view counts, channel handles, publication timestamps) provided directly by social platform APIs. No private personal data, confidential credentials, or tracking cookies are collected.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">2. Optional Checkout Information</h3>
+                    <p>
+                      When ordering physical mementos, email and shipping details are processed exclusively via encrypted Stripe checkout endpoints for order fulfillment. We never sell, share, or store financial credentials on our servers.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">3. Right to Removal & Corrections</h3>
+                    <p>
+                      Creators wishing to remove their public record index or update verified parameters can contact our governance desk at <a href="mailto:contact@iosa-analytics.org" className="text-[#00E5FF] underline">contact@iosa-analytics.org</a>. Requests are handled within 48 hours.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Terms of Service Modal */}
+            {activeModal === 'terms' && (
+              <>
+                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
+                  <FileText className="w-4 h-4 text-cyan-400" /> LEGAL TERMS & CONDITIONS
+                </div>
+
+                <h2 className="text-xl font-bold font-mono text-white mb-4">
+                  Terms of Service
+                </h2>
+
+                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">1. Open Access Public Index</h3>
+                    <p>
+                      IOSA provides digital accreditation records and trend indices free of charge for research, statistical monitoring, and public reference. All digital cards are released under public fair use principles.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">2. Third-Party Platform Non-Affiliation</h3>
+                    <p>
+                      IOSA is an independent analytics project. All product names, logos, and brands are property of their respective owners (YouTube, Google LLC, TikTok/ByteDance, Instagram/Meta, X Corp). Their use does not imply any affiliation or endorsement.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">3. Physical Mementos & Souvenirs</h3>
+                    <p>
+                      Optional physical trophies are produced independently as commemorative souvenirs covering manufacturing at cost plus shipping. Trophies do not contain trademarked platform logos or official brand badges.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* VPI Methodology Standard Modal */}
+            {activeModal === 'methodology' && (
+              <>
+                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
+                  <Calculator className="w-4 h-4 text-[#00E5FF]" /> STATISTICAL AUDIT STANDARD
+                </div>
+
+                <h2 className="text-xl font-bold font-mono text-white mb-4">
+                  VPI Methodology Standard
+                </h2>
+
+                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
+                  <div className="bg-black/40 border border-cyan-500/30 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-[#00E5FF] font-mono text-xs">Mathematical Formulation</h3>
+                    <p className="font-mono text-sm text-white bg-black p-2 rounded border border-gray-800 text-center">
+                      VPI = E<sub>act</sub> / E<sub>base</sub>
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Where <strong>E<sub>act</sub></strong> is the observed public view count within the evaluation window, and <strong>E<sub>base</sub></strong> is the median baseline of the creator's preceding 10 public uploads.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">Outlier Qualification Thresholds</h3>
+                    <ul className="list-disc list-inside space-y-1 text-gray-300">
+                      <li><strong>LVL 1 — SURGE:</strong> VPI ratio between +1.5x and +2.9x baseline.</li>
+                      <li><strong>LVL 2 — BREAKOUT:</strong> VPI ratio between +3.0x and +4.9x baseline.</li>
+                      <li><strong>LVL 3 — VIRAL:</strong> VPI ratio between +5.0x and +9.9x baseline.</li>
+                      <li><strong>LVL 5 — OUTLIER:</strong> VPI ratio exceeding +10.0x baseline.</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
+                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">15-Day Rolling Audit Window</h3>
+                    <p>
+                      Posts are monitored continuously across active 15-day windows. Indices are recalculated automatically to ensure baseline integrity against artificial spikes.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="mt-5 pt-3 border-t border-gray-800 flex justify-end">
               <button
-                onClick={() => setShowFaqModal(false)}
-                className="bg-[#00E5FF] hover:bg-cyan-400 text-black font-mono font-bold text-xs px-4 py-2 rounded-lg transition-colors"
+                onClick={() => setActiveModal(null)}
+                className="bg-[#00E5FF] hover:bg-cyan-400 text-black font-mono font-bold text-xs px-4 py-2 rounded-lg transition-colors cursor-pointer"
               >
                 Got it, Close
               </button>
@@ -666,21 +781,30 @@ export default function Home() {
             <span className="text-white font-bold text-xs tracking-wider uppercase block border-b border-gray-800 pb-1">
               Governance & Legal
             </span>
-            <ul className="space-y-1.5 text-[11px]">
+            <ul className="space-y-2 text-[11px]">
               <li>
-                <Link href="/privacy" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5">
+                <button 
+                  onClick={() => setActiveModal('privacy')} 
+                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                >
                   <ShieldCheck className="w-3 h-3 text-cyan-400" /> Privacy Policy
-                </Link>
+                </button>
               </li>
               <li>
-                <Link href="/terms" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5">
+                <button 
+                  onClick={() => setActiveModal('terms')} 
+                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                >
                   <FileText className="w-3 h-3 text-cyan-400" /> Terms of Service
-                </Link>
+                </button>
               </li>
               <li>
-                <Link href="/methodology" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5">
+                <button 
+                  onClick={() => setActiveModal('methodology')} 
+                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                >
                   <Info className="w-3 h-3 text-cyan-400" /> VPI Methodology Standard
-                </Link>
+                </button>
               </li>
             </ul>
           </div>

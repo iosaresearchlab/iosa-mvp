@@ -24,17 +24,17 @@ export default function ClaimForm({
   buttonText = 'Support IOSA: Order Trophy ($19.00)',
   buttonSubtext = '100% optional. Thank you for supporting open data analytics!',
 }: ClaimFormProps) {
-  // Resolve creator handle safely whether passed directly or via postData
+  // Safe creator handle fallback
   const activeAuthor = authorHandle || postData?.author || 'Creator';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  // English comment: Updated productType label to explicitly clarify independent status and cost coverage
+  // Product type value remains consistent for backend processing
   const [productType, setProductType] = useState('Independent Commemorative Award ($19.00)');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Syntax validation for email
+  // Basic email syntax validation
   const isValidEmail = (emailStr: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr);
   };
@@ -43,7 +43,6 @@ export default function ClaimForm({
     e.preventDefault();
     setErrorMsg('');
 
-    // Pre-flight frontend checks
     if (!name.trim()) {
       setErrorMsg('Please enter the recipient full name.');
       return;
@@ -74,7 +73,6 @@ export default function ClaimForm({
       if (!res.ok) {
         let detailMsg = 'Failed to create Stripe checkout session.';
         
-        // Safely parse Pydantic/FastAPI validation detail arrays or strings
         if (typeof data.detail === 'string') {
           detailMsg = data.detail;
         } else if (Array.isArray(data.detail)) {
@@ -139,7 +137,7 @@ export default function ClaimForm({
           className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-[#00E5FF] focus:outline-none focus:border-[#00E5FF]"
         >
           <option value="Independent Commemorative Award ($19.00)">
-            Independent Commemorative Award ($19.00 — Production at cost + shipping calculated at checkout)
+            Commemorative Award ($19.00 — Production at cost + shipping calculated at checkout)
           </option>
         </select>
       </div>
