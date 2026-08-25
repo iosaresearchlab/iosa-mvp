@@ -227,56 +227,44 @@ export default function Home() {
       </header>
 
       {/* Main Content Area */}
-      <div className="pt-16 pb-6 px-3 md:px-8 max-w-6xl mx-auto space-y-2.5 flex-grow w-full">
+      <div className="pt-14 pb-5 px-3 md:px-8 max-w-6xl mx-auto space-y-2 flex-grow w-full">
         
-        {/* Consolidated Header Banner */}
-        <div className="bg-gradient-to-r from-cyan-950/70 via-black to-cyan-950/70 border border-cyan-500/30 rounded-xl p-2 px-3 text-xs font-mono text-gray-300 flex flex-wrap items-center justify-between gap-2 shadow-md">
-          <div className="flex items-center gap-2">
-            <Heart className="w-3.5 h-3.5 text-[#00E5FF] shrink-0" />
-            <span className="text-[10px] leading-tight">
-              <strong className="text-white">INDEPENDENT RESEARCH PROJECT:</strong> 100% free public metric index & digital record cards.
+        {/* Top Section: WHO WE ARE (Replaces redundant banner) */}
+        <section className="bg-gradient-to-r from-cyan-950/60 via-black to-cyan-950/60 border border-cyan-500/30 rounded-xl p-3 px-4 shadow-md font-sans">
+          <div className="flex items-center gap-2 mb-1">
+            <Building2 className="w-4 h-4 text-[#00E5FF] shrink-0" />
+            <span className="text-[11px] font-mono font-bold tracking-widest text-[#00E5FF] uppercase">
+              WHO WE ARE
             </span>
           </div>
-
-          <div className="flex items-center gap-3 text-[10px]">
-            <div className="flex items-center gap-1 text-cyan-300">
-              <Calendar className="w-3 h-3 text-[#00E5FF]" />
-              <span>Rolling Window: <strong>{campaignDates.start} - {campaignDates.end}</strong></span>
-            </div>
-          </div>
-        </div>
+          <p className="text-xs md:text-xs text-gray-300 leading-relaxed font-sans">
+            The Institute for Open Social Analytics (IOSA) is an independent, non-profit data research initiative dedicated to auditing public social media metrics against statistical baselines. We provide open-access trend data and digital metric verifications. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
+          </p>
+        </section>
 
         {/* Hero Section */}
-        <section className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-xl p-4 md:p-6 relative shadow-xl">
+        <section className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-xl p-3.5 md:p-5 relative shadow-xl">
           <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E5FF]/10 rounded-full blur-3xl" />
           </div>
 
           <div className="relative z-10 max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-1 text-[9px] font-mono text-[#00E5FF] bg-cyan-950/50 border border-cyan-500/30 px-2.5 py-0.5 rounded-full mb-2">
-              <Sparkles className="w-2.5 h-2.5" /> INDEPENDENT PUBLIC TREND INDEX
+            {/* Rolling Window Badge replacing independent trend index badge */}
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-3 py-0.5 rounded-full mb-2">
+              <Calendar className="w-3 h-3 text-[#00E5FF]" />
+              <span>Rolling Window: <strong className="text-white">{campaignDates.start} — {campaignDates.end}</strong></span>
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white mb-2 leading-tight">
+            <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight text-white mb-1 leading-tight">
               Did Your Content Outperform Statistical Baselines?
             </h1>
 
-            <p className="text-gray-400 text-xs md:text-sm leading-relaxed mb-4 font-sans max-w-2xl mx-auto">
+            <p className="text-gray-400 text-xs md:text-xs leading-relaxed mb-3 font-sans max-w-2xl mx-auto">
               Search handle or URL to view observed public metric data within active 15-day window.
             </p>
 
-            {/* English comment: WHO WE ARE presentation banner - Building2 icon update */}
-            <div className="w-full bg-black/60 border border-cyan-500/30 rounded-xl p-4 mb-5 text-left font-sans shadow-lg">
-              <span className="text-[11px] font-mono font-bold tracking-widest text-[#00E5FF] uppercase block mb-1 flex items-center gap-1.5">
-                <Building2 className="w-4 h-4" /> WHO WE ARE
-              </span>
-              <p className="text-xs md:text-sm text-gray-200 leading-relaxed font-sans">
-                The Institute for Open Social Analytics (IOSA) is an independent, non-profit data research initiative dedicated to auditing public social media metrics against statistical baselines. We provide open-access trend data and digital metric verifications. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
-              </p>
-            </div>
-
             {/* Search Bar Container */}
-            <div className="relative max-w-xl mx-auto z-30 mb-5">
+            <div className="relative max-w-xl mx-auto z-30 mb-3.5">
               <div className="relative flex items-center bg-black/90 border border-cyan-500/50 rounded-xl p-1 shadow-2xl focus-within:border-[#00E5FF] transition-all">
                 <Search className="w-4 h-4 text-[#00E5FF] ml-2.5 mr-2" />
                 <input
@@ -331,10 +319,10 @@ export default function Home() {
               )}
             </div>
 
-            {/* English comment: Updated VPI Formula block - removed icon and updated font color to white */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-center w-full border-t border-gray-800/80 pt-4 bg-black/40 p-3.5 rounded-xl border border-gray-800/60">
+            {/* VPI Formula & Key Stats Box Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-center w-full border-t border-gray-800/80 pt-3 bg-black/40 p-2.5 rounded-xl border border-gray-800/60">
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-white font-bold uppercase tracking-wider mb-0.5">
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">
                   VPI FORMULA
                 </div>
                 <div className="text-xs md:text-sm font-black text-[#00E5FF] font-mono">
@@ -422,7 +410,7 @@ export default function Home() {
 
         {/* Directory Table */}
         <section id="directory-table" className="bg-[#070A10] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-          <div className="p-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
+          <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
             <div className="flex items-center gap-2">
               <span>
                 ACTIVE INDEX: <strong className="text-white">{filteredPosts.length} OUTLIERS</strong>
@@ -448,7 +436,7 @@ export default function Home() {
                 return (
                   <div
                     key={post.id || index}
-                    className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-900/40 transition-colors"
+                    className="p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-900/40 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="font-mono text-gray-600 font-bold text-xs w-5">
@@ -523,7 +511,7 @@ export default function Home() {
                 );
               })
             ) : (
-              <div className="p-10 text-center text-gray-500 font-mono text-xs">
+              <div className="p-8 text-center text-gray-500 font-mono text-xs">
                 NO STATISTICAL OUTLIERS MATCHING YOUR SEARCH/FILTERS.
               </div>
             )}
@@ -531,18 +519,18 @@ export default function Home() {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="pt-3">
-          <div className="text-center mb-3">
+        <section id="how-it-works" className="pt-2">
+          <div className="text-center mb-2.5">
             <h2 className="text-[9px] font-mono tracking-widest text-[#00E5FF] uppercase font-bold mb-0.5">
               INDEPENDENT ANALYTICAL FRAMEWORK
             </h2>
-            <p className="text-base font-extrabold font-mono text-white">
+            <p className="text-sm md:text-base font-extrabold font-mono text-white">
               From Algorithmic Surge to Open Statistical Analysis
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <div className="bg-[#070A10] border border-gray-800 p-3.5 rounded-xl relative overflow-hidden">
+            <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Zap className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">1. Open Data Audit</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
@@ -550,7 +538,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-[#070A10] border border-gray-800 p-3.5 rounded-xl relative overflow-hidden">
+            <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <BarChart3 className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">2. Free Metric Summary</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
@@ -558,7 +546,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-[#070A10] border border-gray-800 p-3.5 rounded-xl relative overflow-hidden">
+            <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Award className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Unofficial Fan-Art & Souvenirs</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
@@ -569,7 +557,7 @@ export default function Home() {
         </section>
       </div>
 
-      {/* English comment: Unified Pop-up Dialog Modals (FAQ, Privacy, Terms, Methodology) */}
+      {/* Pop-up Dialog Modals (FAQ, Privacy, Terms, Methodology) */}
       {activeModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-[#0B101B] border border-cyan-500/50 rounded-2xl max-w-xl w-full p-5 max-h-[85vh] overflow-y-auto relative shadow-2xl">
