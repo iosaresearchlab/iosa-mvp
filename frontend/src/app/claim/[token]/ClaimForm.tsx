@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, Loader2, AlertCircle } from 'lucide-react';
+import { Heart, Loader2, AlertCircle } from 'lucide-react';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -9,19 +9,28 @@ interface ClaimFormProps {
   claimToken: string;
   authorHandle?: string;
   postData?: { author?: string };
+  buttonText?: string;
+  buttonSubtext?: string;
 }
 
 interface ValidationError {
   msg?: string;
 }
 
-export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimFormProps) {
+export default function ClaimForm({
+  claimToken,
+  authorHandle,
+  postData,
+  buttonText = 'Support IOSA: Order Trophy ($19.00)',
+  buttonSubtext = '100% optional. Thank you for supporting open data analytics!',
+}: ClaimFormProps) {
   // Resolve creator handle safely whether passed directly or via postData
   const activeAuthor = authorHandle || postData?.author || 'Creator';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [productType, setProductType] = useState('Official Commemorative Mug ($19.00)');
+  // English comment: Updated productType label to explicitly clarify independent status and cost coverage
+  const [productType, setProductType] = useState('Independent Commemorative Award ($19.00)');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -123,31 +132,38 @@ export default function ClaimForm({ claimToken, authorHandle, postData }: ClaimF
       </div>
 
       <div>
-        <label className="block text-xs font-mono text-gray-400 mb-1">TROPHY TYPE</label>
+        <label className="block text-xs font-mono text-gray-400 mb-1">TROPHY TYPE (OPTIONAL SUPPORT)</label>
         <select
           value={productType}
           onChange={(e) => setProductType(e.target.value)}
           className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-[#00E5FF] focus:outline-none focus:border-[#00E5FF]"
         >
-          <option value="Official Commemorative Mug ($19.00)">
-            Official Commemorative Mug ($19.00 + shipping calculated at checkout)
+          <option value="Independent Commemorative Award ($19.00)">
+            Independent Commemorative Award ($19.00 — Production at cost + shipping calculated at checkout)
           </option>
         </select>
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold py-3.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 mt-4 disabled:opacity-50 cursor-pointer"
-      >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <>
-            <Zap className="w-4 h-4 fill-black" /> Proceed to Secure Checkout
-          </>
+      <div className="mt-4">
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold py-3.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg shadow-[#00E5FF]/10 font-mono"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Heart className="w-4 h-4 fill-black" /> {buttonText}
+            </>
+          )}
+        </button>
+        {buttonSubtext && (
+          <span className="text-[10px] font-mono text-gray-400 block text-center mt-2 leading-tight">
+            {buttonSubtext}
+          </span>
         )}
-      </button>
+      </div>
     </form>
   );
 }

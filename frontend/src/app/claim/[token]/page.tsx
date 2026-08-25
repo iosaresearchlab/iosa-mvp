@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -184,10 +184,10 @@ export default function ClaimPage({
           </span>
         </div>
 
-        {/* Verified Accreditation Badge with Green Shield */}
+        {/* Independent Accreditation Badge */}
         <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">VERIFIED ACCREDITATION</span>
+          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">INDEPENDENT ACCREDITATION</span>
         </div>
       </header>
 
@@ -212,7 +212,7 @@ export default function ClaimPage({
             <div>
               <h3 className="font-mono font-bold text-xs text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
               <p className="text-[11px] text-gray-300 font-sans mt-0.5">
-                Payment verified. Your official metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
+                Payment verified. Your independent commemorative metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
               </p>
             </div>
           </div>
@@ -273,10 +273,10 @@ export default function ClaimPage({
             </button>
           </div>
 
-          <div className="w-full flex flex-col items-center flex-grow justify-center mb-3">
+          <div className="w-full flex flex-col items-center flex-grow justify-center mb-2">
             
-            {/* Preview Container */}
-            <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex items-center justify-center mb-3 overflow-hidden relative group shadow-lg p-2">
+            {/* Preview Container with Integrated Download Action */}
+            <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex flex-col items-center justify-center mb-2 overflow-hidden relative group shadow-lg p-2">
               {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
@@ -286,7 +286,7 @@ export default function ClaimPage({
               <img 
                 key={currentPreviewUrl}
                 src={currentPreviewUrl}
-                alt={activeTab === 'plaque' ? "Official Accreditation Badge" : "IOSA Physical Artifact Sample"}
+                alt={activeTab === 'plaque' ? "Independent Accreditation Badge" : "IOSA Physical Artifact Sample"}
                 onLoad={() => setArtifactLoading(false)}
                 onError={(e) => {
                   setArtifactLoading(false);
@@ -294,7 +294,27 @@ export default function ClaimPage({
                 }}
                 className={`w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
               />
+
+              {/* Integrated Download Action inside Plaque Viewport */}
+              {activeTab === 'plaque' && !artifactLoading && (
+                <div className="absolute bottom-2 inset-x-2 flex flex-col items-center z-20">
+                  <a
+                    href={plaquePreviewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={`${trophyPayload.author}_VPI_Plaque.png`}
+                    className="w-full py-2 px-3 bg-[#00E5FF] hover:bg-[#00B4D8] text-black font-mono font-bold text-xs rounded-lg shadow-xl flex items-center justify-center gap-2 transition-all backdrop-blur-md"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download Digital Plaque (.PNG)
+                  </a>
+                </div>
+              )}
             </div>
+
+            {/* Micro-copy under viewport */}
+            <p className="text-[10px] font-mono text-gray-400 mb-2 flex items-center justify-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes verified QR code for instant authenticity proof.
+            </p>
 
             <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold uppercase mb-1.5">
               {post.vpi_level_name}
@@ -326,7 +346,7 @@ export default function ClaimPage({
             </div>
 
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-gray-500">DETECTION DATE:</span>
+              <span className="text-[#00E5FF]">DETECTION DATE:</span>
               <span className="text-[#00E5FF] font-medium">
                 {formattedDetectedDate}
               </span>
@@ -349,21 +369,24 @@ export default function ClaimPage({
           </div>
         </div>
 
-        {/* Right Column: Claim Form */}
+        {/* Right Column: Support & Physical Award Form */}
         <div className="bg-[#070A10]/90 border border-gray-800 rounded-xl p-4 sm:p-5 shadow-xl flex flex-col justify-between">
           <div>
-            <h1 className="text-xl font-extrabold mb-2 font-mono">Claim Physical Award</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="w-4 h-4 text-[#00E5FF]" />
+              <h1 className="text-xl font-extrabold font-mono">Support IOSA Research</h1>
+            </div>
             <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              Congratulations <span className="text-white font-semibold">{post.author_handle}</span>! Your post achieved a performance spike of <span className="text-[#00E5FF] font-bold">+{formattedVpi}x</span> over baseline. Claim your custom ceramic mug trophy directly from OSA.
+              IOSA is an independent data research project funded by community passion. All analytical reports and digital certificates are <span className="text-white font-semibold">100% free forever</span>. If you wish to support our open infrastructure, you can optionally order a physical commemorative award below.
             </p>
 
             <div className="bg-black/60 border border-gray-800 rounded-xl p-3 mb-4 text-xs font-mono space-y-2">
               <div className="flex items-center gap-2 text-[#00E5FF] font-bold text-[11px]">
                 <Sparkles className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
-                <span>Instant High-Res Customization</span>
+                <span>100% Optional Support</span>
               </div>
               <p className="text-gray-400 font-sans text-[11px] leading-relaxed">
-                Your award mug has been rendered dynamically with your handle and accredited score. Proceed to secure checkout to verify shipping details.
+                Your support directly powers our open-source tracking nodes and algorithm audits. Thank you in advance if you decide to support us!
               </p>
             </div>
 
@@ -372,7 +395,12 @@ export default function ClaimPage({
                 This claim token has expired. The 15-day validity window from publication has closed.
               </div>
             ) : (
-              <ClaimForm claimToken={token} postData={trophyPayload} />
+              <ClaimForm 
+                claimToken={token} 
+                postData={trophyPayload} 
+                buttonText="Support IOSA: Order Trophy ($19.00)"
+                buttonSubtext="100% optional. Thank you for supporting open data analytics!"
+              />
             )}
           </div>
 
@@ -381,6 +409,13 @@ export default function ClaimPage({
           </p>
         </div>
       </div>
+
+      {/* Mandatory Non-Affiliation Disclaimer to prevent platform trademark disputes */}
+      <footer className="max-w-5xl mx-auto w-full mt-6 pt-4 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
+        <p>
+          <strong className="text-gray-400">INDEPENDENT PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent non-profit data research initiative. This platform and its metric certifications (VPI) are not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, or any other third-party social media platform.
+        </p>
+      </footer>
     </main>
   );
 }
