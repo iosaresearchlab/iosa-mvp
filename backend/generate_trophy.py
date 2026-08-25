@@ -31,53 +31,15 @@ def format_count(val) -> str:
 
 
 def resolve_level_and_style(level_name: str, vpi_score: str):
-    """Calculates level name and dynamic color styling for all 10 distinct levels."""
-    vpi_num = 0.0
-    try:
-        cleaned_vpi = str(vpi_score).replace('+', '').replace('x', '').replace(',', '').strip()
-        vpi_num = float(cleaned_vpi)
-    except (ValueError, TypeError):
-        vpi_num = 1.0
-
-    # Determine computed level based on VPI thresholds
-    if vpi_num >= 100:
-        computed_level_num = 10
-        computed_name = "LVL 10 — APEX OUTLIER"
-    elif vpi_num >= 50:
-        computed_level_num = 9
-        computed_name = "LVL 9 — HYPER OUTLIER"
-    elif vpi_num >= 25:
-        computed_level_num = 8
-        computed_name = "LVL 8 — SUPER OUTLIER"
-    elif vpi_num >= 15:
-        computed_level_num = 7
-        computed_name = "LVL 7 — EXTREME OUTLIER"
-    elif vpi_num >= 10:
-        computed_level_num = 6
-        computed_name = "LVL 6 — MAJOR OUTLIER"
-    elif vpi_num >= 5:
-        computed_level_num = 5
-        computed_name = "LVL 5 — OUTLIER"
-    elif vpi_num >= 3:
-        computed_level_num = 4
-        computed_name = "LVL 4 — HIGH PERFORMANCE"
-    elif vpi_num >= 2:
-        computed_level_num = 3
-        computed_name = "LVL 3 — ABOVE AVERAGE"
-    elif vpi_num >= 1.5:
-        computed_level_num = 2
-        computed_name = "LVL 2 — MODERATE"
-    else:
-        computed_level_num = 1
-        computed_name = "LVL 1 — BASELINE"
-
-    if not level_name or level_name in ["LVL 5 — OUTLIER", "LVL 5 - OUTLIER"]:
-        final_level_name = computed_name
-    else:
-        final_level_name = level_name
-        match = re.search(r'LVL\s*(\d+)', level_name, re.IGNORECASE)
+    """Resolves level name and dynamic color styling based directly on DB level values without local recalculation."""
+    computed_level_num = 1
+    if level_name:
+        final_level_name = str(level_name)
+        match = re.search(r'(\d+)', str(level_name))
         if match:
             computed_level_num = int(match.group(1))
+    else:
+        final_level_name = "Lvl 1 - Standard"
 
     # Dynamic color styling for all 10 levels (High contrast palette)
     if computed_level_num >= 10:

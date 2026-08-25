@@ -57,7 +57,7 @@ class TrophyRequest(BaseModel):
     record_id: str = "REC_8F9A2B"
     author: str
     vpi_ratio: str
-    level_name: str = "LVL 5 — OUTLIER"
+    level_name: str = "Lvl 5 - Breakout"
     content_title: str
     date_str: str = "2026-08-20"
     e_act: str = "87.2K"
@@ -95,7 +95,8 @@ async def api_generate_trophy(data: TrophyRequest):
             e_act=data.e_act,
             e_base=data.e_base,
             gamma=data.gamma,
-            recorded_date=data.date_str
+            recorded_date=data.date_str,
+            level_name=data.level_name
         )
 
         product_id, variant_id = generate_and_publish_trophy(
@@ -128,27 +129,57 @@ async def get_trophy_preview(
 ):
     try:
         resolved_title = title
-        if not resolved_title or resolved_title == "Rick Astley - Never Gonna Give You Up":
-            if supabase:
-                try:
+        resolved_record_id = record_id
+        resolved_level_name = None
+
+        if supabase:
+            try:
+                res = None
+                if record_id and record_id != "PREVIEW_REC":
+                    res = supabase.table("posts").select("*").or_(f"claim_token.eq.{record_id},record_id.eq.{record_id}").execute()
+                
+                if not res or not res.data:
                     res = supabase.table("posts").select("*").eq("author_handle", author).execute()
-                    if res.data and len(res.data) > 0:
-                        post = res.data[0]
+
+                if res and res.data and len(res.data) > 0:
+                    post = res.data[0]
+                    if not resolved_title or resolved_title == "Rick Astley - Never Gonna Give You Up":
                         resolved_title = post.get("content_text") or post.get("title")
-                except Exception:
-                    pass
+                    
+                    # Utilizza strettamente la colonna claim_token per la generazione dell'URL QR
+                    claim_token = post.get("claim_token")
+                    if claim_token:
+                        resolved_record_id = str(claim_token)
+
+                    resolved_level_name = post.get("vpi_level_name")
+                    if post.get("vpi_ratio") and vpi == "+8.7x":
+                        raw_vpi = post.get("vpi_ratio")
+                        try:
+                            v_float = float(raw_vpi)
+                            vpi = f"+{v_float:.1f}x"
+                        except (ValueError, TypeError):
+                            vpi = str(raw_vpi)
+                            if not vpi.startswith("+"):
+                                vpi = f"+{vpi}"
+                    if post.get("engagement_score") and e_act == "87.2K":
+                        e_act = str(post.get("engagement_score"))
+                    if post.get("baseline_score") and e_base == "10.0K":
+                        e_base = str(post.get("baseline_score"))
+            except Exception as db_err:
+                print(f"Error fetching post details for trophy preview: {db_err}")
         
         if not resolved_title:
             resolved_title = "Viral Content Title"
 
         image_path = await generate_trophy_png(
-            record_id=record_id,
+            record_id=resolved_record_id,
             vpi_score=vpi,
             user_handle=author,
             content_title=resolved_title,
             e_act=e_act,
             e_base=e_base,
-            gamma=gamma
+            gamma=gamma,
+            level_name=resolved_level_name
         )
         return FileResponse(image_path, media_type="image/png")
     except Exception as e:
@@ -225,7 +256,6 @@ def create_checkout_session(req: CheckoutSessionRequest):
             payment_method_types=['card'],
             customer_email=req.email,
             shipping_address_collection={
-                # Strict allowed list for US, UK, and EU countries only
                 'allowed_countries': [
                     'US', 'GB', 'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 
                     'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 
@@ -382,14 +412,12 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             print(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
             traceback.print_exc()
             
-            # Update DB to signal failure to the frontend
             if supabase and claim_token:
                 try:
                     supabase.table("posts").update({"printify_product_id": "FAILED_ORDER_ERROR"}).eq("claim_token", claim_token).execute()
                 except Exception as db_err:
                     print(f"Failed to update DB error state: {db_err}")
                     
-            # Return HTTP 500 to Stripe so the webhook correctly registers as failed
             raise HTTPException(status_code=500, detail=f"Order fulfillment failed: {str(err)}")
 
     return {"status": "success"}
