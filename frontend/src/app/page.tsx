@@ -24,6 +24,7 @@ import {
   Download,
   Calculator,
   CheckCircle2,
+  Building2,
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -264,10 +265,10 @@ export default function Home() {
               Search handle or URL to view observed public metric data within active 15-day window.
             </p>
 
-            {/* English comment: WHO WE ARE presentation banner - full width, enlarged text */}
+            {/* English comment: WHO WE ARE presentation banner - Building2 icon update */}
             <div className="w-full bg-black/60 border border-cyan-500/30 rounded-xl p-4 mb-5 text-left font-sans shadow-lg">
               <span className="text-[11px] font-mono font-bold tracking-widest text-[#00E5FF] uppercase block mb-1 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4" /> WHO WE ARE
+                <Building2 className="w-4 h-4" /> WHO WE ARE
               </span>
               <p className="text-xs md:text-sm text-gray-200 leading-relaxed font-sans">
                 The Institute for Open Social Analytics (IOSA) is an independent, non-profit data research initiative dedicated to auditing public social media metrics against statistical baselines. We provide open-access trend data and digital metric verifications. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
@@ -330,11 +331,11 @@ export default function Home() {
               )}
             </div>
 
-            {/* English comment: Integrated VPI Formula into the Hero Metrics Grid */}
+            {/* English comment: Updated VPI Formula block - removed icon and updated font color to white */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-center w-full border-t border-gray-800/80 pt-4 bg-black/40 p-3.5 rounded-xl border border-gray-800/60">
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-[#00E5FF] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                  <Calculator className="w-3 h-3" /> VPI FORMULA
+                <div className="text-[9px] text-white font-bold uppercase tracking-wider mb-0.5">
+                  VPI FORMULA
                 </div>
                 <div className="text-xs md:text-sm font-black text-[#00E5FF] font-mono">
                   VPI = E<sub>act</sub> / E<sub>base</sub>
@@ -659,7 +660,7 @@ export default function Home() {
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
                     <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">3. Right to Removal & Corrections</h3>
                     <p>
-                      Creators wishing to remove their public record index or update verified parameters can contact our governance desk at <a href="mailto:contact@iosa-analytics.org" className="text-[#00E5FF] underline">contact@iosa-analytics.org</a>. Requests are handled within 48 hours.
+                      Creators wishing to remove their public record index or update verified parameters can contact our governance desk at <a href="mailto:iosa.research.lab@gmail.com" className="text-[#00E5FF] underline">iosa.research.lab@gmail.com</a>. Requests are handled within 48 hours.
                     </p>
                   </div>
                 </div>
@@ -773,7 +774,7 @@ export default function Home() {
             </p>
             <div className="flex items-center gap-2 text-[10px] text-[#00E5FF] pt-1">
               <Mail className="w-3.5 h-3.5" />
-              <a href="mailto:contact@iosa-analytics.org" className="hover:underline">contact@iosa-analytics.org</a>
+              <a href="mailto:iosa.research.lab@gmail.com" className="hover:underline">iosa.research.lab@gmail.com</a>
             </div>
           </div>
 
@@ -817,10 +818,10 @@ export default function Home() {
               Have questions about your VPI record or wish to contribute open analytical nodes?
             </p>
             <a 
-              href="mailto:contact@iosa-analytics.org"
+              href="mailto:iosa.research.lab@gmail.com"
               className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white border border-gray-700 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors"
             >
-              <Mail className="w-3 h-3 text-[#00E5FF]" /> contact@iosa-analytics.org
+              <Mail className="w-3 h-3 text-[#00E5FF]" /> iosa.research.lab@gmail.com
             </a>
           </div>
 
