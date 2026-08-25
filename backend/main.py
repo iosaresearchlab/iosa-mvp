@@ -135,11 +135,13 @@ async def get_trophy_preview(
         if supabase:
             try:
                 res = None
+                # 1. Ricerca prioritaria per ID o Claim Token univoco
                 if record_id and record_id != "PREVIEW_REC":
                     res = supabase.table("posts").select("*").or_(f"claim_token.eq.{record_id},record_id.eq.{record_id}").execute()
                 
-                if not res or not res.data:
-                    res = supabase.table("posts").select("*").eq("author_handle", author).execute()
+                # 2. Ricerca combinata stretta: Titolo Post + Autore (MAI solo autore)
+                if (not res or not res.data) and title and title != "Rick Astley - Never Gonna Give You Up":
+                    res = supabase.table("posts").select("*").eq("author_handle", author).or_(f"content_text.eq.{title},title.eq.{title}").execute()
 
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]

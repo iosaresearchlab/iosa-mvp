@@ -13,6 +13,7 @@ import {
   Zap,
   Sparkles,
   ArrowDown,
+  ArrowUp,
   X,
   Calendar,
   HelpCircle,
@@ -43,14 +44,14 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
   if (!lvl && vpiScore) {
     const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    if (v >= 100) lvl = 10;
-    else if (v >= 50) lvl = 9;
-    else if (v >= 25) lvl = 8;
-    else if (v >= 15) lvl = 7;
-    else if (v >= 10) lvl = 6;
-    else if (v >= 5) lvl = 5;
-    else if (v >= 3) lvl = 4;
-    else if (v >= 2) lvl = 3;
+    if (v >= 50.0) lvl = 10;
+    else if (v >= 25.0) lvl = 9;
+    else if (v >= 15.0) lvl = 8;
+    else if (v >= 10.0) lvl = 7;
+    else if (v >= 7.5) lvl = 6;
+    else if (v >= 5.0) lvl = 5;
+    else if (v >= 3.0) lvl = 4;
+    else if (v >= 2.0) lvl = 3;
     else if (v >= 1.5) lvl = 2;
     else lvl = 1;
   }
@@ -103,9 +104,28 @@ export default function Home() {
   // English comment: Modal management state for transparent governance popups
   const [activeModal, setActiveModal] = useState<ModalType>(null);
 
+  // English comment: State for floating scroll-to-top button visibility
+  const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
+
   useEffect(() => {
     document.title = 'IOSA — Viral Performance Index';
   }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const updateRollingWindow = () => {
@@ -497,7 +517,7 @@ export default function Home() {
                     className="p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-900/40 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="font-mono text-gray-600 font-bold text-xs w-5">
+                      <div className="font-mono text-gray-600 font-bold text-xs w-12 min-w-[3rem]">
                         #{index + 1}
                       </div>
 
@@ -614,6 +634,17 @@ export default function Home() {
           </div>
         </section>
       </div>
+
+      {/* Floating Scroll to Top Button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white p-3 rounded-full shadow-lg transition-all cursor-pointer flex items-center justify-center"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp className="w-5 h-5 text-[#00E5FF]" />
+        </button>
+      )}
 
       {/* Pop-up Dialog Modals (FAQ, Privacy, Terms, Methodology) */}
       {activeModal && (
@@ -778,47 +809,47 @@ export default function Home() {
                       <div className="flex items-center justify-between p-1.5 rounded bg-amber-950/40 border border-amber-300/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-300 shadow-[0_0_8px_rgba(255,215,0,0.8)]"></span>
-                          <strong className="text-amber-300">Lvl 10 — Apex Outlier</strong>
+                          <strong className="text-amber-300">Lvl 10 — Hyper Outlier</strong>
                         </span>
-                        <span className="text-amber-300 font-bold">VPI ≥ 100.0x</span>
+                        <span className="text-amber-300 font-bold">VPI ≥ 50.0x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-cyan-950/40 border border-cyan-400/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
-                          <strong className="text-cyan-300">Lvl 9 — Hyper Outlier</strong>
+                          <strong className="text-cyan-300">Lvl 9 — Mega Outlier</strong>
                         </span>
-                        <span className="text-cyan-300 font-bold">VPI ≥ 50.0x</span>
+                        <span className="text-cyan-300 font-bold">VPI ≥ 25.0x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-purple-950/40 border border-purple-500/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-purple-400 shadow-[0_0_8px_rgba(124,58,237,0.8)]"></span>
-                          <strong className="text-purple-300">Lvl 8 — Super Outlier</strong>
+                          <strong className="text-purple-300">Lvl 8 — Outlier</strong>
                         </span>
-                        <span className="text-purple-300 font-bold">VPI ≥ 25.0x</span>
+                        <span className="text-purple-300 font-bold">VPI ≥ 15.0x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-pink-950/40 border border-pink-400/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-pink-300 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></span>
-                          <strong className="text-pink-300">Lvl 7 — Extreme Outlier</strong>
+                          <strong className="text-pink-300">Lvl 7 — Super Viral</strong>
                         </span>
-                        <span className="text-pink-300 font-bold">VPI ≥ 15.0x</span>
+                        <span className="text-pink-300 font-bold">VPI ≥ 10.0x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-red-950/40 border border-red-500/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-                          <strong className="text-red-300">Lvl 6 — Major Outlier</strong>
+                          <strong className="text-red-300">Lvl 6 — Viral</strong>
                         </span>
-                        <span className="text-red-300 font-bold">VPI ≥ 10.0x</span>
+                        <span className="text-red-300 font-bold">VPI ≥ 7.5x</span>
                       </div>
 
                       <div className="flex items-center justify-between p-1.5 rounded bg-orange-950/40 border border-orange-500/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>
-                          <strong className="text-orange-300">Lvl 5 — Outlier</strong>
+                          <strong className="text-orange-300">Lvl 5 — Breakout</strong>
                         </span>
                         <span className="text-orange-300 font-bold">VPI ≥ 5.0x</span>
                       </div>
@@ -826,7 +857,7 @@ export default function Home() {
                       <div className="flex items-center justify-between p-1.5 rounded bg-yellow-950/40 border border-yellow-500/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.8)]"></span>
-                          <strong className="text-yellow-300">Lvl 4 — High Performance</strong>
+                          <strong className="text-yellow-300">Lvl 4 — Trending</strong>
                         </span>
                         <span className="text-yellow-300 font-bold">VPI ≥ 3.0x</span>
                       </div>
@@ -834,7 +865,7 @@ export default function Home() {
                       <div className="flex items-center justify-between p-1.5 rounded bg-lime-950/40 border border-lime-500/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-lime-400 shadow-[0_0_8px_rgba(132,204,22,0.8)]"></span>
-                          <strong className="text-lime-300">Lvl 3 — Above Average</strong>
+                          <strong className="text-lime-300">Lvl 3 — Rising</strong>
                         </span>
                         <span className="text-lime-300 font-bold">VPI ≥ 2.0x</span>
                       </div>
@@ -850,18 +881,11 @@ export default function Home() {
                       <div className="flex items-center justify-between p-1.5 rounded bg-slate-950/40 border border-slate-600/40">
                         <span className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-400 shadow-[0_0_8px_rgba(100,116,139,0.5)]"></span>
-                          <strong className="text-slate-300">Lvl 1 — Baseline</strong>
+                          <strong className="text-slate-300">Lvl 1 — Standard</strong>
                         </span>
-                        <span className="text-slate-300 font-bold">VPI &gt; 1.0x</span>
+                        <span className="text-slate-300 font-bold">VPI &lt; 1.5x</span>
                       </div>
 
-                      <div className="flex items-center justify-between p-1.5 rounded bg-red-950/20 border border-red-500/20 opacity-70">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-600"></span>
-                          <strong className="text-gray-400">Not Indexed</strong>
-                        </span>
-                        <span className="text-gray-500 font-bold">VPI ≤ 1.0x</span>
-                      </div>
                     </div>
                   </div>
 

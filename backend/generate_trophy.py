@@ -84,10 +84,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
-    .font-sans-tech {{ font-family: 'Inter', sans-serif; }}
+    .font-sans-tech {{ font-family: 'Inter', 'Noto Sans JP', sans-serif; }}
     .font-signature {{ font-family: 'Caveat', cursive; }}
     .bg-grid {{
       background-image: radial-gradient(rgba(0, 229, 255, 0.12) 1.5px, transparent 1.5px);
@@ -163,7 +163,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
 
       <div class="space-y-4 my-auto">
-        <div class="text-7xl font-mono-tech font-black text-[#00E5FF] tracking-wide uppercase drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
+        <div class="text-7xl font-sans-tech font-black text-[#00E5FF] tracking-wide uppercase drop-shadow-[0_0_30px_rgba(0,229,255,0.6)]">
           {user_handle}
         </div>
         <div class="text-9xl font-mono-tech font-black text-white tracking-tight leading-none drop-shadow-[0_0_40px_rgba(255,255,255,0.2)]">
@@ -174,7 +174,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
           <div class="text-cyan-100/90 font-mono-tech text-2xl font-bold tracking-wider uppercase">
             Viral Performance Accreditation for
           </div>
-          <div class="text-4xl text-white font-bold italic max-w-4xl mx-auto px-4 line-clamp-3 leading-tight">
+          <div class="text-4xl text-white font-bold italic max-w-4xl mx-auto px-4 line-clamp-3 leading-tight font-sans-tech">
             "{content_title}"
           </div>
         </div>
