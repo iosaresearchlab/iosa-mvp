@@ -34,6 +34,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // English comment: Define active modal state type for transparent user policy dialogs
 type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
 
+// English comment: Level badge styling aligned with 10-tier VPI color hierarchy
 function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   let lvl = 0;
   if (levelName) {
@@ -42,11 +43,11 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
   if (!lvl && vpiScore) {
     const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    if (v >= 100) lvl = 10;
-    else if (v >= 50) lvl = 9;
-    else if (v >= 25) lvl = 8;
-    else if (v >= 15) lvl = 7;
-    else if (v >= 10) lvl = 6;
+    if (v >= 50) lvl = 10;
+    else if (v >= 25) lvl = 9;
+    else if (v >= 15) lvl = 8;
+    else if (v >= 10) lvl = 7;
+    else if (v >= 7.5) lvl = 6;
     else if (v >= 5) lvl = 5;
     else if (v >= 3) lvl = 4;
     else if (v >= 2) lvl = 3;
@@ -54,16 +55,29 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
     else lvl = 1;
   }
 
-  if (lvl >= 10) {
-    return 'bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-yellow-300 border border-yellow-400/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
-  } else if (lvl >= 8) {
-    return 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]';
-  } else if (lvl >= 5) {
-    return 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
-  } else if (lvl >= 3) {
-    return 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]';
+  switch (lvl) {
+    case 10:
+      return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
+    case 9:
+      return 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+    case 8:
+      return 'bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.3)]';
+    case 7:
+      return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]';
+    case 6:
+      return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
+    case 5:
+      return 'bg-lime-500/20 text-lime-300 border border-lime-500/40 shadow-[0_0_15px_rgba(132,204,22,0.3)]';
+    case 4:
+      return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+    case 3:
+      return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]';
+    case 2:
+      return 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-[0_0_15px_rgba(99,102,241,0.3)]';
+    case 1:
+    default:
+      return 'bg-slate-500/20 text-slate-300 border border-slate-400/40 shadow-[0_0_10px_rgba(148,163,184,0.2)]';
   }
-  return 'bg-slate-500/20 text-slate-300 border border-slate-400/40 shadow-[0_0_10px_rgba(148,163,184,0.2)]';
 }
 
 export default function Home() {

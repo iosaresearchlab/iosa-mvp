@@ -30,7 +30,7 @@ def format_count(val) -> str:
 
 
 def resolve_level_and_style(level_name: str, vpi_score: str):
-    """Calculates level name and dynamic color styling if not explicitly provided or defaulted."""
+    """Calculates level name and dynamic color styling for all 10 distinct levels."""
     vpi_num = 0.0
     try:
         cleaned_vpi = str(vpi_score).replace('+', '').replace('x', '').replace(',', '').strip()
@@ -38,7 +38,7 @@ def resolve_level_and_style(level_name: str, vpi_score: str):
     except (ValueError, TypeError):
         vpi_num = 1.0
 
-    # Determine computed level based on VPI
+    # Determine computed level based on VPI thresholds
     if vpi_num >= 100:
         computed_level_num = 10
         computed_name = "LVL 10 — APEX OUTLIER"
@@ -78,17 +78,37 @@ def resolve_level_and_style(level_name: str, vpi_score: str):
         if match:
             computed_level_num = int(match.group(1))
 
-    # Dynamic color styling according to level number
+    # Dynamic color styling for all 10 levels (High contrast palette)
     if computed_level_num >= 10:
-        badge_style = "bg-gradient-to-r from-amber-500/30 via-yellow-500/30 to-amber-500/30 text-yellow-300 border-4 border-yellow-400 shadow-[0_0_40px_rgba(234,179,8,0.6)]"
-    elif computed_level_num >= 8:
-        badge_style = "bg-purple-500/20 text-purple-300 border-4 border-purple-400 shadow-[0_0_35px_rgba(168,85,247,0.5)]"
-    elif computed_level_num >= 5:
-        badge_style = "bg-amber-500/20 text-amber-300 border-4 border-amber-400 shadow-[0_0_35px_rgba(245,158,11,0.4)]"
-    elif computed_level_num >= 3:
-        badge_style = "bg-cyan-500/20 text-cyan-300 border-4 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.4)]"
+        # Mythic Gold
+        badge_style = "bg-amber-950/60 text-amber-300 border-4 border-amber-300 shadow-[0_0_40px_rgba(255,215,0,0.6)]"
+    elif computed_level_num == 9:
+        # Electric Cyan
+        badge_style = "bg-cyan-950/50 text-cyan-300 border-4 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.5)]"
+    elif computed_level_num == 8:
+        # Deep Violet
+        badge_style = "bg-purple-950/70 text-purple-400 border-4 border-purple-700 shadow-[0_0_35px_rgba(124,58,237,0.5)]"
+    elif computed_level_num == 7:
+        # Light Pink
+        badge_style = "bg-pink-950/50 text-pink-300 border-4 border-pink-400 shadow-[0_0_35px_rgba(244,114,182,0.4)]"
+    elif computed_level_num == 6:
+        # Crimson Red
+        badge_style = "bg-red-950/50 text-red-400 border-4 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)]"
+    elif computed_level_num == 5:
+        # Vibrant Orange
+        badge_style = "bg-orange-950/50 text-orange-400 border-4 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.4)]"
+    elif computed_level_num == 4:
+        # Canary Yellow
+        badge_style = "bg-yellow-950/50 text-yellow-400 border-4 border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)]"
+    elif computed_level_num == 3:
+        # Neon Lime
+        badge_style = "bg-lime-950/50 text-lime-400 border-4 border-lime-500 shadow-[0_0_30px_rgba(132,204,22,0.4)]"
+    elif computed_level_num == 2:
+        # Forest Green
+        badge_style = "bg-green-950/80 text-green-500 border-4 border-green-700 shadow-[0_0_25px_rgba(21,128,61,0.4)]"
     else:
-        badge_style = "bg-slate-500/20 text-slate-300 border-4 border-slate-400 shadow-[0_0_25px_rgba(148,163,184,0.3)]"
+        # Slate Gray
+        badge_style = "bg-slate-950/50 text-slate-400 border-4 border-slate-600 shadow-[0_0_25px_rgba(100,116,139,0.3)]"
 
     return final_level_name, badge_style
 
@@ -211,9 +231,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="text-sm font-mono-tech text-gray-500 font-semibold">SCAN TO VERIFY</div>
       </div>
 
+      <!-- Verification QR Code pointing directly to https://iosa-mvp-psi.vercel.app/claim/[token] -->
       <div class="bg-white p-6 rounded-2xl border-2 border-emerald-600 flex flex-col items-center gap-3 shadow-md my-auto">
         <img 
-          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={claim_base_url}/claim/{record_id}&color=070A10&bgbw=0" 
+          src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={claim_url}&color=070A10&bgbw=0" 
           alt="Verification QR Code" 
           class="w-48 h-48"
         />
@@ -296,6 +317,7 @@ def _render_png_sync(
 
     clean_base_url = claim_base_url.rstrip("/")
     domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
+    claim_url = f"{clean_base_url}/claim/{record_id}"
 
     html_content = TROPHY_HTML_TEMPLATE.format(
         record_id=record_id,
@@ -309,7 +331,7 @@ def _render_png_sync(
         level_badge_style=level_badge_style,
         recorded_date=recorded_date,
         record_hash=record_hash,
-        claim_base_url=clean_base_url,
+        claim_url=claim_url,
         domain_display=domain_display
     )
 

@@ -52,16 +52,38 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
     else lvl = 1;
   }
 
-  if (lvl >= 10) {
-    return 'bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-yellow-300 border border-yellow-400/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]';
-  } else if (lvl >= 8) {
-    return 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-[0_0_15px_rgba(168,85,247,0.3)]';
-  } else if (lvl >= 5) {
-    return 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
-  } else if (lvl >= 3) {
-    return 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]';
+  switch (lvl) {
+    case 10:
+      // Mythic Gold
+      return 'bg-amber-950/60 text-amber-300 border border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.4)]';
+    case 9:
+      // Electric Cyan
+      return 'bg-cyan-950/50 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]';
+    case 8:
+      // Deep Violet
+      return 'bg-purple-950/70 text-purple-400 border border-purple-700 shadow-[0_0_10px_rgba(124,58,237,0.3)]';
+    case 7:
+      // Light Pink
+      return 'bg-pink-950/50 text-pink-300 border border-pink-400 shadow-[0_0_10px_rgba(244,114,182,0.3)]';
+    case 6:
+      // Crimson Red
+      return 'bg-red-950/50 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]';
+    case 5:
+      // Vibrant Orange
+      return 'bg-orange-950/50 text-orange-400 border border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]';
+    case 4:
+      // Canary Yellow
+      return 'bg-yellow-950/50 text-yellow-400 border border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]';
+    case 3:
+      // Neon Lime
+      return 'bg-lime-950/50 text-lime-400 border border-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.3)]';
+    case 2:
+      // Forest Green
+      return 'bg-green-950/80 text-green-500 border border-green-700 shadow-[0_0_10px_rgba(21,128,61,0.3)]';
+    default:
+      // Slate Gray
+      return 'bg-slate-950/50 text-slate-400 border border-slate-600 shadow-[0_0_10px_rgba(100,116,139,0.2)]';
   }
-  return 'bg-slate-500/20 text-slate-300 border border-slate-400/40 shadow-[0_0_10px_rgba(148,163,184,0.2)]';
 }
 
 const MOCK_POSTS: Record<string, any> = {
@@ -211,8 +233,6 @@ export default function ClaimPage({
   };
 
   const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
-  
-  // Pass all dynamic parameters in the query string to render real breakdown data
   const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}&e_act=${encodeURIComponent(trophyPayload.e_act)}&e_base=${encodeURIComponent(trophyPayload.e_base)}&content_title=${encodeURIComponent(trophyPayload.content_title)}&title=${encodeURIComponent(trophyPayload.content_title)}&level_name=${encodeURIComponent(trophyPayload.level_name)}&date_str=${encodeURIComponent(trophyPayload.date_str)}`;
 
   const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
