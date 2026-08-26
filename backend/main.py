@@ -80,6 +80,7 @@ class CheckoutSessionRequest(BaseModel):
             raise ValueError("Invalid email format. Please enter a valid email address.")
         return v_clean
 
+@app.head("/")
 @app.get("/")
 def read_root():
     return {"status": "online", "system": "IOSA Lab Backend"}
