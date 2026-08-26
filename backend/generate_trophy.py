@@ -292,6 +292,21 @@ def _render_png_sync(
     level_name: str = None,
     claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
+    print("\n" + "="*80, flush=True)
+    print("[DEBUG TROPHY] Invocata _render_png_sync con i seguenti parametri:", flush=True)
+    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
+    print(f"  - vpi_score:       {repr(vpi_score)}", flush=True)
+    print(f"  - user_handle:     {repr(user_handle)}", flush=True)
+    print(f"  - content_title:   {repr(content_title)}", flush=True)
+    print(f"  - e_act:           {repr(e_act)}", flush=True)
+    print(f"  - e_base:          {repr(e_base)}", flush=True)
+    print(f"  - gamma:           {repr(gamma)}", flush=True)
+    print(f"  - recorded_date:   {repr(recorded_date)}", flush=True)
+    print(f"  - output_dir:      {repr(output_dir)}", flush=True)
+    print(f"  - level_name:      {repr(level_name)}", flush=True)
+    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
+    print("="*80 + "\n", flush=True)
+
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -359,6 +374,21 @@ async def generate_trophy_png(
     level_name: str = None,
     claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
+    print("\n" + "="*80, flush=True)
+    print("[DEBUG TROPHY] Invocata generate_trophy_png con i seguenti parametri:", flush=True)
+    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
+    print(f"  - vpi_score:       {repr(vpi_score)}", flush=True)
+    print(f"  - user_handle:     {repr(user_handle)}", flush=True)
+    print(f"  - content_title:   {repr(content_title)}", flush=True)
+    print(f"  - e_act:           {repr(e_act)}", flush=True)
+    print(f"  - e_base:          {repr(e_base)}", flush=True)
+    print(f"  - gamma:           {repr(gamma)}", flush=True)
+    print(f"  - recorded_date:   {repr(recorded_date)}", flush=True)
+    print(f"  - output_dir:      {repr(output_dir)}", flush=True)
+    print(f"  - level_name:      {repr(level_name)}", flush=True)
+    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
+    print("="*80 + "\n", flush=True)
+
     return await asyncio.to_thread(
         _render_png_sync,
         record_id=record_id,
@@ -400,6 +430,14 @@ def _render_mug_preview_sync(
     user_handle: str,
     output_dir: str
 ) -> str:
+    print("\n" + "="*80, flush=True)
+    print("[DEBUG TROPHY] Invocata _render_mug_preview_sync con i seguenti parametri:", flush=True)
+    print(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
+    print(f"  - vpi_score:   {repr(vpi_score)}", flush=True)
+    print(f"  - user_handle: {repr(user_handle)}", flush=True)
+    print(f"  - output_dir:  {repr(output_dir)}", flush=True)
+    print("="*80 + "\n", flush=True)
+
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -433,6 +471,14 @@ async def generate_mug_preview_png(
     user_handle: str = "@TEARDOWNMAYHEM",
     output_dir: str = "renders"
 ) -> str:
+    print("\n" + "="*80, flush=True)
+    print("[DEBUG TROPHY] Invocata generate_mug_preview_png con i seguenti parametri:", flush=True)
+    print(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
+    print(f"  - vpi_score:   {repr(vpi_score)}", flush=True)
+    print(f"  - user_handle: {repr(user_handle)}", flush=True)
+    print(f"  - output_dir:  {repr(output_dir)}", flush=True)
+    print("="*80 + "\n", flush=True)
+
     return await asyncio.to_thread(
         _render_mug_preview_sync,
         record_id,
@@ -458,12 +504,29 @@ def create_trophy_image(
     record_id: str = None,
     claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
 ) -> str:
+    print("\n" + "="*80, flush=True)
+    print("[DEBUG TROPHY] Invocata create_trophy_image con i seguenti parametri:", flush=True)
+    print(f"  - author:          {repr(author)}", flush=True)
+    print(f"  - vpi_ratio:       {repr(vpi_ratio)}", flush=True)
+    print(f"  - level_name:      {repr(level_name)}", flush=True)
+    print(f"  - content_title:   {repr(content_title)}", flush=True)
+    print(f"  - date_str:        {repr(date_str)}", flush=True)
+    print(f"  - output_path:     {repr(output_path)}", flush=True)
+    print(f"  - e_act:           {repr(e_act)}", flush=True)
+    print(f"  - e_base:          {repr(e_base)}", flush=True)
+    print(f"  - gamma:           {repr(gamma)}", flush=True)
+    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
+    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
+    print("="*80 + "\n", flush=True)
+
     out_file = Path(output_path)
     out_dir = out_file.parent if out_file.parent else Path("renders")
 
     if not record_id:
+        print(f"[DEBUG TROPHY - FALLBACK ATTIVATO] record_id è valuto False ({repr(record_id)}). Tentativo di estrazione dal nome file 'out_file.stem': {repr(out_file.stem)}", flush=True)
         extracted = out_file.stem.replace("trophy_", "").replace("preview_", "")
         record_id = extracted if extracted != "trophy" else "preview"
+        print(f"[DEBUG TROPHY - FALLBACK ESITO] record_id calcolato da fallback: {repr(record_id)}", flush=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(
