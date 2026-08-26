@@ -31,7 +31,7 @@ def format_count(val) -> str:
 
 
 def resolve_level_and_style(level_name: str, vpi_score: str):
-    """Resolves level name and dynamic color styling based directly on DB level values without local recalculation."""
+    """Resolves level name and dynamic color styling based directly on DB level values or calculated from vpi_engine thresholds if missing."""
     computed_level_num = 1
     if level_name:
         final_level_name = str(level_name)
@@ -39,7 +39,35 @@ def resolve_level_and_style(level_name: str, vpi_score: str):
         if match:
             computed_level_num = int(match.group(1))
     else:
-        final_level_name = "Lvl 1 - Standard"
+        v_num = 1.0
+        if vpi_score:
+            try:
+                cleaned_vpi = re.sub(r'[^\d.]', '', str(vpi_score))
+                if cleaned_vpi:
+                    v_num = float(cleaned_vpi)
+            except (ValueError, TypeError):
+                v_num = 1.0
+
+        if v_num >= 50.0:
+            computed_level_num, final_level_name = 10, "Lvl 10 - Hyper Outlier"
+        elif v_num >= 25.0:
+            computed_level_num, final_level_name = 9, "Lvl 9 - Mega Outlier"
+        elif v_num >= 15.0:
+            computed_level_num, final_level_name = 8, "Lvl 8 - Outlier"
+        elif v_num >= 10.0:
+            computed_level_num, final_level_name = 7, "Lvl 7 - Super Viral"
+        elif v_num >= 7.5:
+            computed_level_num, final_level_name = 6, "Lvl 6 - Viral"
+        elif v_num >= 5.0:
+            computed_level_num, final_level_name = 5, "Lvl 5 - Breakout"
+        elif v_num >= 3.0:
+            computed_level_num, final_level_name = 4, "Lvl 4 - Trending"
+        elif v_num >= 2.0:
+            computed_level_num, final_level_name = 3, "Lvl 3 - Rising"
+        elif v_num >= 1.5:
+            computed_level_num, final_level_name = 2, "Lvl 2 - Moderate"
+        else:
+            computed_level_num, final_level_name = 1, "Lvl 1 - Standard"
 
     # Dynamic color styling for all 10 levels (High contrast palette)
     if computed_level_num >= 10:
@@ -84,10 +112,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+Devanagari:wght@400;700;900&family=Noto+Sans+Arabic:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
-    .font-sans-tech {{ font-family: 'Inter', 'Noto Sans JP', sans-serif; }}
+    .font-sans-tech {{ font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans JP', 'Noto Sans SC', sans-serif; }}
     .font-signature {{ font-family: 'Caveat', cursive; }}
     .bg-grid {{
       background-image: radial-gradient(rgba(0, 229, 255, 0.12) 1.5px, transparent 1.5px);

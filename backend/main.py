@@ -125,36 +125,47 @@ async def get_trophy_preview(
     e_act: str = "87.2K",
     e_base: str = "10.0K",
     gamma: str = "1.0x",
-    record_id: str = "PREVIEW_REC"
+    record_id: str = None,
+    claim_token: str = None,
+    token: str = None,
+    level_name: str = None,
+    external_post_id: str = None,
+    id: str = None
 ):
     try:
+        target_token = claim_token or token or record_id or id
         resolved_title = title
-        resolved_record_id = record_id
-        resolved_level_name = None
+        resolved_record_id = target_token
+        resolved_level_name = level_name
+        recorded_date = None
 
         if supabase:
             try:
                 res = None
-                # 1. Ricerca prioritaria per ID o Claim Token univoco
-                if record_id and record_id != "PREVIEW_REC":
-                    res = supabase.table("posts").select("*").or_(f"claim_token.eq.{record_id},record_id.eq.{record_id}").execute()
-                
-                # 2. Ricerca combinata stretta: Titolo Post + Autore (MAI solo autore)
-                if (not res or not res.data) and title and title != "Rick Astley - Never Gonna Give You Up":
-                    res = supabase.table("posts").select("*").eq("author_handle", author).or_(f"content_text.eq.{title},title.eq.{title}").execute()
+                # 1. Ricerca prioritaria per Claim Token, ID UUID o External Post ID univoco
+                if target_token:
+                    res = supabase.table("posts").select("*").or_(f"claim_token.eq.{target_token},id.eq.{target_token},external_post_id.eq.{target_token}").execute()
+
+                # 2. Ricerca combinata stretta: Autore + Identifier (external_post_id o content_text)
+                if (not res or not res.data) and author:
+                    if title or external_post_id:
+                        search_term = title or external_post_id
+                        res = supabase.table("posts").select("*").eq("author_handle", author).or_(f"content_text.eq.{search_term},external_post_id.eq.{search_term}").execute()
+                    else:
+                        res = supabase.table("posts").select("*").eq("author_handle", author).execute()
 
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
-                    if not resolved_title or resolved_title == "Rick Astley - Never Gonna Give You Up":
-                        resolved_title = post.get("content_text") or post.get("title")
+                    author = post.get("author_handle") or author
+                    resolved_title = post.get("content_text") or resolved_title
                     
-                    # Utilizza strettamente la colonna claim_token per la generazione dell'URL QR
-                    claim_token = post.get("claim_token")
-                    if claim_token:
-                        resolved_record_id = str(claim_token)
+                    db_claim_token = post.get("claim_token") or post.get("id") or post.get("external_post_id")
+                    if db_claim_token:
+                        resolved_record_id = str(db_claim_token)
 
-                    resolved_level_name = post.get("vpi_level_name")
-                    if post.get("vpi_ratio") and vpi == "+8.7x":
+                    resolved_level_name = post.get("vpi_level_name") or resolved_level_name
+                    
+                    if post.get("vpi_ratio") is not None:
                         raw_vpi = post.get("vpi_ratio")
                         try:
                             v_float = float(raw_vpi)
@@ -163,10 +174,15 @@ async def get_trophy_preview(
                             vpi = str(raw_vpi)
                             if not vpi.startswith("+"):
                                 vpi = f"+{vpi}"
-                    if post.get("engagement_score") and e_act == "87.2K":
+
+                    if post.get("engagement_score") is not None:
                         e_act = str(post.get("engagement_score"))
-                    if post.get("baseline_score") and e_base == "10.0K":
+
+                    if post.get("baseline_score") is not None:
                         e_base = str(post.get("baseline_score"))
+
+                    if post.get("created_at"):
+                        recorded_date = str(post.get("created_at"))[:10]
             except Exception as db_err:
                 print(f"Error fetching post details for trophy preview: {db_err}")
         
@@ -181,6 +197,7 @@ async def get_trophy_preview(
             e_act=e_act,
             e_base=e_base,
             gamma=gamma,
+            recorded_date=recorded_date,
             level_name=resolved_level_name
         )
         return FileResponse(image_path, media_type="image/png")
@@ -248,7 +265,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
                             vpi_ratio = f"+{vpi_ratio}"
                     
                     level_name = p.get("vpi_level_name", level_name)
-                    content_title = p.get("content_text") or p.get("title") or content_title
+                    content_title = p.get("content_text") or content_title
                     if p.get("created_at"):
                         date_str = str(p.get("created_at"))[:10]
             except Exception as err:
@@ -386,7 +403,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                         if not vpi_ratio.startswith("+"):
                             vpi_ratio = f"+{vpi_ratio}"
                     level_name = p.get("vpi_level_name") or level_name
-                    content_title = p.get("content_text") or p.get("title") or content_title
+                    content_title = p.get("content_text") or content_title
                     if p.get("created_at"):
                         date_str = str(p.get("created_at"))[:10]
             except Exception as err:
