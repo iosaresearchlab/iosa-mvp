@@ -146,11 +146,13 @@ async def get_trophy_preview(
                 if target_token:
                     res = supabase.table("posts").select("*").or_(f"claim_token.eq.{target_token},id.eq.{target_token},external_post_id.eq.{target_token}").execute()
 
-                # 2. Ricerca combinata stretta: Autore + Identifier (external_post_id o content_text)
+                # 2. Strict combined search: Author + Identifier (external_post_id or content_text)
                 if (not res or not res.data) and author:
                     if title or external_post_id:
                         search_term = title or external_post_id
-                        res = supabase.table("posts").select("*").eq("author_handle", author).or_(f"content_text.eq.{search_term},external_post_id.eq.{search_term}").execute()
+                        # Sanitize double quotes and backslashes for PostgREST syntax while preserving special characters (parentheses, @, #, etc.)
+                        safe_term = str(search_term).replace('\\', '\\\\').replace('"', '\\"')
+                        res = supabase.table("posts").select("*").eq("author_handle", author).or_(f'content_text.eq."{safe_term}",external_post_id.eq."{safe_term}"').execute()
                     else:
                         res = supabase.table("posts").select("*").eq("author_handle", author).execute()
 
