@@ -120,52 +120,32 @@ async def api_generate_trophy(data: TrophyRequest):
 
 @app.get("/api/trophy/preview")
 async def get_trophy_preview(
+    claim_token: str = None,
+    recorded_date: str = None,
     author: str = "@TEARDOWNMAYHEM", 
     vpi: str = "+8.7x",
     title: str = None,
     e_act: str = "87.2K",
     e_base: str = "10.0K",
     gamma: str = "1.0x",
-    record_id: str = None,
-    claim_token: str = None,
-    token: str = None,
-    level_name: str = None,
-    external_post_id: str = None,
-    id: str = None
+    level_name: str = None
 ):
     try:
-        target_token = claim_token or token or record_id or id
         resolved_title = title
-        resolved_record_id = target_token
+        resolved_record_id = claim_token
         resolved_level_name = level_name
-        recorded_date = None
+        req_date = recorded_date
 
-        if supabase:
+        if supabase and claim_token:
             try:
-                res = None
-                # 1. Ricerca prioritaria per Claim Token, ID UUID o External Post ID univoco
-                if target_token:
-                    res = supabase.table("posts").select("*").or_(f"claim_token.eq.{target_token},id.eq.{target_token},external_post_id.eq.{target_token}").execute()
-
-                # 2. Strict combined search: Author + Identifier (external_post_id or content_text)
-                if (not res or not res.data) and author:
-                    if title or external_post_id:
-                        search_term = title or external_post_id
-                        # Sanitize double quotes and backslashes for PostgREST syntax while preserving special characters (parentheses, @, #, etc.)
-                        safe_term = str(search_term).replace('\\', '\\\\').replace('"', '\\"')
-                        res = supabase.table("posts").select("*").eq("author_handle", author).or_(f'content_text.eq."{safe_term}",external_post_id.eq."{safe_term}"').execute()
-                    else:
-                        res = supabase.table("posts").select("*").eq("author_handle", author).execute()
-
+                # Direct exact search by claim_token
+                res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
                     author = post.get("author_handle") or author
                     resolved_title = post.get("content_text") or resolved_title
-                    
-                    db_claim_token = post.get("claim_token") or post.get("id") or post.get("external_post_id")
-                    if db_claim_token:
-                        resolved_record_id = str(db_claim_token)
-
+                    resolved_record_id = post.get("claim_token") or claim_token
                     resolved_level_name = post.get("vpi_level_name") or resolved_level_name
                     
                     if post.get("vpi_ratio") is not None:
@@ -185,7 +165,7 @@ async def get_trophy_preview(
                         e_base = str(post.get("baseline_score"))
 
                     if post.get("created_at"):
-                        recorded_date = str(post.get("created_at"))[:10]
+                        req_date = str(post.get("created_at"))[:10]
             except Exception as db_err:
                 print(f"Error fetching post details for trophy preview: {db_err}")
         
@@ -193,14 +173,14 @@ async def get_trophy_preview(
             resolved_title = "Viral Content Title"
 
         image_path = await generate_trophy_png(
-            record_id=resolved_record_id,
+            record_id=resolved_record_id or "preview",
             vpi_score=vpi,
             user_handle=author,
             content_title=resolved_title,
             e_act=e_act,
             e_base=e_base,
             gamma=gamma,
-            recorded_date=recorded_date,
+            recorded_date=req_date or "2026-08-20",
             level_name=resolved_level_name
         )
         return FileResponse(image_path, media_type="image/png")
