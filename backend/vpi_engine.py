@@ -109,9 +109,14 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
     
     ids_str = ",".join(list(set(channel_ids)))
     url = f"https://www.googleapis.com/youtube/v3/channels?part=statistics&id={ids_str}&key={YOUTUBE_API_KEY}"
-    res = requests.get(url, timeout=10)
     
-    if res.status_code != 200:
+    try:
+        res = requests.get(url, timeout=10)
+        if res.status_code == 404:
+            return {}
+        if res.status_code != 200:
+            return {}
+    except Exception:
         return {}
 
     channels_data = {}
@@ -164,8 +169,16 @@ def fetch_and_ingest_real_youtube_content():
                 f"part=snippet,statistics&chart=mostPopular&maxResults=50"
                 f"&regionCode={country}&videoCategoryId={cat_id}&key={YOUTUBE_API_KEY}"
             )
-            res1 = requests.get(url_p1, timeout=10)
-            if res1.status_code == 200:
+            
+            try:
+                res1 = requests.get(url_p1, timeout=10)
+                if res1.status_code == 404:
+                    print(f"⚠️ Errore API YouTube (404) per {country}/{cat_name}: Risorsa non trovata o non disponibile per la regione.")
+                    continue
+                elif res1.status_code != 200:
+                    print(f"⚠️ Errore API YouTube ({res1.status_code}) per {country}/{cat_name}: {res1.text}")
+                    continue
+
                 data1 = res1.json()
                 items.extend(data1.get("items", []))
                 next_page_token = data1.get("nextPageToken")
@@ -177,8 +190,8 @@ def fetch_and_ingest_real_youtube_content():
                     if res2.status_code == 200:
                         data2 = res2.json()
                         items.extend(data2.get("items", []))
-            else:
-                print(f"⚠️ Errore API YouTube ({res1.status_code}) per {country}/{cat_name}: {res1.text}")
+            except Exception as e:
+                print(f"⚠️ Eccezione di rete o timeout per {country}/{cat_name}: {e}")
                 continue
 
             if not items:
