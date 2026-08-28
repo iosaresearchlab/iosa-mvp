@@ -102,6 +102,57 @@ def get_vpi_metadata(vpi_ratio: float):
     else:
         return 1, "Lvl 1 - Standard", "#888888"
 
+def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
+    """Calculates baseline as the average view count of the last up to 20 published videos of the channel."""
+    try:
+        ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
+        ch_res = requests.get(ch_url, timeout=10)
+        if ch_res.status_code != 200:
+            return None
+        ch_items = ch_res.json().get("items", [])
+        if not ch_items:
+            return None
+        
+        uploads_playlist_id = ch_items[0].get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads")
+        if not uploads_playlist_id:
+            return None
+
+        playlist_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=20&key={YOUTUBE_API_KEY}"
+        pl_res = requests.get(playlist_url, timeout=10)
+        if pl_res.status_code != 200:
+            return None
+        pl_items = pl_res.json().get("items", [])
+        if not pl_items:
+            return None
+
+        video_ids = [item["contentDetails"]["videoId"] for item in pl_items if "contentDetails" in item and "videoId" in item["contentDetails"]]
+        if not video_ids:
+            return None
+
+        vid_ids_str = ",".join(video_ids)
+        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics&id={vid_ids_str}&key={YOUTUBE_API_KEY}"
+        stats_res = requests.get(stats_url, timeout=10)
+        if stats_res.status_code != 200:
+            return None
+        stat_items = stats_res.json().get("items", [])
+        if not stat_items:
+            return None
+
+        view_counts = []
+        for v_item in stat_items:
+            v_stats = v_item.get("statistics", {})
+            views_str = v_stats.get("viewCount")
+            if views_str is not None:
+                view_counts.append(float(views_str))
+
+        if not view_counts:
+            return None
+
+        avg_baseline = sum(view_counts) / len(view_counts)
+        return avg_baseline if avg_baseline > 0 else None
+    except Exception:
+        return None
+
 def fetch_channels_metadata(channel_ids: list) -> dict:
     """Retrieves real subscriber count and calculates average view baseline per channel."""
     if not channel_ids:
@@ -126,13 +177,15 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         
         subs = int(stats.get("subscriberCount", 0)) if not stats.get("hiddenSubscriberCount") else 999_999_999
         total_views = int(stats.get("viewCount", 0))
-        video_count = max(int(stats.get("videoCount", 1)), 1)
+        video_count = int(stats.get("videoCount", 0))
         
-        avg_views = max(int(total_views / video_count), 5_000)
+        baseline = None
+        if total_views > 0 and video_count > 0:
+            baseline = float(total_views / video_count)
 
         channels_data[ch_id] = {
             "subscribers": subs,
-            "baseline": float(avg_views)
+            "baseline": baseline
         }
 
     return channels_data
@@ -155,6 +208,7 @@ def fetch_and_ingest_real_youtube_content():
     scanned_total = 0
     skipped_subs = 0
     skipped_vpi = 0
+    skipped_baseline = 0
     already_exists = 0
     total_ingested = 0
 
@@ -210,9 +264,22 @@ def fetch_and_ingest_real_youtube_content():
                 published_at = snippet["publishedAt"]
                 views = float(vid_data["statistics"].get("viewCount", 0))
 
-                ch_info = channels_meta.get(ch_id, {"subscribers": 999_999_999, "baseline": 50_000.0})
-                subscribers = ch_info["subscribers"]
-                baseline = ch_info["baseline"]
+                ch_info = channels_meta.get(ch_id)
+                subscribers = 999_999_999
+                baseline = None
+
+                if ch_info:
+                    subscribers = ch_info.get("subscribers", 999_999_999)
+                    baseline = ch_info.get("baseline")
+
+                # Se la baseline da statistiche di canale è assente, calcoliamo la media degli ultimi 20 video
+                if not baseline or baseline <= 0:
+                    baseline = get_channel_recent_videos_baseline(ch_id)
+
+                # Se anche con la media degli ultimi 20 video non è possibile avere una baseline, scartiamo il video
+                if not baseline or baseline <= 0:
+                    skipped_baseline += 1
+                    continue
 
                 # --- TEMP DISABLED FOR FULL DATA ACCURACY ---
                 # if subscribers > MAX_SUBSCRIBERS:
@@ -261,6 +328,7 @@ def fetch_and_ingest_real_youtube_content():
     print("📊 [LOG INGESTION SUMMARY]")
     print(f"   ├─ Video analizzati in totale: {scanned_total}")
     print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs} [CHECK DISABLED]")
+    print(f"   ├─ Scartati per Baseline assente/non calcolabile: {skipped_baseline}")
     print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
     print(f"   ├─ Già presenti nel DB: {already_exists}")
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
