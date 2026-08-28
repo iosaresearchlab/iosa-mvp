@@ -30,15 +30,29 @@ MAX_SUBSCRIBERS = 1_500_000
 MIN_SUBSCRIBERS = 1_000
 CAMPAIGN_DAYS = 15
 
-# Global Country/Category map
-TARGET_COUNTRIES = ['US', 'IT', 'GB', 'DE', 'FR', 'ES', 'BR', 'JP', 'IN', 'CA', 'AU']
+# Global Country/Category map (Expanded global rotation)
+TARGET_COUNTRIES = [
+    'US', 'IT', 'GB', 'DE', 'FR', 'ES', 'BR', 'JP', 'IN', 'CA', 'AU',
+    'MX', 'AR', 'KR', 'NL', 'PL', 'SE', 'NO', 'FI', 'DK', 'ZA', 'TR',
+    'CH', 'AT', 'BE', 'PT', 'IE', 'NZ', 'CL', 'CO', 'PH', 'ID', 'TH', 'VN'
+]
+
 CATEGORY_MAP = {
+    '1': 'Film & Animation',
+    '2': 'Autos & Vehicles',
     '10': 'Music',
-    '20': 'Gaming',
-    '28': 'Tech',
+    '15': 'Pets & Animals',
     '17': 'Sports',
+    '19': 'Travel & Events',
+    '20': 'Gaming',
+    '22': 'People & Blogs',
+    '23': 'Comedy',
     '24': 'Entertainment',
-    '22': 'People'
+    '25': 'News & Politics',
+    '26': 'Howto & Style',
+    '27': 'Education',
+    '28': 'Tech',
+    '29': 'Nonprofits & Activism'
 }
 
 VPI_TEMPLATES = {
@@ -142,18 +156,31 @@ def fetch_and_ingest_real_youtube_content():
     for country in selected_countries:
         for cat_id in selected_category_ids:
             cat_name = CATEGORY_MAP[cat_id]
-            url = (
+            items = []
+
+            # Paginazione: Pagina 1 (da 1 a 50)
+            url_p1 = (
                 f"https://www.googleapis.com/youtube/v3/videos?"
                 f"part=snippet,statistics&chart=mostPopular&maxResults=50"
                 f"&regionCode={country}&videoCategoryId={cat_id}&key={YOUTUBE_API_KEY}"
             )
+            res1 = requests.get(url_p1, timeout=10)
+            if res1.status_code == 200:
+                data1 = res1.json()
+                items.extend(data1.get("items", []))
+                next_page_token = data1.get("nextPageToken")
 
-            res = requests.get(url, timeout=10)
-            if res.status_code != 200:
-                print(f"⚠️ Errore API YouTube ({res.status_code}) per {country}/{cat_name}: {res.text}")
+                # Paginazione: Pagina 2 (da 51 a 100)
+                if next_page_token:
+                    url_p2 = f"{url_p1}&pageToken={next_page_token}"
+                    res2 = requests.get(url_p2, timeout=10)
+                    if res2.status_code == 200:
+                        data2 = res2.json()
+                        items.extend(data2.get("items", []))
+            else:
+                print(f"⚠️ Errore API YouTube ({res1.status_code}) per {country}/{cat_name}: {res1.text}")
                 continue
 
-            items = res.json().get("items", [])
             if not items:
                 continue
 
@@ -174,10 +201,11 @@ def fetch_and_ingest_real_youtube_content():
                 subscribers = ch_info["subscribers"]
                 baseline = ch_info["baseline"]
 
-                # Subscriber filter (<= 1.500.000)
-                if subscribers > MAX_SUBSCRIBERS:
-                    skipped_subs += 1
-                    continue
+                # --- TEMP DISABLED FOR FULL DATA ACCURACY ---
+                # if subscribers > MAX_SUBSCRIBERS:
+                #     skipped_subs += 1
+                #     continue
+                # --------------------------------------------
 
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
                 if vpi_ratio <= 1.0:
@@ -219,7 +247,7 @@ def fetch_and_ingest_real_youtube_content():
 
     print("📊 [LOG INGESTION SUMMARY]")
     print(f"   ├─ Video analizzati in totale: {scanned_total}")
-    print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs}")
+    print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs} [CHECK DISABLED]")
     print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
     print(f"   ├─ Già presenti nel DB: {already_exists}")
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
@@ -377,3 +405,5 @@ if __name__ == "__main__":
             time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         print("🛑 Engine fermato.")
+
+# end file

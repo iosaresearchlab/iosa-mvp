@@ -1,6 +1,8 @@
 import sys
 import asyncio
 import json
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 # Force ProactorEventLoop policy on Windows to allow Playwright subprocesses
 if sys.platform == "win32":
@@ -80,10 +82,226 @@ class CheckoutSessionRequest(BaseModel):
             raise ValueError("Invalid email format. Please enter a valid email address.")
         return v_clean
 
+MACRO_REGIONS = {
+    "North America": ["US", "CA", "MX"],
+    "Europe": ["GB", "DE", "FR", "ES", "IT", "NL", "PL", "SE", "NO", "FI", "DK", "CH", "AT", "BE", "PT", "IE"],
+    "LATAM": ["BR", "AR", "CL", "CO"],
+    "APAC": ["JP", "IN", "AU", "KR", "NZ", "PH", "ID", "TH", "VN"]
+}
+
+STOP_WORDS = {
+    "a", "an", "the", "and", "or", "but", "if", "because", "as", "what", "which",
+    "this", "that", "these", "those", "then", "just", "so", "than", "such",
+    "both", "through", "about", "against", "between", "into", "throughout",
+    "during", "before", "after", "above", "below", "to", "from", "up", "upon",
+    "down", "in", "out", "on", "off", "over", "under", "again", "further",
+    "then", "once", "here", "there", "when", "where", "why", "how", "all",
+    "any", "both", "each", "few", "more", "most", "other", "some", "such",
+    "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very",
+    "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "for", "with", "by", "at", "my", "your", "his", "her",
+    "its", "our", "their", "it", "i", "you", "he", "she", "we", "they"
+}
+
 @app.head("/")
 @app.get("/")
 def read_root():
     return {"status": "online", "system": "IOSA Lab Backend"}
+
+# ==============================================================================
+# POSTS & FEED ENDPOINTS
+# ==============================================================================
+
+@app.get("/api/posts")
+def get_posts(
+    min_vpi: float = 1.4,
+    limit: int = 50,
+    offset: int = 0,
+    category: Optional[str] = None,
+    country: Optional[str] = None
+):
+    """Serves real outliers (VPI >= min_vpi) to the Front-End feed."""
+    try:
+        if not supabase:
+            return {"posts": [], "total": 0}
+
+        query = supabase.table("posts").select("*", count="exact").gte("vpi_ratio", min_vpi).eq("status", "ACTIVE")
+
+        if category and category != "ALL":
+            query = query.eq("category", category)
+        if country and country != "ALL":
+            query = query.eq("country", country)
+
+        query = query.order("detected_at", desc=True).range(offset, offset + limit - 1)
+        res = query.execute()
+
+        return {
+            "posts": res.data or [],
+            "total": res.count if res.count is not None else len(res.data or [])
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+# ==============================================================================
+# ANALYTICS ENDPOINTS
+# ==============================================================================
+
+@app.get("/api/analytics/top10")
+def get_top10_analytics(
+    timeframe: str = "24h",
+    country: Optional[str] = None,
+    category: Optional[str] = None
+):
+    """Returns top 10 contents with highest VPI in the last 24h or 7 days."""
+    try:
+        if not supabase:
+            return {"timeframe": timeframe, "top10": []}
+
+        if timeframe == "24h":
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        else:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+
+        query = supabase.table("posts").select("*").gte("created_at", cutoff).eq("status", "ACTIVE")
+
+        if country and country != "ALL":
+            query = query.eq("country", country)
+        if category and category != "ALL":
+            query = query.eq("category", category)
+
+        query = query.order("vpi_ratio", desc=True).limit(10)
+        res = query.execute()
+
+        return {
+            "timeframe": timeframe,
+            "top10": res.data or []
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+@app.get("/api/analytics/insights")
+def get_insights_analytics():
+    """Aggregates DB metrics by country, category, and macro-regions."""
+    try:
+        if not supabase:
+            return {"by_country": {}, "by_category": {}, "macro_regions": {}}
+
+        res = supabase.table("posts").select("country, category, vpi_ratio").eq("status", "ACTIVE").execute()
+        data = res.data or []
+
+        country_stats = {}
+        category_stats = {}
+        region_stats = {r: {"vpi_sum": 0.0, "count": 0} for r in MACRO_REGIONS}
+
+        country_to_region = {}
+        for region, countries in MACRO_REGIONS.items():
+            for c in countries:
+                country_to_region[c] = region
+
+        for item in data:
+            c = item.get("country", "OTHER")
+            cat = item.get("category", "Uncategorized")
+            vpi = float(item.get("vpi_ratio") or 1.0)
+
+            # Country aggregation
+            if c not in country_stats:
+                country_stats[c] = {"vpi_sum": 0.0, "count": 0}
+            country_stats[c]["vpi_sum"] += vpi
+            country_stats[c]["count"] += 1
+
+            # Category aggregation
+            if cat not in category_stats:
+                category_stats[cat] = {"vpi_sum": 0.0, "count": 0}
+            category_stats[cat]["vpi_sum"] += vpi
+            category_stats[cat]["count"] += 1
+
+            # Region aggregation
+            reg = country_to_region.get(c)
+            if reg:
+                region_stats[reg]["vpi_sum"] += vpi
+                region_stats[reg]["count"] += 1
+
+        by_country = {
+            c: {
+                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
+                "outlier_count": s["count"]
+            }
+            for c, s in country_stats.items()
+        }
+
+        by_category = {
+            cat: {
+                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
+                "outlier_count": s["count"]
+            }
+            for cat, s in category_stats.items()
+        }
+
+        macro_regions = {
+            reg: {
+                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
+                "outlier_count": s["count"]
+            }
+            for reg, s in region_stats.items()
+        }
+
+        return {
+            "by_country": by_country,
+            "by_category": by_category,
+            "macro_regions": macro_regions
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+@app.get("/api/analytics/keywords")
+def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
+    """Tokenizes video titles (VPI >= min_vpi) and computes frequency & viral velocity per word."""
+    try:
+        if not supabase:
+            return {"keywords": []}
+
+        res = supabase.table("posts").select("content_text, vpi_ratio").gte("vpi_ratio", min_vpi).eq("status", "ACTIVE").execute()
+        data = res.data or []
+
+        kw_stats = {}
+
+        for item in data:
+            title = item.get("content_text") or ""
+            vpi = float(item.get("vpi_ratio") or min_vpi)
+            
+            words = re.findall(r'\b[a-zA-Z0-9]{3,}\b', title.lower())
+            seen_in_title = set()
+            
+            for w in words:
+                if w not in STOP_WORDS and w not in seen_in_title:
+                    seen_in_title.add(w)
+                    if w not in kw_stats:
+                        kw_stats[w] = {"frequency": 0, "vpi_sum": 0.0}
+                    kw_stats[w]["frequency"] += 1
+                    kw_stats[w]["vpi_sum"] += vpi
+
+        result = []
+        for word, s in kw_stats.items():
+            avg_vpi = round(s["vpi_sum"] / s["frequency"], 2)
+            result.append({
+                "keyword": word,
+                "frequency": s["frequency"],
+                "viral_velocity": avg_vpi
+            })
+
+        result.sort(key=lambda x: (x["frequency"], x["viral_velocity"]), reverse=True)
+
+        return {"keywords": result[:limit]}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+# ==============================================================================
+# TROPHY & CHECKOUT ENDPOINTS
+# ==============================================================================
 
 @app.post("/api/trophy/generate")
 async def api_generate_trophy(data: TrophyRequest):
@@ -138,7 +356,6 @@ async def get_trophy_preview(
 
         if supabase and claim_token:
             try:
-                # Direct exact search by claim_token
                 res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
                 
                 if res and res.data and len(res.data) > 0:

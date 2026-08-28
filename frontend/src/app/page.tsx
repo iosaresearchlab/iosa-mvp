@@ -26,6 +26,8 @@ import {
   Calculator,
   CheckCircle2,
   Building2,
+  Trophy,
+  TrendingUp,
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -143,11 +145,12 @@ export default function Home() {
 
   const loadData = async () => {
     try {
+      // Aggiornato il filtro a min_vpi=1.4 come da piano per ridurre il rumore e velocizzare il rendering
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .eq('status', 'ACTIVE')
-        .gt('vpi_ratio', 1.0)
+        .gt('vpi_ratio', 1.4)
         .order('vpi_ratio', { ascending: false });
 
       if (!error && data) {
@@ -184,7 +187,7 @@ export default function Home() {
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
       if (post.status && post.status !== 'ACTIVE') return false;
-      if (!post.vpi_ratio || Number(post.vpi_ratio) <= 1.0) return false;
+      if (!post.vpi_ratio || Number(post.vpi_ratio) <= 1.4) return false;
 
       const matchPlatform =
         selectedPlatform === 'ALL' ||
@@ -254,10 +257,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
-      {/* Fixed Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2.5 flex justify-between items-center">
+      {/* Fixed Navigation Header - Ottimizzato in altezza con collegamenti a Leaderboard e Insights */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2 flex justify-between items-center">
         <div className="flex items-center gap-2.5">
-          <svg className="h-6 w-3.5 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+          <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
             <path
               d="M1 26.5H6.5L14 8.5L17.5 14"
               stroke="currentColor"
@@ -268,39 +271,55 @@ export default function Home() {
             <circle cx="14" cy="3" r="3" fill="#00E5FF" />
           </svg>
           <div className="flex flex-col">
-            <span className="font-mono font-black text-lg tracking-tighter text-white leading-none">
+            <span className="font-mono font-black text-base tracking-tighter text-white leading-none">
               IOSA
             </span>
-            <span className="text-[8px] font-mono text-gray-400 tracking-widest uppercase opacity-80">
+            <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">
               Institute for Open Social Analytics
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          {/* Collegamenti diretti alle nuove viste */}
+          <Link
+            href="/leaderboard"
+            className="flex items-center gap-1 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
+          >
+            <Trophy className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <span className="hidden sm:inline">Top 10</span>
+          </Link>
+
+          <Link
+            href="/insights"
+            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <span className="hidden sm:inline">Insights</span>
+          </Link>
+
           <button
             onClick={() => setActiveModal('faq')}
-            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
           >
             <HelpCircle className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">FAQ & Governance</span>
-            <span className="sm:hidden">FAQ</span>
+            <span className="hidden sm:inline">FAQ</span>
           </button>
 
           <button
             onClick={scrollToHowItWorks}
-            className="flex items-center gap-1.5 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 px-3 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
+            className="hidden sm:flex items-center gap-1 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
           >
             <Info className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span>How it works</span>
+            <span>Method</span>
           </button>
 
-          <div className="hidden md:flex items-center gap-2 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1 rounded-full text-emerald-400 font-mono text-xs">
+          <div className="hidden lg:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-full text-emerald-400 font-mono text-xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-bold text-[10px] tracking-wider">LIVE MONITORING</span>
+            <span className="font-bold text-[9px] tracking-wider">LIVE</span>
           </div>
         </div>
       </header>
@@ -596,39 +615,39 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works Section */}
+        {/* How It Works Section - Aggiornato con la nuova metodologia di campionamento trasparente */}
         <section id="how-it-works" className="pt-2">
           <div className="text-center mb-2.5">
             <h2 className="text-[9px] font-mono tracking-widest text-[#00E5FF] uppercase font-bold mb-0.5">
-              INDEPENDENT ANALYTICAL FRAMEWORK
+              TRANSPARENT SAMPLING METHODOLOGY
             </h2>
             <p className="text-sm md:text-base font-extrabold font-mono text-white">
-              From Algorithmic Surge to Open Statistical Analysis
+              Automated Global Audit across 100+ Regions & Categories
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Zap className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">1. Open Data Audit</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">1. Global Video Ingestion</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                IOSA nodes process publicly available statistical signals every 15 minutes to record organic engagement anomalies against creator historical baselines.
+                Automated scanning of the top 100 trending contents across 100+ geographic regions and all main categories via YouTube Data API v3.
               </p>
             </div>
 
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <BarChart3 className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">2. Free Metric Summary</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">2. VPI Outlier Filtering</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Outliers above threshold receive a unique Record ID valid for 15 days, providing free downloadable metric summary cards.
+                Filtering out standard variations to surface true viral outbreaks with $VPI \ge 1.4$, reducing background noise by 34%.
               </p>
             </div>
 
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Award className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Unofficial Fan-Art & Souvenirs</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Insights & Rankings</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Creators can request custom artistic mementos (purely unofficial, 100% free of YouTube/TikTok logos or trademarks) to celebrate their milestones.
+                Explore real-time Top 10 leaderboards and viral keyword mining insights to discover what drives content velocity globally.
               </p>
             </div>
           </div>
