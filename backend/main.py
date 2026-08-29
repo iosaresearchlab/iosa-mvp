@@ -149,16 +149,19 @@ def get_posts(
 
 @app.get("/api/analytics/top10")
 def get_top10_analytics(
-    timeframe: str = "24h",
+    timeframe: str = "7d",
     country: Optional[str] = None,
-    category: Optional[str] = None
+    category: Optional[str] = None,
+    limit: int = 300
 ):
-    """Returns top 10 contents with highest VPI in the last 24h or 7 days."""
+    """Returns top viral contents with highest VPI from DB for the specified timeframe (7d, 15d, 24h)."""
     try:
         if not supabase:
             return {"timeframe": timeframe, "top10": []}
 
-        if timeframe == "24h":
+        if timeframe == "15d":
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+        elif timeframe == "24h":
             cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
         else:
             cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
@@ -170,7 +173,8 @@ def get_top10_analytics(
         if category and category != "ALL":
             query = query.eq("category", category)
 
-        query = query.order("vpi_ratio", desc=True).limit(10)
+        fetch_limit = min(max(limit, 10), 1000)
+        query = query.order("vpi_ratio", desc=True).limit(fetch_limit)
         res = query.execute()
 
         return {

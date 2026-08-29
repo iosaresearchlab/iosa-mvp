@@ -87,7 +87,7 @@ const CATEGORIES = [
 type ModalType = 'faq' | 'methodology' | null;
 
 export default function LeaderboardPage() {
-  const [timeframe, setTimeframe] = useState<"24h" | "7d">("24h");
+  const [timeframe, setTimeframe] = useState<"24h" | "7d" | "15d">("7d");
   
   // Independent filters per box
   const [worldCountry, setWorldCountry] = useState<string>("ALL");
@@ -115,12 +115,13 @@ export default function LeaderboardPage() {
     fetchAllPosts();
   }, [timeframe]);
 
-  const fetchAllPosts = async () => {
+const fetchAllPosts = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({
         timeframe: timeframe,
+        limit: "300"
       });
 
       const res = await fetch(`${BACKEND_URL}/api/analytics/top10?${params.toString()}`);
@@ -361,22 +362,15 @@ export default function LeaderboardPage() {
     <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
       
       {/* Fixed Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-4 h-4 text-[#00E5FF]" />
-            <span className="font-mono text-xs hidden sm:inline">Back</span>
-          </Link>
-          <div className="h-4 w-[1px] bg-gray-800 hidden sm:block"></div>
-          <div className="flex items-center gap-2.5">
-            <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-              <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="14" cy="3" r="3" fill="#00E5FF" />
-            </svg>
-            <div className="flex flex-col">
-              <span className="font-mono font-black text-base tracking-tighter text-white leading-none">IOSA</span>
-              <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">Institute for Open Social Analytics</span>
-            </div>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2.5 flex justify-between items-center">
+        <div className="flex items-center gap-2.5">
+          <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+            <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="14" cy="3" r="3" fill="#00E5FF" />
+          </svg>
+          <div className="flex flex-col">
+            <span className="font-mono font-black text-base tracking-tighter text-white leading-none">IOSA</span>
+            <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">Institute for Open Social Analytics</span>
           </div>
         </div>
 
@@ -412,8 +406,19 @@ export default function LeaderboardPage() {
       </header>
 
       {/* Main Content Area */}
-      <div className="pt-24 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-8 flex-grow w-full font-sans">
+      <div className="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-6 flex-grow w-full font-sans">
         
+        {/* Back to Home Button - Placed below header on the left side */}
+        <div className="flex justify-start">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gray-900/90 hover:bg-gray-800 border border-gray-800 text-gray-300 hover:text-[#00E5FF] transition-all font-mono text-xs shadow-md group"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#00E5FF] group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back to Home</span>
+          </Link>
+        </div>
+
         {/* Header Section */}
         <div className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-2xl p-6 relative shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
@@ -437,19 +442,27 @@ export default function LeaderboardPage() {
           <div className="inline-flex p-1 bg-black/80 border border-gray-800 rounded-xl self-start md:self-auto font-mono relative z-10">
             <button
               onClick={() => setTimeframe("24h")}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 timeframe === "24h" ? "bg-[#00E5FF] text-black shadow-lg shadow-cyan-950/50" : "text-gray-400 hover:text-white"
               }`}
             >
-              Past 24 Hours
+              24h
             </button>
             <button
               onClick={() => setTimeframe("7d")}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 timeframe === "7d" ? "bg-[#00E5FF] text-black shadow-lg shadow-cyan-950/50" : "text-gray-400 hover:text-white"
               }`}
             >
-              Past 7 Days
+              7 Days
+            </button>
+            <button
+              onClick={() => setTimeframe("15d")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                timeframe === "15d" ? "bg-[#00E5FF] text-black shadow-lg shadow-cyan-950/50" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              15 Days
             </button>
           </div>
         </div>

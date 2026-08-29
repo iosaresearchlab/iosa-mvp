@@ -9,7 +9,14 @@ import {
   Info,
   ArrowLeft,
   ShieldCheck,
-  X
+  X,
+  Globe,
+  Layers,
+  Zap,
+  Flame,
+  BarChart3,
+  Sparkles,
+  Tag
 } from "lucide-react";
 
 interface StatDetail {
@@ -30,7 +37,7 @@ interface KeywordItem {
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
+type ModalType = 'faq' | 'methodology' | null;
 
 export default function InsightsPage() {
   const [insights, setInsights] = useState<InsightsData | null>(null);
@@ -92,33 +99,16 @@ export default function InsightsPage() {
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
       
-      {/* Fixed Navigation Header - Coerente con la Landing e Leaderboard */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft className="w-4 h-4 text-[#00E5FF]" />
-            <span className="font-mono text-xs hidden sm:inline">Back</span>
-          </Link>
-          <div className="h-4 w-[1px] bg-gray-800 hidden sm:block"></div>
-          <div className="flex items-center gap-2.5">
-            <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-              <path
-                d="M1 26.5H6.5L14 8.5L17.5 14"
-                stroke="currentColor"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="14" cy="3" r="3" fill="#00E5FF" />
-            </svg>
-            <div className="flex flex-col">
-              <span className="font-mono font-black text-base tracking-tighter text-white leading-none">
-                IOSA
-              </span>
-              <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">
-                Institute for Open Social Analytics
-              </span>
-            </div>
+      {/* Fixed Navigation Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2.5 flex justify-between items-center">
+        <div className="flex items-center gap-2.5">
+          <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
+            <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="14" cy="3" r="3" fill="#00E5FF" />
+          </svg>
+          <div className="flex flex-col">
+            <span className="font-mono font-black text-base tracking-tighter text-white leading-none">IOSA</span>
+            <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">Institute for Open Social Analytics</span>
           </div>
         </div>
 
@@ -128,7 +118,7 @@ export default function InsightsPage() {
             className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors"
           >
             <Trophy className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">Top 10</span>
+            <span className="hidden sm:inline">Top 10 Creators</span>
           </Link>
 
           <Link
@@ -166,8 +156,19 @@ export default function InsightsPage() {
       </header>
 
       {/* Main Content Area */}
-      <div className="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-10 flex-grow w-full font-sans">
+      <div className="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-6 flex-grow w-full font-sans">
         
+        {/* Back to Home Button - Placed below header on the left side */}
+        <div className="flex justify-start">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gray-900/90 hover:bg-gray-800 border border-gray-800 text-gray-300 hover:text-[#00E5FF] transition-all font-mono text-xs shadow-md group"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#00E5FF] group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back to Home</span>
+          </Link>
+        </div>
+
         {/* Header Section */}
         <div className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-2xl p-6 relative shadow-xl">
           <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
@@ -176,7 +177,7 @@ export default function InsightsPage() {
 
           <div className="relative z-10">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-3 py-0.5 rounded-full mb-2">
-              <TrendingUp className="w-3 h-3 text-[#00E5FF]" />
+              <BarChart3 className="w-3 h-3 text-[#00E5FF]" />
               <span>Global Algorithmic Intelligence</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white flex items-center gap-3">
@@ -200,11 +201,13 @@ export default function InsightsPage() {
         ) : (
           <>
             {/* SEZIONE 1: BENCHMARK REGIONALI & COUNTRY */}
-            <section className="space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base sm:text-lg font-bold font-mono text-white flex items-center gap-2">
-                  <span className="text-[#00E5FF]">🌍</span> Sezione 1 — Macro-Region & Country Benchmarks
+            <section className="space-y-4">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[#00E5FF]" />
+                  <span>Macro-Region & Country Benchmarks</span>
                 </h2>
+                <span className="text-[10px] font-mono text-gray-500">Section 01</span>
               </div>
 
               {/* Macro-Regions Cards */}
@@ -213,40 +216,54 @@ export default function InsightsPage() {
                   Object.entries(insights.macro_regions || {}).map(([region, stat]) => (
                     <div
                       key={region}
-                      className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all shadow-md"
+                      className="bg-[#070A10] border border-gray-800 hover:border-cyan-500/40 transition-all rounded-2xl p-5 shadow-xl flex flex-col justify-between group"
                     >
-                      <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                        {region}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">
+                            {region}
+                          </span>
+                          <div className="p-1.5 bg-cyan-950/50 border border-cyan-500/20 rounded-lg text-[#00E5FF] group-hover:scale-110 transition-transform">
+                            <Zap className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+                        <div className="flex items-baseline justify-between mt-3">
+                          <span className="text-2xl sm:text-3xl font-black font-mono text-[#00E5FF]">
+                            +{stat.avg_vpi.toFixed(1)}x
+                          </span>
+                          <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                            {stat.outlier_count} Spikes
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-baseline justify-between mt-2">
-                        <span className="text-2xl sm:text-3xl font-black font-mono text-[#00E5FF]">
-                          +{stat.avg_vpi.toFixed(1)}x
-                        </span>
-                        <span className="text-[11px] font-mono font-medium text-gray-300 bg-black px-2.5 py-1 rounded-lg border border-gray-800">
-                          {stat.outlier_count} Outliers
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-500 mt-3 font-sans">Average VPI Multiplier across region</p>
+                      <p className="text-[10px] text-gray-500 mt-4 font-mono">Average VPI multiplier across region</p>
                     </div>
                   ))}
               </div>
 
               {/* Top Countries Table */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-6 shadow-md">
-                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-gray-300 mb-4">
-                  Country VPI Performance Breakdown
-                </h3>
+              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                    <Flame className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Country VPI Performance Breakdown</span>
+                  </h3>
+                  <span className="text-[10px] font-mono text-gray-500">Sorted by Avg VPI</span>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {insights &&
                     Object.entries(insights.by_country || {})
                       .sort((a, b) => b[1].avg_vpi - a[1].avg_vpi)
                       .map(([country, stat]) => (
-                        <div key={country} className="bg-black p-3 rounded-xl border border-gray-800/80 font-mono">
+                        <div
+                          key={country}
+                          className="bg-black/60 p-3 rounded-xl border border-gray-800 hover:border-gray-700 transition-all font-mono"
+                        >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-gray-200">{country}</span>
+                            <span className="text-xs font-bold text-white">{country}</span>
                             <span className="text-[9px] text-gray-500">{stat.outlier_count} posts</span>
                           </div>
-                          <div className="text-lg font-black text-[#00E5FF]">
+                          <div className="text-base font-black text-[#00E5FF]">
                             +{stat.avg_vpi.toFixed(1)}x
                           </div>
                         </div>
@@ -256,10 +273,14 @@ export default function InsightsPage() {
             </section>
 
             {/* SEZIONE 2: DISTRIBUZIONE CATEGORIE */}
-            <section className="space-y-5">
-              <h2 className="text-base sm:text-lg font-bold font-mono text-white flex items-center gap-2">
-                <span className="text-[#00E5FF]">🏷️</span> Sezione 2 — Category Virality Density
-              </h2>
+            <section className="space-y-4 pt-2">
+              <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+                <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#00E5FF]" />
+                  <span>Category Virality Density</span>
+                </h2>
+                <span className="text-[10px] font-mono text-gray-500">Section 02</span>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {insights &&
@@ -268,19 +289,22 @@ export default function InsightsPage() {
                     .map(([cat, stat]) => (
                       <div
                         key={cat}
-                        className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 flex items-center justify-between shadow-md"
+                        className="bg-[#070A10] border border-gray-800 hover:border-cyan-500/30 transition-all rounded-2xl p-4 flex items-center justify-between shadow-xl"
                       >
-                        <div>
-                          <h3 className="text-sm font-bold font-sans text-white">{cat}</h3>
-                          <p className="text-xs text-gray-400 mt-0.5 font-mono">
-                            Total Detected: <strong className="text-white">{stat.outlier_count}</strong>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-3.5 h-3.5 text-[#00E5FF]" />
+                            <h3 className="text-xs font-bold font-mono text-white">{cat}</h3>
+                          </div>
+                          <p className="text-[11px] text-gray-400 font-mono">
+                            Detected Spikes: <strong className="text-white">{stat.outlier_count}</strong>
                           </p>
                         </div>
                         <div className="text-right font-mono">
-                          <div className="text-xl font-black text-[#00E5FF]">
+                          <div className="text-lg font-black text-[#00E5FF]">
                             +{stat.avg_vpi.toFixed(1)}x
                           </div>
-                          <div className="text-[9px] text-gray-500 uppercase tracking-wider">Avg Velocity</div>
+                          <div className="text-[8px] text-gray-500 uppercase tracking-wider">Avg Velocity</div>
                         </div>
                       </div>
                     ))}
@@ -288,25 +312,23 @@ export default function InsightsPage() {
             </section>
 
             {/* SEZIONE 3: VIRAL KEYWORD CLOUD / RANKER */}
-            <section className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <section className="space-y-4 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-gray-800/80">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold font-mono text-white flex items-center gap-2">
-                    <span className="text-[#00E5FF]">🔥</span> Sezione 3 — Viral Keyword Mining & Ranker
+                  <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#00E5FF]" />
+                    <span>Viral Keyword Mining & Velocity Ranker</span>
                   </h2>
-                  <p className="text-xs text-gray-400 mt-1 font-sans">
-                    Most recurrent high-performing terms extracted from high-VPI content titles.
-                  </p>
                 </div>
 
                 {/* Min VPI Filter Selector */}
                 <div className="flex items-center gap-2 bg-[#070A10] p-1.5 rounded-xl border border-gray-800 self-start sm:self-auto font-mono">
-                  <span className="text-[11px] text-gray-400 pl-2 font-medium">Min VPI Threshold:</span>
+                  <span className="text-[10px] text-gray-400 pl-2 font-medium">Min VPI Threshold:</span>
                   {[3.0, 5.0, 8.0].map((val) => (
                     <button
                       key={val}
                       onClick={() => setMinVpiFilter(val)}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                         minVpiFilter === val
                           ? "bg-[#00E5FF] text-black shadow-md shadow-cyan-950/50"
                           : "text-gray-400 hover:text-white"
@@ -319,26 +341,26 @@ export default function InsightsPage() {
               </div>
 
               {/* Word Cloud Representation */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-6 shadow-md">
-                <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-gray-400 mb-4">
-                  Viral Keyword Cloud
+              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 shadow-xl">
+                <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400 mb-3">
+                  Extracted Viral Keyword Cloud
                 </h3>
-                <div className="flex flex-wrap gap-2.5 items-center justify-center py-4">
+                <div className="flex flex-wrap gap-2 items-center justify-center py-3">
                   {keywords.map((kw) => {
                     const sizeClass =
                       kw.viral_velocity >= 10
-                        ? "text-base px-3.5 py-1.5 bg-cyan-950/50 text-cyan-300 border-cyan-500/50 shadow-[0_0_10px_rgba(0,229,255,0.2)]"
+                        ? "text-sm px-3.5 py-1.5 bg-cyan-950/60 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]"
                         : kw.viral_velocity >= 6
-                        ? "text-sm px-3 py-1.5 bg-black text-[#00E5FF] border-gray-700"
-                        : "text-xs px-2.5 py-1 bg-black text-gray-300 border-gray-800";
+                        ? "text-xs px-3 py-1 bg-black text-[#00E5FF] border-gray-700 hover:border-cyan-500/40"
+                        : "text-[11px] px-2.5 py-1 bg-black/80 text-gray-300 border-gray-800";
 
                     return (
                       <span
                         key={kw.keyword}
-                        className={`font-mono font-bold rounded-xl border transition-transform hover:scale-105 inline-flex items-center gap-1.5 ${sizeClass}`}
+                        className={`font-mono font-bold rounded-xl border transition-all hover:scale-105 inline-flex items-center gap-1.5 cursor-default ${sizeClass}`}
                       >
                         #{kw.keyword}
-                        <span className="text-[10px] opacity-75 font-normal">
+                        <span className="text-[9px] opacity-75 font-normal">
                           (+{kw.viral_velocity.toFixed(1)}x)
                         </span>
                       </span>
@@ -348,30 +370,31 @@ export default function InsightsPage() {
               </div>
 
               {/* Keyword Analytics Table */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl overflow-hidden shadow-md">
-                <div className="px-6 py-4 border-b border-gray-800 font-mono font-bold text-xs uppercase tracking-wider text-gray-200">
-                  Term Frequency & Velocity Ranker
+              <div className="bg-[#070A10] border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+                <div className="px-5 py-3 border-b border-gray-800 font-mono font-bold text-xs uppercase tracking-wider text-gray-300 flex items-center justify-between">
+                  <span>Term Frequency & Velocity Ranker</span>
+                  <span className="text-[10px] text-gray-500 font-normal">Top Recurrent Terms</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs text-gray-300 font-mono">
-                    <thead className="bg-black text-gray-400 uppercase tracking-wider font-semibold border-b border-gray-800">
+                    <thead className="bg-black text-gray-400 uppercase tracking-wider font-semibold border-b border-gray-800 text-[10px]">
                       <tr>
-                        <th className="px-6 py-3">Keyword / Term</th>
-                        <th className="px-6 py-3 text-center">Frequency (Occurrences)</th>
-                        <th className="px-6 py-3 text-right">Avg Viral Velocity</th>
+                        <th className="px-5 py-3">Keyword / Term</th>
+                        <th className="px-5 py-3 text-center">Frequency (Occurrences)</th>
+                        <th className="px-5 py-3 text-right">Avg Viral Velocity</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/60">
                       {keywords.slice(0, 15).map((kw, i) => (
-                        <tr key={kw.keyword} className="hover:bg-gray-900/50 transition-colors">
-                          <td className="px-6 py-3.5 font-bold text-white flex items-center gap-2">
+                        <tr key={kw.keyword} className="hover:bg-black/60 transition-colors">
+                          <td className="px-5 py-3 font-bold text-white flex items-center gap-2">
                             <span className="text-gray-500 text-[10px] w-4">#{i + 1}</span>
-                            <span>{kw.keyword}</span>
+                            <span className="text-[#00E5FF]">#{kw.keyword}</span>
                           </td>
-                          <td className="px-6 py-3.5 text-center font-medium text-gray-300">
+                          <td className="px-5 py-3 text-center font-medium text-gray-300">
                             {kw.frequency}
                           </td>
-                          <td className="px-6 py-3.5 text-right font-black text-[#00E5FF]">
+                          <td className="px-5 py-3 text-right font-black text-[#00E5FF]">
                             +{kw.viral_velocity.toFixed(1)}x
                           </td>
                         </tr>
@@ -385,7 +408,7 @@ export default function InsightsPage() {
         )}
       </div>
 
-      {/* Modali Governance (FAQ / Metodologia) */}
+      {/* Modali Governance */}
       {activeModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-[#0B101B] border border-cyan-500/50 rounded-2xl max-w-xl w-full p-5 max-h-[85vh] overflow-y-auto relative shadow-2xl">
@@ -443,7 +466,7 @@ export default function InsightsPage() {
       )}
 
       {/* Footer */}
-      <footer className="w-full bg-[#020305] border-t border-gray-800/80 pt-5 pb-5 px-6 md:px-12 mt-12 text-xs font-mono text-gray-400">
+      <footer className="w-full bg-[#020305] border-t border-gray-800/80 pt-5 pb-5 px-6 md:px-12 mt-10 text-xs font-mono text-gray-400">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3 text-[10px] text-gray-400">
           <p className="text-center md:text-left font-sans">
             © 2026 Institute for Open Social Analytics (IOSA). Independent research initiative.

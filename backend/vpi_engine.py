@@ -198,12 +198,12 @@ def fetch_and_ingest_real_youtube_content():
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
 
-    # Always include US + 3 random rotating countries (4 countries total)
+    # Opzione 3: US + 2 paesi casuali (3 paesi totali)
     other_countries = [c for c in TARGET_COUNTRIES if c != 'US']
-    selected_countries = ['US'] + random.sample(other_countries, k=3)
+    selected_countries = ['US'] + random.sample(other_countries, k=2)
 
-    # Doubled category scanning (4 categories sampled per run instead of 2)
-    selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=4)
+    # Opzione 3: 1 categoria casuale per run (3 coppie Paese-Categoria totali per run)
+    selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=1)
 
     print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
     
@@ -213,6 +213,9 @@ def fetch_and_ingest_real_youtube_content():
     skipped_baseline = 0
     already_exists = 0
     total_ingested = 0
+
+    # Cache di sessione in memoria per le mediane calcolate durante questo ciclo
+    channel_recent_baseline_cache = {}
 
     for country in selected_countries:
         for cat_id in selected_category_ids:
@@ -239,7 +242,7 @@ def fetch_and_ingest_real_youtube_content():
                 items.extend(data1.get("items", []))
                 next_page_token = data1.get("nextPageToken")
 
-                # Paginazione: Pagina 2 (da 51 a 100)
+                # Paginazione: Pagina 2 (da 51 a 100) per intercettare gli exploit di canali piccoli/medi
                 if next_page_token:
                     url_p2 = f"{url_p1}&pageToken={next_page_token}"
                     res2 = requests.get(url_p2, timeout=10)
@@ -268,14 +271,26 @@ def fetch_and_ingest_real_youtube_content():
 
                 ch_info = channels_meta.get(ch_id)
                 subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
+                global_baseline = ch_info.get("baseline") if ch_info else None
                 
-                # 1. Prova prima a calcolare la Mediana Mobile degli ultimi 20 video
-                baseline = get_channel_recent_videos_baseline(ch_id)
+                # --- FILTRO SHORT-CIRCUIT (Costo Quota 0 API) ---
+                # Scarta i video non promettenti sulla media globale PRIMA di calcolare la mediana
+                if global_baseline and global_baseline > 0:
+                    preliminary_ratio = calculate_vpi_ratio(views, global_baseline)
+                    if preliminary_ratio < 1.0:
+                        skipped_vpi += 1
+                        continue
+
+                # 1. Calcola la Mediana Mobile degli ultimi 20 video (con verifica in cache locale)
+                if ch_id not in channel_recent_baseline_cache:
+                    baseline = get_channel_recent_videos_baseline(ch_id)
+                    channel_recent_baseline_cache[ch_id] = baseline
+                else:
+                    baseline = channel_recent_baseline_cache[ch_id]
 
                 # 2. Se e solo se la mediana degli ultimi 20 video fallisce, usa la media globale del canale come fallback
                 if not baseline or baseline <= 0:
-                    if ch_info:
-                        baseline = ch_info.get("baseline")
+                    baseline = global_baseline
 
                 # 3. Se entrambe le metriche non producono un valore valido, scarta il video
                 if not baseline or baseline <= 0:
@@ -463,11 +478,11 @@ def dispatch_cautious_outreach():
     #     print(f"❌ Errore outreach: {e}")
 
 def start_engine():
-    """Initializes and starts background tasks."""
+    """Initializes and starts background tasks (Opzione 3: Esecuzione ogni 20 minuti)."""
     print("⏱️ Avvio IOSA Background Ingestion Engine...")
     scheduler = BackgroundScheduler()
     
-    scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=15)
+    scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=20)
     scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
     # scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1) # DISABLED OUTREACH
     
