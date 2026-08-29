@@ -23,8 +23,9 @@ YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID")
 YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
 YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")
 
-# TikTok API / Scraper Credentials
-TIKTOK_API_KEY = os.getenv("TIKTOK_API_KEY")
+# TikTok OAuth 2.0 Credentials for dynamic token generation (API v2)
+TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
+TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 
 BASE_DOMAIN = os.getenv("NEXT_PUBLIC_SITE_URL", "https://iosaresearch.com")
 OPTOUT_EMAIL = "optout@iosaresearch.com"
@@ -353,25 +354,64 @@ def fetch_and_ingest_real_youtube_content():
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
 
 # ==============================================================================
-# TIKTOK INGESTION ENGINE
+# TIKTOK INGESTION ENGINE (OFFICIAL API v2)
 # ==============================================================================
 
+def get_tiktok_access_token() -> str:
+    """Generates an Access Token using TikTok OAuth Client Credentials (API v2)."""
+    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET:
+        return ""
+    url = "https://open.tiktokapis.com/v2/oauth/token/"
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    payload = {
+        "client_key": TIKTOK_CLIENT_KEY,
+        "client_secret": TIKTOK_CLIENT_SECRET,
+        "grant_type": "client_credentials"
+    }
+    try:
+        res = requests.post(url, headers=headers, data=payload, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            return data.get("access_token") or data.get("data", {}).get("access_token", "")
+        return ""
+    except Exception:
+        return ""
+
 def get_tiktok_user_baseline(author_handle: str) -> float | None:
-    """Calculates baseline as the MEDIAN play count of recent videos for a TikTok user."""
-    if not TIKTOK_API_KEY:
+    """Calculates baseline as the MEDIAN play count of recent videos for a TikTok user using TikTok API v2."""
+    access_token = get_tiktok_access_token()
+    if not access_token:
         return None
     try:
-        url = f"https://api.tiktok.com/v1/user/posts/?handle={author_handle}&count=20"
-        headers = {"Authorization": f"Bearer {TIKTOK_API_KEY}"}
-        res = requests.get(url, headers=headers, timeout=10)
+        clean_handle = author_handle.lstrip("@")
+        url = "https://open.tiktokapis.com/v2/research/video/query/"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "query": {
+                "and": [
+                    {"field_name": "username", "operation": "EQ", "field_values": [clean_handle]}
+                ]
+            },
+            "max_count": 20
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
         if res.status_code != 200:
             return None
         
-        posts = res.json().get("data", {}).get("posts", [])
-        if not posts:
+        data = res.json().get("data", {})
+        videos = data.get("videos") or data.get("posts") or data.get("items") or []
+        if not videos:
             return None
 
-        play_counts = [float(p.get("play_count", 0)) for p in posts if p.get("play_count") is not None]
+        play_counts = []
+        for v in videos:
+            cnt = v.get("view_count") if v.get("view_count") is not None else v.get("play_count")
+            if cnt is not None:
+                play_counts.append(float(cnt))
+
         if not play_counts:
             return None
 
@@ -381,11 +421,16 @@ def get_tiktok_user_baseline(author_handle: str) -> float | None:
         return None
 
 def fetch_and_ingest_tiktok_content():
-    """Scans TikTok trending videos and ingests outliers into Supabase."""
+    """Scans TikTok trending videos and ingests outliers into Supabase using TikTok API v2."""
     print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning TikTok...")
     
-    if not TIKTOK_API_KEY:
-        print("⚠️ TIKTOK_API_KEY non configurata. Scansione TikTok saltata.")
+    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET:
+        print("⚠️ TIKTOK_CLIENT_KEY o TIKTOK_CLIENT_SECRET non configurati. Scansione TikTok saltata.")
+        return
+
+    access_token = get_tiktok_access_token()
+    if not access_token:
+        print("⚠️ Impossibile generare Access Token TikTok. Scansione TikTok saltata.")
         return
 
     selected_countries = random.sample(TARGET_COUNTRIES, k=3)
@@ -399,29 +444,48 @@ def fetch_and_ingest_tiktok_content():
 
     for country in selected_countries:
         try:
-            url = f"https://api.tiktok.com/v1/trending/posts/?region={country}&limit=30"
-            headers = {"Authorization": f"Bearer {TIKTOK_API_KEY}"}
-            res = requests.get(url, headers=headers, timeout=10)
+            url = "https://open.tiktokapis.com/v2/research/video/query/"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "query": {
+                    "and": [
+                        {"field_name": "region_code", "operation": "EQ", "field_values": [country]}
+                    ]
+                },
+                "max_count": 30
+            }
+            res = requests.post(url, headers=headers, json=payload, timeout=10)
             
             if res.status_code != 200:
                 print(f"⚠️ Errore API TikTok ({res.status_code}) per paese {country}")
                 continue
 
-            items = res.json().get("data", {}).get("posts", [])
+            data = res.json().get("data", {})
+            items = data.get("videos") or data.get("posts") or data.get("items") or []
             if not items:
                 continue
 
             for item in items:
                 scanned_total += 1
-                video_id = item.get("id")
-                author = item.get("author", {})
-                author_handle = author.get("handle", "creator")
-                author_name = author.get("name", author_handle)
-                followers = int(author.get("followers", 0))
-                title = item.get("title", "")
-                views = float(item.get("play_count", 0))
+                video_id = item.get("id") or item.get("id_str")
+                author = item.get("author", {}) if isinstance(item.get("author"), dict) else {}
+                author_handle = item.get("username") or author.get("handle") or "creator"
+                author_name = item.get("user_name") or author.get("name") or author_handle
+                followers = int(item.get("follower_count") or author.get("followers") or 0)
+                title = item.get("video_description") or item.get("title") or ""
+                views = float(item.get("view_count") if item.get("view_count") is not None else item.get("play_count", 0))
                 category = item.get("category", "Entertainment")
-                published_at = item.get("created_at") or datetime.now(timezone.utc).isoformat()
+                
+                created_ts = item.get("create_time") or item.get("created_at")
+                if isinstance(created_ts, (int, float)):
+                    published_at = datetime.fromtimestamp(created_ts, tz=timezone.utc).isoformat()
+                elif isinstance(created_ts, str):
+                    published_at = created_ts
+                else:
+                    published_at = datetime.now(timezone.utc).isoformat()
 
                 if not video_id:
                     continue
