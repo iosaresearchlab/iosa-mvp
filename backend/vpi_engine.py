@@ -3,6 +3,7 @@ import time
 import secrets
 import random
 import requests
+import statistics
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -103,7 +104,7 @@ def get_vpi_metadata(vpi_ratio: float):
         return 1, "Lvl 1 - Standard", "#888888"
 
 def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
-    """Calculates baseline as the average view count of the last up to 20 published videos of the channel."""
+    """Calculates baseline as the MEDIAN view count of the last up to 20 published videos of the channel."""
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
         ch_res = requests.get(ch_url, timeout=10)
@@ -148,8 +149,9 @@ def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
         if not view_counts:
             return None
 
-        avg_baseline = sum(view_counts) / len(view_counts)
-        return avg_baseline if avg_baseline > 0 else None
+        # Calcolo della Mediana Mobile per isolare e rimuovere gli outlier
+        median_baseline = float(statistics.median(view_counts))
+        return median_baseline if median_baseline > 0 else None
     except Exception:
         return None
 
@@ -265,18 +267,17 @@ def fetch_and_ingest_real_youtube_content():
                 views = float(vid_data["statistics"].get("viewCount", 0))
 
                 ch_info = channels_meta.get(ch_id)
-                subscribers = 999_999_999
-                baseline = None
+                subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
+                
+                # 1. Prova prima a calcolare la Mediana Mobile degli ultimi 20 video
+                baseline = get_channel_recent_videos_baseline(ch_id)
 
-                if ch_info:
-                    subscribers = ch_info.get("subscribers", 999_999_999)
-                    baseline = ch_info.get("baseline")
-
-                # Se la baseline da statistiche di canale è assente, calcoliamo la media degli ultimi 20 video
+                # 2. Se e solo se la mediana degli ultimi 20 video fallisce, usa la media globale del canale come fallback
                 if not baseline or baseline <= 0:
-                    baseline = get_channel_recent_videos_baseline(ch_id)
+                    if ch_info:
+                        baseline = ch_info.get("baseline")
 
-                # Se anche con la media degli ultimi 20 video non è possibile avere una baseline, scartiamo il video
+                # 3. Se entrambe le metriche non producono un valore valido, scarta il video
                 if not baseline or baseline <= 0:
                     skipped_baseline += 1
                     continue
@@ -486,5 +487,3 @@ if __name__ == "__main__":
             time.sleep(1)
     except (KeyboardInterrupt, SystemExit):
         print("🛑 Engine fermato.")
-
-# end file
