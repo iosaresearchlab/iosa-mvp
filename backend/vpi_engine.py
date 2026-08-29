@@ -23,6 +23,9 @@ YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID")
 YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET")
 YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN")
 
+# TikTok API / Scraper Credentials
+TIKTOK_API_KEY = os.getenv("TIKTOK_API_KEY")
+
 BASE_DOMAIN = os.getenv("NEXT_PUBLIC_SITE_URL", "https://iosaresearch.com")
 OPTOUT_EMAIL = "optout@iosaresearch.com"
 
@@ -341,9 +344,144 @@ def fetch_and_ingest_real_youtube_content():
                 }).execute()
                 total_ingested += 1
 
-    print("📊 [LOG INGESTION SUMMARY]")
+    print("📊 [LOG YOUTUBE INGESTION SUMMARY]")
     print(f"   ├─ Video analizzati in totale: {scanned_total}")
     print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs} [CHECK DISABLED]")
+    print(f"   ├─ Scartati per Baseline assente/non calcolabile: {skipped_baseline}")
+    print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
+    print(f"   ├─ Già presenti nel DB: {already_exists}")
+    print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
+
+# ==============================================================================
+# TIKTOK INGESTION ENGINE
+# ==============================================================================
+
+def get_tiktok_user_baseline(author_handle: str) -> float | None:
+    """Calculates baseline as the MEDIAN play count of recent videos for a TikTok user."""
+    if not TIKTOK_API_KEY:
+        return None
+    try:
+        url = f"https://api.tiktok.com/v1/user/posts/?handle={author_handle}&count=20"
+        headers = {"Authorization": f"Bearer {TIKTOK_API_KEY}"}
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            return None
+        
+        posts = res.json().get("data", {}).get("posts", [])
+        if not posts:
+            return None
+
+        play_counts = [float(p.get("play_count", 0)) for p in posts if p.get("play_count") is not None]
+        if not play_counts:
+            return None
+
+        median_baseline = float(statistics.median(play_counts))
+        return median_baseline if median_baseline > 0 else None
+    except Exception:
+        return None
+
+def fetch_and_ingest_tiktok_content():
+    """Scans TikTok trending videos and ingests outliers into Supabase."""
+    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning TikTok...")
+    
+    if not TIKTOK_API_KEY:
+        print("⚠️ TIKTOK_API_KEY non configurata. Scansione TikTok saltata.")
+        return
+
+    selected_countries = random.sample(TARGET_COUNTRIES, k=3)
+    scanned_total = 0
+    skipped_vpi = 0
+    skipped_baseline = 0
+    already_exists = 0
+    total_ingested = 0
+
+    tiktok_user_baseline_cache = {}
+
+    for country in selected_countries:
+        try:
+            url = f"https://api.tiktok.com/v1/trending/posts/?region={country}&limit=30"
+            headers = {"Authorization": f"Bearer {TIKTOK_API_KEY}"}
+            res = requests.get(url, headers=headers, timeout=10)
+            
+            if res.status_code != 200:
+                print(f"⚠️ Errore API TikTok ({res.status_code}) per paese {country}")
+                continue
+
+            items = res.json().get("data", {}).get("posts", [])
+            if not items:
+                continue
+
+            for item in items:
+                scanned_total += 1
+                video_id = item.get("id")
+                author = item.get("author", {})
+                author_handle = author.get("handle", "creator")
+                author_name = author.get("name", author_handle)
+                followers = int(author.get("followers", 0))
+                title = item.get("title", "")
+                views = float(item.get("play_count", 0))
+                category = item.get("category", "Entertainment")
+                published_at = item.get("created_at") or datetime.now(timezone.utc).isoformat()
+
+                if not video_id:
+                    continue
+
+                if author_handle not in tiktok_user_baseline_cache:
+                    baseline = get_tiktok_user_baseline(author_handle)
+                    tiktok_user_baseline_cache[author_handle] = baseline
+                else:
+                    baseline = tiktok_user_baseline_cache[author_handle]
+
+                if not baseline or baseline <= 0:
+                    skipped_baseline += 1
+                    continue
+
+                vpi_ratio = calculate_vpi_ratio(views, baseline)
+                if vpi_ratio <= 1.0:
+                    skipped_vpi += 1
+                    continue
+
+                vpi_level, level_name, vpi_color = get_vpi_metadata(vpi_ratio)
+                claim_token = f"iosa_{secrets.token_urlsafe(12)}"
+                now_utc = datetime.now(timezone.utc).isoformat()
+
+                existing = supabase.table("posts").select("id").eq("external_post_id", str(video_id)).execute()
+                if existing.data:
+                    already_exists += 1
+                    continue
+
+                formatted_handle = author_handle if author_handle.startswith("@") else f"@{author_handle}"
+
+                supabase.table("posts").insert({
+                    "platform": "TIKTOK",
+                    "external_post_id": str(video_id),
+                    "author_handle": formatted_handle,
+                    "author_name": author_name,
+                    "subscribers": followers,
+                    "post_url": f"https://www.tiktok.com/{formatted_handle}/video/{video_id}",
+                    "content_text": title,
+                    "category": category,
+                    "country": country,
+                    "engagement_score": views,
+                    "baseline_score": baseline,
+                    "vpi_ratio": vpi_ratio,
+                    "vpi_level": vpi_level,
+                    "vpi_level_name": level_name,
+                    "vpi_color": vpi_color,
+                    "claim_token": claim_token,
+                    "status": "ACTIVE",
+                    "comment_sent": False,
+                    "created_at": published_at,
+                    "detected_at": now_utc
+                }).execute()
+                total_ingested += 1
+
+        except Exception as e:
+            print(f"⚠️ Eccezione scansione TikTok per paese {country}: {e}")
+            continue
+
+    print("📊 [LOG TIKTOK INGESTION SUMMARY]")
+    print(f"   ├─ Video analizzati in totale: {scanned_total}")
     print(f"   ├─ Scartati per Baseline assente/non calcolabile: {skipped_baseline}")
     print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
     print(f"   ├─ Già presenti nel DB: {already_exists}")
@@ -429,60 +567,14 @@ def dispatch_cautious_outreach():
     """OUTREACH DISABLED: YouTube comments deactivated to prevent platform spam flags."""
     print("🛑 Outreach via commenti YouTube disattivato permanentemente.")
     return
-    # Code preserved below for future email outreach migration:
-    # try:
-    #     res = (
-    #         supabase.table("posts")
-    #         .select("*")
-    #         .eq("country", "US")
-    #         .eq("status", "ACTIVE")
-    #         .eq("comment_sent", False)
-    #         .gte("subscribers", MIN_SUBSCRIBERS)
-    #         .lte("subscribers", MAX_SUBSCRIBERS)
-    #         .order("subscribers", desc=False)
-    #         .order("vpi_ratio", desc=True)
-    #         .limit(10)
-    #         .execute()
-    #     )
-    #     candidates = res.data or []
-    #     if not candidates:
-    #         res_fallback = (
-    #             supabase.table("posts")
-    #             .select("*")
-    #             .eq("status", "ACTIVE")
-    #             .eq("comment_sent", False)
-    #             .gte("subscribers", MIN_SUBSCRIBERS)
-    #             .lte("subscribers", MAX_SUBSCRIBERS)
-    #             .order("subscribers", desc=False)
-    #             .order("vpi_ratio", desc=True)
-    #             .limit(10)
-    #             .execute()
-    #         )
-    #         candidates = res_fallback.data or []
-    #     if not candidates:
-    #         return
-    #     for record in candidates:
-    #         vpi_level = record.get("vpi_level", 1)
-    #         template = VPI_TEMPLATES.get(vpi_level, VPI_TEMPLATES[1])
-    #         reward_link = f"{BASE_DOMAIN}/claim/{record['claim_token']}"
-    #         formatted_msg = template.format(
-    #             creator=record["author_name"],
-    #             reward_link=reward_link,
-    #             optout_email=OPTOUT_EMAIL
-    #         )
-    #         success = post_youtube_comment(record["external_post_id"], formatted_msg)
-    #         if success:
-    #             supabase.table("posts").update({"comment_sent": True}).eq("id", record["id"]).execute()
-    #         time.sleep(2)
-    # except Exception as e:
-    #     print(f"❌ Errore outreach: {e}")
 
 def start_engine():
-    """Initializes and starts background tasks (Opzione 3: Esecuzione ogni 20 minuti)."""
-    print("⏱️ Avvio IOSA Background Ingestion Engine...")
+    """Initializes and starts background tasks (YouTube + TikTok ingestion every 20 minutes)."""
+    print("⏱️ Avvio IOSA Background Ingestion Engine (YouTube + TikTok)...")
     scheduler = BackgroundScheduler()
     
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=20)
+    scheduler.add_job(fetch_and_ingest_tiktok_content, 'interval', minutes=20)
     scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
     # scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1) # DISABLED OUTREACH
     
@@ -490,6 +582,7 @@ def start_engine():
     
     try:
         fetch_and_ingest_real_youtube_content()
+        fetch_and_ingest_tiktok_content()
         mark_expired_campaign_data()
         # dispatch_cautious_outreach() # DISABLED OUTREACH
     except Exception as e:

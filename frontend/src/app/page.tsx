@@ -125,6 +125,14 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Legge l'hash dell'URL all'avvio per aprire automaticamente la modale corrispondente
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'privacy' || hash === 'terms' || hash === 'faq' || hash === 'methodology') {
+      setActiveModal(hash as ModalType);
+    }
+  }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

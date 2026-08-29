@@ -118,7 +118,8 @@ def get_posts(
     limit: int = 50,
     offset: int = 0,
     category: Optional[str] = None,
-    country: Optional[str] = None
+    country: Optional[str] = None,
+    platform: Optional[str] = None
 ):
     """Serves real outliers (VPI >= min_vpi) to the Front-End feed."""
     try:
@@ -131,6 +132,8 @@ def get_posts(
             query = query.eq("category", category)
         if country and country != "ALL":
             query = query.eq("country", country)
+        if platform and platform != "ALL":
+            query = query.eq("platform", platform.upper())
 
         query = query.order("detected_at", desc=True).range(offset, offset + limit - 1)
         res = query.execute()
@@ -152,6 +155,7 @@ def get_top10_analytics(
     timeframe: str = "7d",
     country: Optional[str] = None,
     category: Optional[str] = None,
+    platform: Optional[str] = None,
     limit: int = 300
 ):
     """Returns top viral contents with highest VPI from DB for the specified timeframe (7d, 15d, 24h)."""
@@ -172,6 +176,8 @@ def get_top10_analytics(
             query = query.eq("country", country)
         if category and category != "ALL":
             query = query.eq("category", category)
+        if platform and platform != "ALL":
+            query = query.eq("platform", platform.upper())
 
         fetch_limit = min(max(limit, 10), 1000)
         query = query.order("vpi_ratio", desc=True).limit(fetch_limit)
