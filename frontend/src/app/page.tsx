@@ -35,7 +35,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // English comment: Define active modal state type for transparent user policy dialogs
-type ModalType = 'faq' | 'privacy' | 'terms' | 'methodology' | null;
+type ModalType = 'faq' | 'methodology' | null;
 
 // English comment: Level badge styling aligned strictly with the 10-tier high-contrast VPI color hierarchy
 function getBadgeStyle(levelName?: string, vpiScore?: any): string {
@@ -128,7 +128,7 @@ export default function Home() {
   // Legge l'hash dell'URL all'avvio per aprire automaticamente la modale corrispondente
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    if (hash === 'privacy' || hash === 'terms' || hash === 'faq' || hash === 'methodology') {
+    if (hash === 'faq' || hash === 'methodology') {
       setActiveModal(hash as ModalType);
     }
   }, []);
@@ -223,10 +223,10 @@ export default function Home() {
   }, [posts, selectedPlatform, selectedCountry, selectedCategory, searchQuery]);
 
   const avgSpike = useMemo(() => {
-    if (posts.length === 0) return '0.0x';
-    const total = posts.reduce((acc, p) => acc + Number(p.vpi_ratio || 0), 0);
-    return `+${(total / posts.length).toFixed(1)}x`;
-  }, [posts]);
+    if (filteredPosts.length === 0) return '0.0x';
+    const total = filteredPosts.reduce((acc, p) => acc + Number(p.vpi_ratio || 0), 0);
+    return `+${(total / filteredPosts.length).toFixed(1)}x`;
+  }, [filteredPosts]);
 
   const exportToCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
@@ -735,78 +735,6 @@ export default function Home() {
               </>
             )}
 
-            {/* Privacy Policy Modal */}
-            {activeModal === 'privacy' && (
-              <>
-                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" /> DATA GOVERNANCE & PRIVACY
-                </div>
-
-                <h2 className="text-xl font-bold font-mono text-white mb-4">
-                  Privacy Policy
-                </h2>
-
-                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">1. Public Metric Data Processing</h3>
-                    <p>
-                      IOSA strictly collects and processes publicly visible metrics (view counts, channel handles, publication timestamps) provided directly by social platform APIs. No private personal data, confidential credentials, or tracking cookies are collected.
-                    </p>
-                  </div>
-
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">2. Optional Checkout Information</h3>
-                    <p>
-                      When ordering physical mementos, email and shipping details are processed exclusively via encrypted Stripe checkout endpoints for order fulfillment. We never sell, share, or store financial credentials on our servers.
-                    </p>
-                  </div>
-
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">3. Right to Removal & Corrections</h3>
-                    <p>
-                      Creators wishing to remove their public record index or update verified parameters can contact our governance desk at <a href="mailto:iosa.research.lab@gmail.com" className="text-[#00E5FF] underline">iosa.research.lab@gmail.com</a>. Requests are handled within 48 hours.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Terms of Service Modal */}
-            {activeModal === 'terms' && (
-              <>
-                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
-                  <FileText className="w-4 h-4 text-cyan-400" /> LEGAL TERMS & CONDITIONS
-                </div>
-
-                <h2 className="text-xl font-bold font-mono text-white mb-4">
-                  Terms of Service
-                </h2>
-
-                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">1. Open Access Public Index</h3>
-                    <p>
-                      IOSA provides digital accreditation records and trend indices free of charge for research, statistical monitoring, and public reference. All digital cards are released under public fair use principles.
-                    </p>
-                  </div>
-
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">2. Third-Party Platform Non-Affiliation</h3>
-                    <p>
-                      IOSA is an independent analytics project. All product names, logos, and brands are property of their respective owners (YouTube, Google LLC, TikTok/ByteDance, Instagram/Meta, X Corp). Their use does not imply any affiliation or endorsement.
-                    </p>
-                  </div>
-
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">3. Physical Mementos & Souvenirs</h3>
-                    <p>
-                      Optional physical trophies are produced independently as commemorative souvenirs covering manufacturing at cost plus shipping. Trophies do not contain trademarked platform logos or official brand badges.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-
             {/* VPI Methodology Standard Modal */}
             {activeModal === 'methodology' && (
               <>
@@ -965,26 +893,19 @@ export default function Home() {
             </span>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <button 
-                  onClick={() => setActiveModal('privacy')} 
-                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
-                >
+                <Link href="/privacy" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <ShieldCheck className="w-3 h-3 text-cyan-400" /> Privacy Policy
-                </button>
+                </Link>
               </li>
               <li>
-                <button 
-                  onClick={() => setActiveModal('terms')} 
-                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
-                >
+                <Link href="/terms" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <FileText className="w-3 h-3 text-cyan-400" /> Terms of Service
-                </button>
+                </Link>
               </li>
               <li>
                 <button 
                   onClick={() => setActiveModal('methodology')} 
-                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left"
-                >
+                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <Info className="w-3 h-3 text-cyan-400" /> VPI Methodology Standard
                 </button>
               </li>

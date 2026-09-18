@@ -4,6 +4,7 @@ import secrets
 import random
 import requests
 import statistics
+import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
@@ -78,6 +79,19 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def parse_iso_duration(duration_str: str) -> int:
+    """Parses ISO 8601 duration string (e.g. PT1M15S, PT59S) into total seconds."""
+    if not duration_str:
+        return 0
+    match = re.match(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
+    if not match:
+        return 0
+    days = int(match.group(1) or 0)
+    hours = int(match.group(2) or 0)
+    minutes = int(match.group(3) or 0)
+    seconds = int(match.group(4) or 0)
+    return days * 86400 + hours * 3600 + minutes * 60 + seconds
+
 def calculate_vpi_ratio(views: float, baseline: float) -> float:
     """Calculates VPI ratio normalized against channel baseline."""
     if not baseline or baseline <= 0:
@@ -108,7 +122,7 @@ def get_vpi_metadata(vpi_ratio: float):
         return 1, "Lvl 1 - Standard", "#888888"
 
 def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
-    """Calculates baseline as the MEDIAN view count of the last up to 20 published videos of the channel."""
+    """Calculates baseline as the MEDIAN view count of recent SHORTS (duration <= 60s) of the channel."""
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
         ch_res = requests.get(ch_url, timeout=10)
@@ -122,7 +136,7 @@ def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
         if not uploads_playlist_id:
             return None
 
-        playlist_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=20&key={YOUTUBE_API_KEY}"
+        playlist_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=50&key={YOUTUBE_API_KEY}"
         pl_res = requests.get(playlist_url, timeout=10)
         if pl_res.status_code != 200:
             return None
@@ -135,7 +149,7 @@ def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
             return None
 
         vid_ids_str = ",".join(video_ids)
-        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=statistics&id={vid_ids_str}&key={YOUTUBE_API_KEY}"
+        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id={vid_ids_str}&key={YOUTUBE_API_KEY}"
         stats_res = requests.get(stats_url, timeout=10)
         if stats_res.status_code != 200:
             return None
@@ -143,24 +157,30 @@ def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
         if not stat_items:
             return None
 
-        view_counts = []
+        short_view_counts = []
         for v_item in stat_items:
-            v_stats = v_item.get("statistics", {})
-            views_str = v_stats.get("viewCount")
-            if views_str is not None:
-                view_counts.append(float(views_str))
+            c_details = v_item.get("contentDetails", {})
+            dur_str = c_details.get("duration", "")
+            dur_sec = parse_iso_duration(dur_str)
 
-        if not view_counts:
+            # Consider strictly YouTube Shorts (duration <= 60s)
+            if 0 < dur_sec <= 60:
+                v_stats = v_item.get("statistics", {})
+                views_str = v_stats.get("viewCount")
+                if views_str is not None:
+                    short_view_counts.append(float(views_str))
+
+        if not short_view_counts:
             return None
 
-        # Calcolo della Mediana Mobile per isolare e rimuovere gli outlier
-        median_baseline = float(statistics.median(view_counts))
+        # Calcolo della Mediana Mobile basata esclusivamente sugli Short del canale
+        median_baseline = float(statistics.median(short_view_counts))
         return median_baseline if median_baseline > 0 else None
     except Exception:
         return None
 
 def fetch_channels_metadata(channel_ids: list) -> dict:
-    """Retrieves real subscriber count and calculates average view baseline per channel."""
+    """Retrieves real subscriber count for channel metadata."""
     if not channel_ids:
         return {}
     
@@ -182,22 +202,15 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         stats = item.get("statistics", {})
         
         subs = int(stats.get("subscriberCount", 0)) if not stats.get("hiddenSubscriberCount") else 999_999_999
-        total_views = int(stats.get("viewCount", 0))
-        video_count = int(stats.get("videoCount", 0))
         
-        baseline = None
-        if total_views > 0 and video_count > 0:
-            baseline = float(total_views / video_count)
-
         channels_data[ch_id] = {
-            "subscribers": subs,
-            "baseline": baseline
+            "subscribers": subs
         }
 
     return channels_data
 
 def fetch_and_ingest_real_youtube_content():
-    """Scans YouTube trending videos and ingests outliers into Supabase."""
+    """Scans YouTube trending Shorts (duration <= 60s) and ingests outliers into Supabase."""
     if not YOUTUBE_API_KEY:
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
@@ -209,7 +222,7 @@ def fetch_and_ingest_real_youtube_content():
     # Opzione 3: 1 categoria casuale per run (3 coppie Paese-Categoria totali per run)
     selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=1)
 
-    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
+    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube Shorts (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
     
     scanned_total = 0
     skipped_subs = 0
@@ -229,7 +242,7 @@ def fetch_and_ingest_real_youtube_content():
             # Paginazione: Pagina 1 (da 1 a 50)
             url_p1 = (
                 f"https://www.googleapis.com/youtube/v3/videos?"
-                f"part=snippet,statistics&chart=mostPopular&maxResults=50"
+                f"part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=50"
                 f"&regionCode={country}&videoCategoryId={cat_id}&key={YOUTUBE_API_KEY}"
             )
             
@@ -267,6 +280,14 @@ def fetch_and_ingest_real_youtube_content():
                 scanned_total += 1
                 vid_id = vid_data["id"]
                 snippet = vid_data["snippet"]
+                c_details = vid_data.get("contentDetails", {})
+                dur_str = c_details.get("duration", "")
+                dur_sec = parse_iso_duration(dur_str)
+
+                # Filtro di coorte: accetta ed analizza ESCLUSIVAMENTE gli Short (durata <= 60s)
+                if dur_sec <= 0 or dur_sec > 60:
+                    continue
+
                 ch_id = snippet["channelId"]
                 title = snippet["title"]
                 channel_title = snippet["channelTitle"]
@@ -275,28 +296,15 @@ def fetch_and_ingest_real_youtube_content():
 
                 ch_info = channels_meta.get(ch_id)
                 subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
-                global_baseline = ch_info.get("baseline") if ch_info else None
-                
-                # --- FILTRO SHORT-CIRCUIT (Costo Quota 0 API) ---
-                # Scarta i video non promettenti sulla media globale PRIMA di calcolare la mediana
-                if global_baseline and global_baseline > 0:
-                    preliminary_ratio = calculate_vpi_ratio(views, global_baseline)
-                    if preliminary_ratio < 1.0:
-                        skipped_vpi += 1
-                        continue
 
-                # 1. Calcola la Mediana Mobile degli ultimi 20 video (con verifica in cache locale)
+                # 1. Calcola la Mediana Mobile basata SOLO sugli Short del canale (cache in memoria)
                 if ch_id not in channel_recent_baseline_cache:
                     baseline = get_channel_recent_videos_baseline(ch_id)
                     channel_recent_baseline_cache[ch_id] = baseline
                 else:
                     baseline = channel_recent_baseline_cache[ch_id]
 
-                # 2. Se e solo se la mediana degli ultimi 20 video fallisce, usa la media globale del canale come fallback
-                if not baseline or baseline <= 0:
-                    baseline = global_baseline
-
-                # 3. Se entrambe le metriche non producono un valore valido, scarta il video
+                # 2. Se non vi sono abbastanza Short recenti per stabilire una baseline di coorte, scarta il video
                 if not baseline or baseline <= 0:
                     skipped_baseline += 1
                     continue
@@ -348,7 +356,7 @@ def fetch_and_ingest_real_youtube_content():
     print("📊 [LOG YOUTUBE INGESTION SUMMARY]")
     print(f"   ├─ Video analizzati in totale: {scanned_total}")
     print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs} [CHECK DISABLED]")
-    print(f"   ├─ Scartati per Baseline assente/non calcolabile: {skipped_baseline}")
+    print(f"   ├─ Scartati per Baseline assente/non calcolabile su Short: {skipped_baseline}")
     print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
     print(f"   ├─ Già presenti nel DB: {already_exists}")
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
@@ -565,67 +573,6 @@ def mark_expired_campaign_data():
 # ==============================================================================
 # OUTREACH VIA YOUTUBE COMMENTS - DISABLED / COMMENTED OUT TO PREVENT BAN
 # ==============================================================================
-
-# def get_valid_youtube_access_token() -> str:
-#     """Rigenera autonomamente l'Access Token temporaneo a partire dal Refresh Token permanente."""
-#     if not all([YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN]):
-#         print("⚠️ Credenziali OAuth YouTube mancanti nel file .env o nelle variabili d'ambiente.")
-#         return ""
-#     
-#     url = "https://oauth2.googleapis.com/token"
-#     payload = {
-#         "client_id": YOUTUBE_CLIENT_ID,
-#         "client_secret": YOUTUBE_CLIENT_SECRET,
-#         "refresh_token": YOUTUBE_REFRESH_TOKEN,
-#         "grant_type": "refresh_token"
-#     }
-#     
-#     try:
-#         res = requests.post(url, data=payload, timeout=10)
-#         if res.status_code == 200:
-#             return res.json().get("access_token", "")
-#         else:
-#             print(f"❌ Errore refresh token OAuth YouTube ({res.status_code}): {res.text}")
-#             return ""
-#     except Exception as e:
-#         print(f"❌ Eccezione durante il refresh token OAuth: {e}")
-#         return ""
-
-# def post_youtube_comment(video_id: str, comment_text: str) -> bool:
-#     """Invia un commento su YouTube richiedendo dinamicamente un Access Token valido."""
-#     access_token = get_valid_youtube_access_token()
-#     
-#     if not access_token:
-#         print(f"⚠️ [MOCK MODE] Impossibile recuperare Access Token OAuth. Commento non inviato per video {video_id}:\n   {comment_text}")
-#         return False
-#
-#     url = "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet"
-#     headers = {
-#         "Authorization": f"Bearer {access_token}",
-#         "Content-Type": "application/json"
-#     }
-#     body = {
-#         "snippet": {
-#             "videoId": video_id,
-#             "topLevelComment": {
-#                 "snippet": {
-#                     "textOriginal": comment_text
-#                 }
-#             }
-#         }
-#     }
-#     
-#     try:
-#         res = requests.post(url, json=body, headers=headers, timeout=10)
-#         if res.status_code in [200, 201]:
-#             print(f"🚀 Commento pubblicato con successo su YouTube per il video {video_id}!")
-#             return True
-#         else:
-#             print(f"❌ Errore pubblicazione commento YouTube ({res.status_code}): {res.text}")
-#             return False
-#     except Exception as e:
-#         print(f"❌ Eccezione durante l'invio del commento: {e}")
-#         return False
 
 def dispatch_cautious_outreach():
     """OUTREACH DISABLED: YouTube comments deactivated to prevent platform spam flags."""
