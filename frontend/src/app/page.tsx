@@ -673,7 +673,7 @@ export default function Home() {
         </button>
       )}
 
-      {/* Pop-up Dialog Modals (FAQ, Privacy, Terms, Methodology) */}
+      {/* Pop-up Dialog Modals (FAQ, Methodology) */}
       {activeModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-[#0B101B] border border-cyan-500/50 rounded-2xl max-w-xl w-full p-5 max-h-[85vh] overflow-y-auto relative shadow-2xl">
@@ -893,12 +893,12 @@ export default function Home() {
             </span>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <Link href="/privacy" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
+                <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <ShieldCheck className="w-3 h-3 text-cyan-400" /> Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <FileText className="w-3 h-3 text-cyan-400" /> Terms of Service
                 </Link>
               </li>
