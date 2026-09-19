@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatVPI } from '@/lib/format';
+import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { createClient } from '@supabase/supabase-js';
 import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
@@ -14,26 +14,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-function formatCount(val: any): string {
-  if (val === null || val === undefined) return 'N/A';
-  let num: number;
-  if (typeof val === 'number') {
-    num = val;
-  } else if (typeof val === 'string') {
-    const cleaned = val.replace(/,/g, '').trim();
-    num = Number(cleaned);
-    if (isNaN(num)) return val;
-  } else {
-    return String(val);
-  }
-
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
-  } else if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
-  }
-  return Number.isInteger(num) ? String(num) : String(num);
-}
 
 function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   let lvl = 0;
@@ -210,14 +190,14 @@ export default function ClaimPage({
 
   const trophyPayload = {
     author: post.author_handle || 'Creator',
-    vpi_ratio: formattedVpi,
+    vpi_ratio: formatVPIFull(Number(post.vpi_ratio || 0)),
     level_name: post.vpi_level_name || 'LVL 5 — OUTLIER',
     content_title: postTitle,
     date_str: post.created_at
       ? new Date(post.created_at).toISOString().split('T')[0]
       : '2026-08-20',
-    e_act: formatCount(post.engagement_score ?? post.e_act),
-    e_base: formatCount(post.baseline_score ?? post.e_base),
+    e_act: formatCountFull(Number(post.engagement_score ?? post.e_act)),
+    e_base: formatCountFull(Number(post.baseline_score ?? post.e_base)),
   };
 
   const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;

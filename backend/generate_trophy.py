@@ -42,6 +42,29 @@ def format_count(val) -> str:
     return str(int(num) if num.is_integer() else num)
 
 
+def format_count_full(val) -> str:
+    """Numero per intero con separatore delle migliaia: 1293859 -> "1,293,859".
+
+    Sui gadget stampiamo il valore esteso, non la forma compatta: la targa e
+    la tazza sono il certificato del dato, non una dashboard.
+    """
+    if val is None:
+        return "N/A"
+    if isinstance(val, (int, float)):
+        num = float(val)
+    elif isinstance(val, str):
+        cleaned = val.replace(',', '').strip()
+        try:
+            num = float(cleaned)
+        except ValueError:
+            return val
+    else:
+        return str(val)
+    if num.is_integer():
+        return f"{int(num):,}"
+    return f"{num:,.1f}"
+
+
 def resolve_level_and_style(level_name: str, vpi_score: str):
     """Resolves level name and dynamic color styling based directly on DB level values or calculated from vpi_engine thresholds if missing."""
     computed_level_num = 1
@@ -332,8 +355,8 @@ def _render_png_sync(
     if content_title and len(content_title) > 130:
         content_title = content_title[:127] + "..."
 
-    formatted_e_act = format_count(e_act)
-    formatted_e_base = format_count(e_base)
+    formatted_e_act = format_count_full(e_act)
+    formatted_e_base = format_count_full(e_base)
 
     final_level_name, level_badge_style = resolve_level_and_style(level_name, vpi_score)
 

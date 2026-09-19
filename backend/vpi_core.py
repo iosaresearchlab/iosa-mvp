@@ -20,6 +20,27 @@ CAMPAIGN_DAYS = 15               # finestra di visibilita' di un record
 BASELINE_MAX_AGE_DAYS = 90       # quanto indietro guardare per la baseline
 BASELINE_MIN_AGE_DAYS = 14       # eta' minima perche' un video sia "maturo"
 MIN_BASELINE_SAMPLES = 5         # sotto questa soglia la mediana non e' affidabile
+
+# Soglia minima di visualizzazioni della baseline.
+#
+# Il VPI e' un rapporto: quando il denominatore e' piccolo il risultato non
+# misura piu' nulla. La mediana di un gruppo di Short e' un intero (o un .5),
+# quindi la sua granularita' relativa e' 0.5/baseline: a 500 vale lo 0.1%,
+# sotto le 100 visualizzazioni supera lo 0.5% e una singola view in piu' o in
+# meno sposta il VPI di percentuali intere, mentre il prodotto lo dichiara con
+# una cifra decimale.
+#
+# Il dato lo conferma: sui record storici il VPI mediano per fascia di
+# baseline va da 6.103x (baseline < 100) a 3.7x (baseline > 100K), cioe'
+# scala come 1/baseline invece di restare costante come dovrebbe fare una
+# normalizzazione. Sotto le 300 visualizzazioni di baseline il 100% dei
+# record finisce al livello 10, quindi la scala non distingue piu' niente.
+#
+# 500 non taglia i piccoli creator: i record sotto quella soglia sono tutti
+# canali di news ad altissima frequenza di pubblicazione (@GMANews,
+# @Tribunnews, @KOMPASTV, @NewYorkPost...) la cui mediana e' depressa dal
+# volume, non canali con pochi iscritti.
+MIN_BASELINE_VIEWS = 500
 MIN_VPI_FOR_INGESTION = 1.0      # sotto o uguale non e' un outlier
 
 # Scala a 10 livelli: (soglia minima, livello, nome, colore)

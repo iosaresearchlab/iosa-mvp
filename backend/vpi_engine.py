@@ -16,6 +16,7 @@ from vpi_core import (
     BASELINE_MIN_AGE_DAYS,
     CAMPAIGN_DAYS,
     MIN_BASELINE_SAMPLES,
+    MIN_BASELINE_VIEWS,
     MIN_VPI_FOR_INGESTION,
     TTLCache,
     age_in_days,
@@ -392,7 +393,7 @@ def fetch_and_ingest_real_youtube_content():
                 subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
 
                 baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
-                if not baseline or baseline <= 0:
+                if not baseline or baseline < MIN_BASELINE_VIEWS:
                     skipped_baseline += 1
                     continue
 
@@ -443,7 +444,7 @@ def fetch_and_ingest_real_youtube_content():
     print(f"   scartati fuori finestra 15gg:   {skipped_age}")
     print(f"   scartati perche' non Short:     {skipped_not_short}")
     print(f"   gia' presenti nel DB:           {already_exists}")
-    print(f"   scartati per baseline assente:  {skipped_baseline}")
+    print(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
     print(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
     print(f"   NUOVI INSERITI:                 {total_ingested}\n")
 
@@ -591,7 +592,7 @@ def fetch_and_ingest_tiktok_content():
                 else:
                     baseline = tiktok_user_baseline_cache[author_handle]
 
-                if not baseline or baseline <= 0:
+                if not baseline or baseline < MIN_BASELINE_VIEWS:
                     skipped_baseline += 1
                     continue
 
@@ -641,7 +642,7 @@ def fetch_and_ingest_tiktok_content():
 
     print("📊 [LOG TIKTOK INGESTION SUMMARY]")
     print(f"   ├─ Video analizzati in totale: {scanned_total}")
-    print(f"   ├─ Scartati per Baseline assente/non calcolabile: {skipped_baseline}")
+    print(f"   ├─ Scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
     print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
     print(f"   ├─ Già presenti nel DB: {already_exists}")
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
