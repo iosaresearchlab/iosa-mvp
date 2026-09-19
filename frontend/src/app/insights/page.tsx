@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { formatVPI } from "@/lib/format";
 import {
   TrendingUp,
   Trophy,
@@ -229,7 +230,7 @@ export default function InsightsPage() {
                         </div>
                         <div className="flex items-baseline justify-between mt-3">
                           <span className="text-2xl sm:text-3xl font-black font-mono text-[#00E5FF]">
-                            +{stat.avg_vpi.toFixed(1)}x
+                            {formatVPI(stat.avg_vpi)}
                           </span>
                           <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
                             {stat.outlier_count} Spikes
@@ -264,7 +265,7 @@ export default function InsightsPage() {
                             <span className="text-[9px] text-gray-500">{stat.outlier_count} posts</span>
                           </div>
                           <div className="text-base font-black text-[#00E5FF]">
-                            +{stat.avg_vpi.toFixed(1)}x
+                            {formatVPI(stat.avg_vpi)}
                           </div>
                         </div>
                       ))}
@@ -302,7 +303,7 @@ export default function InsightsPage() {
                         </div>
                         <div className="text-right font-mono">
                           <div className="text-lg font-black text-[#00E5FF]">
-                            +{stat.avg_vpi.toFixed(1)}x
+                            {formatVPI(stat.avg_vpi)}
                           </div>
                           <div className="text-[8px] text-gray-500 uppercase tracking-wider">Avg Velocity</div>
                         </div>
@@ -361,7 +362,7 @@ export default function InsightsPage() {
                       >
                         #{kw.keyword}
                         <span className="text-[9px] opacity-75 font-normal">
-                          (+{kw.viral_velocity.toFixed(1)}x)
+                          ({formatVPI(kw.viral_velocity)})
                         </span>
                       </span>
                     );
@@ -395,7 +396,7 @@ export default function InsightsPage() {
                             {kw.frequency}
                           </td>
                           <td className="px-5 py-3 text-right font-black text-[#00E5FF]">
-                            +{kw.viral_velocity.toFixed(1)}x
+                            {formatVPI(kw.viral_velocity)}
                           </td>
                         </tr>
                       ))}

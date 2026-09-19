@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { formatVPI, formatCount } from '@/lib/format';
 import { createClient } from '@supabase/supabase-js';
 import {
   Award,
@@ -93,12 +94,6 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
 }
 
-const formatVPI = (value: number): string => {
-  if (value >= 1000) {
-    return `+${(value / 1000).toFixed(1)}Kx`;
-  }
-  return `+${value.toFixed(1)}x`;
-};
 
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -267,7 +262,7 @@ export default function Home() {
   const avgSpike = useMemo(() => {
     if (filteredPosts.length === 0) return '0.0x';
     const total = filteredPosts.reduce((acc, p) => acc + Number(p.vpi_ratio || 0), 0);
-    return `+${(total / filteredPosts.length).toFixed(1)}x`;
+    return formatVPI(total / filteredPosts.length);
   }, [filteredPosts]);
 
   const exportToCSV = () => {
@@ -580,7 +575,7 @@ export default function Home() {
               <VPILoader />
             ) : filteredPosts.length > 0 ? (
               filteredPosts.map((post, index) => {
-                const formattedVpi = Number(post.vpi_ratio || 0).toFixed(1);
+                const formattedVpi = formatVPI(Number(post.vpi_ratio || 0));
                 return (
                   <div
                     key={post.id || index}
@@ -592,7 +587,7 @@ export default function Home() {
                       </div>
 
                       <div className="w-14 h-11 rounded-lg bg-black border border-cyan-500/30 flex flex-col items-center justify-center font-mono font-black text-sm text-[#00E5FF] shadow-lg shadow-cyan-950/40 shrink-0">
-                        +{formattedVpi}x
+                        {formattedVpi}
                         <span className="text-[7px] text-gray-500 font-normal -mt-0.5">
                           VPI RATIO
                         </span>
@@ -625,12 +620,12 @@ export default function Home() {
                           </span>{' '}
                           | Baseline:{' '}
                           {post.baseline_score
-                            ? Number(post.baseline_score).toLocaleString()
+                            ? formatCount(Number(post.baseline_score))
                             : 'N/A'}{' '}
                           | Recorded:{' '}
                           <span className="text-[#00E5FF] font-bold">
                             {post.engagement_score
-                              ? Number(post.engagement_score).toLocaleString()
+                              ? formatCount(Number(post.engagement_score))
                               : 'N/A'}
                           </span>
                         </p>

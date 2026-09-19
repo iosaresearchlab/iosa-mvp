@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { formatVPI } from '@/lib/format';
 import { createClient } from '@supabase/supabase-js';
 import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
@@ -204,12 +205,12 @@ export default function ClaimPage({
     );
   }
 
-  const formattedVpi = Number(post.vpi_ratio || 0).toFixed(1);
+  const formattedVpi = formatVPI(Number(post.vpi_ratio || 0));
   const postTitle = post.content_text || post.title || post.content_title || 'Measured Video';
 
   const trophyPayload = {
     author: post.author_handle || 'Creator',
-    vpi_ratio: `+${formattedVpi}x`,
+    vpi_ratio: formattedVpi,
     level_name: post.vpi_level_name || 'LVL 5 — OUTLIER',
     content_title: postTitle,
     date_str: post.created_at
@@ -383,7 +384,7 @@ export default function ClaimPage({
             </span>
 
             <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">
-              +{formattedVpi}x <span className="text-[#00E5FF]">VPI</span>
+              {formattedVpi} <span className="text-[#00E5FF]">VPI</span>
             </h2>
             <p className="text-[11px] font-mono text-gray-400">Viral Performance Index &mdash; independent measurement</p>
           </div>
