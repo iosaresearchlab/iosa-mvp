@@ -150,7 +150,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="w-[23%] bg-gray-50 text-gray-900 flex flex-col justify-between h-full py-10 px-8 relative z-10 border-2 border-gray-200 shadow-sm rounded-3xl">
       <div class="space-y-2 text-center">
         <div class="text-2xl font-mono-tech text-emerald-700 font-extrabold tracking-wider">METHODOLOGY</div>
-        <div class="text-sm font-mono-tech text-gray-500 font-semibold">INDEPENDENT RESEARCH PROJECT</div>
+        <div class="text-sm font-mono-tech text-gray-500 font-semibold">INSTITUTE FOR OPEN SOCIAL ANALYTICS</div>
       </div>
 
       <div class="space-y-6 font-mono-tech my-auto">
@@ -174,8 +174,8 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
           <div>
-            <div class="text-gray-900 text-base font-mono-tech font-black">IOSA RESEARCH LAB</div>
-            <div class="text-gray-500 text-xs font-mono-tech uppercase font-bold">AUTOMATED MEASUREMENT</div>
+            <div class="text-gray-900 text-base font-mono-tech font-black">IOSA</div>
+            <div class="text-gray-500 text-xs font-mono-tech uppercase font-bold">INSTITUTE FOR OPEN SOCIAL ANALYTICS</div>
           </div>
           <div class="text-gray-500 text-xs font-mono-tech text-right leading-tight">
             RECORD<br><span class="text-gray-800 font-bold">{record_hash}</span>
@@ -200,7 +200,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
           <span class="font-mono-tech font-black text-6xl tracking-tighter text-white leading-none">OSA</span>
         </div>
         <span class="text-lg font-mono-tech px-4 py-1.5 rounded bg-cyan-950 text-[#00E5FF] border border-cyan-500/30 font-extrabold tracking-wide">
-          RESEARCH LAB
+          INDEPENDENT
         </span>
       </div>
 

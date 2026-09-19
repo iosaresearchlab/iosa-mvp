@@ -42,11 +42,12 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # il cliente non paga un servizio piu' rapido che poi non riceve.
 ENABLE_EXPRESS_SHIPPING = os.getenv("ENABLE_EXPRESS_SHIPPING", "false").lower() == "true"
 
-# Interruttore generale degli ordini. Default acceso: nulla cambia finche' non
-# lo si mette a "false". Serve a poter spegnere il negozio in un secondo, per
+# Interruttore generale degli ordini. Default SPENTO finche' non e' definito
+# l'inquadramento fiscale. Per riaccendere: ENABLE_ORDERS=true nel backend e
+# NEXT_PUBLIC_ENABLE_ORDERS=true su Vercel. Serve a poter spegnere il negozio in un secondo, per
 # esempio finche' l'inquadramento fiscale non e' definito, senza toccare il
 # resto del sito: la targa digitale gratuita continua a funzionare.
-ENABLE_ORDERS = os.getenv("ENABLE_ORDERS", "true").lower() == "true"
+ENABLE_ORDERS = os.getenv("ENABLE_ORDERS", "false").lower() == "true"
 
 # Catalogo prezzi in centesimi di USD. Prezzo fisso per prodotto.
 PRODUCT_CATALOG = {"mug": 1900}

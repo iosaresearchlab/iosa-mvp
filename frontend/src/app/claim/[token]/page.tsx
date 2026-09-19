@@ -8,7 +8,7 @@ import ClaimForm from './ClaimForm';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 // Deve corrispondere a ENABLE_ORDERS nel backend. Default acceso.
-const ORDERS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ORDERS !== 'false';
+const ORDERS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ORDERS === 'true';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -477,7 +477,7 @@ export default function ClaimPage({
       {/* Footer Disclaimer */}
       <footer className="max-w-5xl mx-auto w-full mt-2 pt-2 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
         <p>
-          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA Research Lab is an independent, self-funded research project with no profit purpose. Commemorative items are optional and their proceeds cover servers, API quota and development. VPI is our own measurement, not a certification issued by any authority. Not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, TikTok, or any other platform.
+          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent, self-funded research project with no profit purpose. Commemorative items are optional and their proceeds cover servers, API quota and development. VPI is our own measurement, not a certification issued by any authority. Not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, TikTok, or any other platform.
         </p>
       </footer>
     </main>

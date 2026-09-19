@@ -385,7 +385,7 @@ export default function Home() {
             </span>
           </div>
           <p className="text-xs md:text-xs text-gray-300 leading-relaxed font-sans">
-            IOSA Research Lab is an independent, self-funded research project with no profit purpose, measuring public social media metrics against each channel&apos;s own statistical baseline. Trend data is open access. Optional commemorative items fund our servers, API quota and development. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
+            The Institute for Open Social Analytics (IOSA) is an independent, self-funded research project with no profit purpose, measuring public social media metrics against each channel&apos;s own statistical baseline. Trend data is open access. Optional commemorative items fund our servers, API quota and development. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
           </p>
         </section>
 
@@ -974,7 +974,7 @@ export default function Home() {
 
         <div className="max-w-6xl mx-auto pt-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[10px] text-gray-400">
           <p className="text-center md:text-left font-sans">
-            © 2026 IOSA Research Lab. Independent, self-funded research project.
+            © 2026 Institute for Open Social Analytics (IOSA). Independent, self-funded research project.
           </p>
           <p className="text-center md:text-right font-sans text-gray-400 max-w-xl">
             Disclaimer: IOSA is an independent analytics project and is not affiliated, endorsed, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
