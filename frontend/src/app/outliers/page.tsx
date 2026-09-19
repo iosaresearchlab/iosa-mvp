@@ -15,7 +15,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Browse viral outliers by country and category — IOSA',
   description:
-    'Every country and content category we measure, with the number of active viral outliers in each. A viral outlier is a short video that outperformed its own channel&apos;s recent median.',
+    'Every country and content category we measure, with the number of active viral outliers in each. A viral outlier is a video that outperformed the recent median of its own channel, measured within its own format.',
   alternates: { canonical: `${SITO}/outliers` },
 };
 
@@ -61,7 +61,7 @@ export default async function Outliers() {
         'en-US'
       )} active outliers across ${paesi.length} countries and ${
         categorie.length
-      } categories. An outlier is a short video whose view count is well above the median of the recent Shorts published by the same channel — so a small creator who breaks out counts as much as a large one.`}
+      } categories. An outlier is a video whose view count is well above the median of the recent videos of the same format published by the same channel — so a small creator who breaks out counts as much as a large one.`}
     >
       <section className="mb-10">
         <h2 className="font-mono font-bold text-sm text-[#00E5FF] mb-3 uppercase tracking-wider">

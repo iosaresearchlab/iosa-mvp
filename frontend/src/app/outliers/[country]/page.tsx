@@ -62,7 +62,7 @@ export default async function PaginaPaese({
         migliore.baseline_score
       )} — a VPI of ${formatVPI(
         migliore.vpi_ratio
-      )}. Every measurement below compares a video with the recent Shorts of its own channel, so channel size does not decide the ranking.`
+      )}. Every measurement below compares a video with the recent videos of the same format on its own channel, so channel size does not decide the ranking.`
     : `No active outliers measured in ${nome} right now.`;
 
   return (

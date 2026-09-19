@@ -63,7 +63,8 @@ export function PageShell({
         <div className="max-w-5xl mx-auto font-mono text-[10px] text-gray-500 leading-relaxed">
           <p className="mb-2">
             VPI = E<sub>act</sub> / E<sub>base</sub> — a video&#39;s views divided by
-            the median views of the same channel&#39;s recent Shorts. It is our own
+            the median views of the same channel&#39;s recent videos of the same
+            format — Shorts against Shorts, long videos against long videos. It is our own
             measurement, not a certification issued by any authority.
           </p>
           <p>

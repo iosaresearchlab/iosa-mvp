@@ -50,6 +50,9 @@ export function OutlierList({
                   <span className="text-[8px] font-mono px-1.5 rounded bg-gray-900 text-gray-300 border border-gray-800 uppercase font-bold">
                     {post.platform || 'YOUTUBE'}
                   </span>
+                  <span className="text-[8px] font-mono px-1.5 rounded bg-gray-900 text-gray-400 border border-gray-800 uppercase font-bold">
+                    {post.format === 'LONG' ? 'Long' : 'Short'}
+                  </span>
                   <span
                     className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
                     style={stileBadge(livelloDiRecord(post).colore)}

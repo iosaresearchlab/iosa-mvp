@@ -41,6 +41,7 @@ import vpi_engine as motore
 from vpi_core import (
     MIN_BASELINE_VIEWS,
     baseline_from_samples,
+    FORMATO_SHORT,
     calculate_vpi_ratio,
     get_vpi_metadata,
     round_vpi,
@@ -82,7 +83,7 @@ def leggi_candidati(min_vpi: float, prima_di: str):
     while True:
         res = (
             motore.supabase.table("posts")
-            .select("id,external_post_id,engagement_score,baseline_score,vpi_ratio,author_handle,detected_at")
+            .select("id,external_post_id,engagement_score,baseline_score,vpi_ratio,author_handle,detected_at,format")
             .eq("status", "ACTIVE")
             .lt("detected_at", prima_di)
             .gte("vpi_ratio", min_vpi)
@@ -164,7 +165,7 @@ def raccogli(args, stato, righe):
             if stato["quota"] + COSTO_CANALE * len(gruppo) > args.budget:
                 print(f"Budget quota esaurito a {stato['quota']} unita'.")
                 break
-            risultati = list(pool.map(motore.get_channel_short_samples, gruppo))
+            risultati = list(pool.map(motore.get_channel_video_samples, gruppo))
             stato["quota"] += COSTO_CANALE * len(gruppo)
             for ch_id, campioni in zip(gruppo, risultati):
                 if campioni is None:
@@ -212,8 +213,16 @@ def costruisci_aggiornamenti(stato, righe):
             senza_campioni += 1
             continue
 
+        # I campioni ora arrivano divisi per formato, e ogni record va
+        # confrontato con la mediana del proprio: uno Short contro gli Short,
+        # un video lungo contro i video lunghi. Gli stati raccolti prima di
+        # questa modifica sono liste piatte di Short, quindi si accettano
+        # ancora nella loro forma originale invece di buttare via la raccolta.
+        if isinstance(campioni, dict):
+            campioni = campioni.get(r.get("format") or FORMATO_SHORT, [])
+
         # La baseline va riportata al momento in cui il record e' stato
-        # rilevato: i Short pubblicati dopo non c'erano e non devono entrare.
+        # rilevato: i video pubblicati dopo non c'erano e non devono entrare.
         indietro = giorni_da_rilevamento(r.get("detected_at"), adesso)
         baseline, n_camp = baseline_from_samples(
             campioni, exclude_video_id=r.get("external_post_id"), giorni_indietro=indietro

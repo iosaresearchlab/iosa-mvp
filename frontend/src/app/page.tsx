@@ -597,6 +597,9 @@ export default function Home() {
                           <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-gray-900 text-gray-300 border border-gray-800 uppercase font-bold">
                             {post.platform || 'YOUTUBE'}
                           </span>
+                          <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-gray-900 text-gray-400 border border-gray-800 uppercase font-bold">
+                            {post.format === 'LONG' ? 'Long' : 'Short'}
+                          </span>
                           <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
                             {post.country || 'GLOBAL'}
                           </span>
@@ -827,7 +830,7 @@ export default function Home() {
                       VPI = E<sub>act</sub> / E<sub>base</sub>
                     </p>
                     <p className="text-[11px] text-gray-400">
-                      Where <strong>E<sub>act</sub></strong> is the observed public view count within the 15-day window, and <strong>E<sub>base</sub></strong> is the median view count of the channel&apos;s recent Shorts, taken from the last 90 days and requiring at least 5 videos.
+                      Where <strong>E<sub>act</sub></strong> is the observed public view count within the 15-day window, and <strong>E<sub>base</sub></strong> is the median view count of the channel&apos;s recent videos of the same format — Shorts are compared with Shorts and long videos with long videos — taken from the last 90 days and requiring at least 5 videos.
                     </p>
                   </div>
 

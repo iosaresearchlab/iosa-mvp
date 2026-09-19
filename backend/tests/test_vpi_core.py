@@ -153,3 +153,65 @@ if __name__ == "__main__":
                 print(f"  FAIL  {nome}: {e}")
     print(f"\n{'TUTTI I TEST PASSATI' if not fallimenti else str(fallimenti) + ' TEST FALLITI'}")
     sys.exit(1 if fallimenti else 0)
+
+
+# --------------------------------------------------------------- formati
+
+def test_formato_da_durata_separa_short_e_lunghi():
+    from vpi_core import formato_da_durata, FORMATO_SHORT, FORMATO_LONG, SHORT_MAX_SECONDS
+    assert formato_da_durata(1) == FORMATO_SHORT
+    assert formato_da_durata(SHORT_MAX_SECONDS) == FORMATO_SHORT
+    assert formato_da_durata(SHORT_MAX_SECONDS + 1) == FORMATO_LONG
+    assert formato_da_durata(3600) == FORMATO_LONG
+
+
+def test_formato_da_durata_rifiuta_durate_non_utilizzabili():
+    """Durata assente o nulla: dirette, premiere, video rimossi. Non si indovina."""
+    from vpi_core import formato_da_durata
+    assert formato_da_durata(0) is None
+    assert formato_da_durata(None) is None
+    assert formato_da_durata(-5) is None
+
+
+def test_baseline_di_un_formato_non_e_contaminata_dall_altro():
+    """
+    Il punto dell'estensione ai video lunghi: se le due liste si mescolassero,
+    la mediana direbbe piu' sul mix di pubblicazione del canale che sul video.
+    """
+    from vpi_core import baseline_from_samples
+
+    short = [{"video_id": f"s{i}", "views": 1000.0, "age_days": 5} for i in range(6)]
+    lunghi = [{"video_id": f"l{i}", "views": 100000.0, "age_days": 5} for i in range(6)]
+
+    base_short, n_short = baseline_from_samples(short)
+    base_long, n_long = baseline_from_samples(lunghi)
+    base_mista, _ = baseline_from_samples(short + lunghi)
+
+    assert base_short == 1000.0 and n_short == 6
+    assert base_long == 100000.0 and n_long == 6
+    # la mediana mista non corrisponde a nessuno dei due gruppi
+    assert base_short < base_mista < base_long
+
+
+def test_un_canale_a_prevalenza_long_non_falsa_i_suoi_short():
+    """
+    Il rischio concreto non e' il singolo video anomalo: la mediana lo assorbe
+    da sola. E' il canale che pubblica soprattutto video lunghi e ogni tanto
+    uno Short. Li' una baseline mista viene dominata dal formato piu'
+    frequente, e gli Short di quel canale risultano tutti sottoperformanti
+    per un motivo che non li riguarda.
+    """
+    from vpi_core import baseline_from_samples, calculate_vpi_ratio
+
+    short = [{"video_id": f"s{i}", "views": 2000.0, "age_days": 30} for i in range(5)]
+    lunghi = [{"video_id": f"l{i}", "views": 300000.0, "age_days": 30} for i in range(9)]
+
+    base_corretta, _ = baseline_from_samples(short)
+    base_mista, _ = baseline_from_samples(short + lunghi)
+
+    assert base_corretta == 2000.0
+    assert base_mista == 300000.0      # la mediana finisce fra i video lunghi
+
+    uno_short_virale = 60000.0
+    assert calculate_vpi_ratio(uno_short_virale, base_corretta) == 30.0   # Lvl 9
+    assert calculate_vpi_ratio(uno_short_virale, base_mista) < 1.0        # invisibile

@@ -19,6 +19,9 @@ from vpi_core import (
     MIN_BASELINE_VIEWS,
     baseline_from_samples,
     MIN_VPI_FOR_INGESTION,
+    FORMATO_SHORT,
+    FORMATO_LONG,
+    formato_da_durata,
     TTLCache,
     age_in_days,
     calculate_vpi_ratio,
@@ -134,17 +137,21 @@ def is_real_youtube_short(video_id: str):
     return None
 
 
-def get_channel_short_samples(channel_id: str):
-    """Campioni per la baseline: gli Short recenti del canale, con eta' e views.
+def get_channel_video_samples(channel_id: str):
+    """Campioni per la baseline, separati per formato.
 
     Costa 3 unita' di quota (channels + playlistItems + videos) e viene fatta
-    una volta sola per canale: chi deve calcolare piu' baseline sullo stesso
-    canale riusa questa lista invece di ripagare la quota.
+    una volta sola per canale. Le ultime 50 pubblicazioni arrivano tutte nella
+    stessa risposta, Short e video lunghi insieme: prima i video lunghi
+    venivano scartati qui e la quota spesa per leggerli buttata via. Adesso si
+    tengono entrambi i gruppi, quindi estendere l'indice ai video lunghi non
+    costa una sola unita' in piu'.
 
-    Restituisce una lista di dizionari {video_id, views, age_days}, oppure None
-    se la chiamata non e' andata a buon fine. Lista vuota e None sono cose
-    diverse: la prima significa "nessuno Short utile", la seconda "non lo so",
-    e solo la seconda deve lasciare intatto un dato gia' salvato.
+    Restituisce {"SHORT": [...], "LONG": [...]} con dizionari
+    {video_id, views, age_days}, oppure None se la chiamata non e' andata a
+    buon fine. Dizionario con liste vuote e None sono cose diverse: il primo
+    significa "nessun video utile", il secondo "non lo so", e solo il secondo
+    deve lasciare intatto un dato gia' salvato.
     """
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
@@ -184,10 +191,11 @@ def get_channel_short_samples(channel_id: str):
             return None
 
         now = datetime.now(timezone.utc)
-        campioni = []
+        campioni = {FORMATO_SHORT: [], FORMATO_LONG: []}
         for v_item in stats_res.json().get("items", []):
             duration = parse_iso_duration(v_item.get("contentDetails", {}).get("duration", ""))
-            if not is_short_duration(duration):
+            formato = formato_da_durata(duration)
+            if formato is None:
                 continue
             views_str = v_item.get("statistics", {}).get("viewCount")
             if views_str is None:
@@ -195,7 +203,7 @@ def get_channel_short_samples(channel_id: str):
             age_days = age_in_days(v_item.get("snippet", {}).get("publishedAt"), now)
             if age_days is None:
                 continue
-            campioni.append({
+            campioni[formato].append({
                 "video_id": v_item.get("id"),
                 "views": float(views_str),
                 "age_days": age_days,
@@ -205,22 +213,31 @@ def get_channel_short_samples(channel_id: str):
         return None
 
 
-def get_channel_recent_videos_baseline(channel_id: str, exclude_video_id: str = None):
-    """Baseline del canale a partire dai suoi Short. Vedi le due funzioni sopra."""
-    campioni = get_channel_short_samples(channel_id)
+def get_channel_recent_videos_baseline(channel_id: str, formato: str,
+                                       exclude_video_id: str = None):
+    """Baseline del canale per un formato. Vedi le due funzioni sopra."""
+    campioni = get_channel_video_samples(channel_id)
     if campioni is None:
         return None, 0
-    return baseline_from_samples(campioni, exclude_video_id)
+    return baseline_from_samples(campioni.get(formato, []), exclude_video_id)
 
 
-def _cached_channel_baseline(channel_id: str, exclude_video_id: str = None):
-    """Baseline del canale con cache su file (7 giorni), per risparmiare quota."""
-    cached = _BASELINE_CACHE.get(channel_id)
-    if cached is not None:
-        return cached[0], cached[1]
-    baseline, samples = get_channel_recent_videos_baseline(channel_id, exclude_video_id)
-    _BASELINE_CACHE.set(channel_id, [baseline, samples])
-    return baseline, samples
+def _cached_channel_baseline(channel_id: str, formato: str = FORMATO_SHORT,
+                             exclude_video_id: str = None):
+    """Baseline del canale per formato, con cache su file (7 giorni).
+
+    In cache finiscono i campioni grezzi di entrambi i formati, non la mediana:
+    cosi' misurare uno Short e un video lungo dello stesso canale costa una
+    sola lettura, e cambiare le regole della baseline non obbliga a buttare
+    via la cache.
+    """
+    campioni = _BASELINE_CACHE.get(channel_id)
+    if campioni is None:
+        campioni = get_channel_video_samples(channel_id)
+        if campioni is None:
+            return None, 0
+        _BASELINE_CACHE.set(channel_id, campioni)
+    return baseline_from_samples(campioni.get(formato, []), exclude_video_id)
 
 
 def _filter_already_ingested(video_ids: list) -> set:
@@ -312,6 +329,7 @@ def fetch_and_ingest_real_youtube_content():
     skipped_not_short = 0
     skipped_vpi = 0
     skipped_auto = 0
+    ingeriti_per_formato = {FORMATO_SHORT: 0, FORMATO_LONG: 0}
     skipped_baseline = 0
     already_exists = 0
     total_ingested = 0
@@ -362,9 +380,12 @@ def fetch_and_ingest_real_youtube_content():
             for vid_data in items:
                 scanned_total += 1
                 duration = parse_iso_duration(vid_data.get("contentDetails", {}).get("duration", ""))
-                if not is_short_duration(duration):
+                formato = formato_da_durata(duration)
+                if formato is None:
+                    # Durata assente o nulla: dirette, premiere, video rimossi.
                     skipped_duration += 1
                     continue
+                vid_data["_formato"] = formato
 
                 published_at = vid_data["snippet"].get("publishedAt")
                 age_days = age_in_days(published_at, now_dt)
@@ -390,12 +411,18 @@ def fetch_and_ingest_real_youtube_content():
                 vid_id = vid_data["id"]
                 snippet = vid_data["snippet"]
 
-                # Verifica Short: una sola volta per video. None = non so, accettiamo
-                # (la durata e' gia' compatibile) invece di scartare in silenzio.
-                short_check = is_real_youtube_short(vid_id)
-                if short_check is False:
-                    skipped_not_short += 1
-                    continue
+                formato = vid_data["_formato"]
+
+                # La verifica HTTP serve solo a smascherare i video corti che
+                # YouTube non pubblica come Short. Su un video lungo non ha
+                # niente da dire, quindi non si spende una richiesta.
+                # None = non so, accettiamo (la durata e' gia' compatibile)
+                # invece di scartare in silenzio.
+                if formato == FORMATO_SHORT:
+                    short_check = is_real_youtube_short(vid_id)
+                    if short_check is False:
+                        skipped_not_short += 1
+                        continue
 
                 ch_id = snippet["channelId"]
                 views = float(vid_data["statistics"].get("viewCount", 0))
@@ -412,7 +439,9 @@ def fetch_and_ingest_real_youtube_content():
                     skipped_auto += 1
                     continue
 
-                baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
+                baseline, samples = _cached_channel_baseline(
+                    ch_id, formato, exclude_video_id=vid_id
+                )
                 if not baseline or baseline < MIN_BASELINE_VIEWS:
                     skipped_baseline += 1
                     continue
@@ -429,6 +458,7 @@ def fetch_and_ingest_real_youtube_content():
                 try:
                     supabase.table("posts").insert({
                         "platform": "YOUTUBE",
+                        "format": formato,
                         "external_post_id": vid_id,
                         # Se YouTube ci da' l'handle vero lo si usa; il ripiego
                         # derivato dal titolo resta solo per i canali senza handle.
@@ -454,6 +484,7 @@ def fetch_and_ingest_real_youtube_content():
                         "detected_at": now_utc
                     }).execute()
                     total_ingested += 1
+                    ingeriti_per_formato[formato] += 1
                 except Exception as e:
                     print(f"Insert fallito per {vid_id}: {e}")
 
@@ -471,7 +502,9 @@ def fetch_and_ingest_real_youtube_content():
     print(f"   scartati canali auto-generati:  {skipped_auto}")
     print(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
     print(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
-    print(f"   NUOVI INSERITI:                 {total_ingested}\n")
+    print(f"   NUOVI INSERITI:                 {total_ingested}")
+    print(f"      di cui Short:                {ingeriti_per_formato[FORMATO_SHORT]}")
+    print(f"      di cui video lunghi:         {ingeriti_per_formato[FORMATO_LONG]}\n")
 
 
 # ==============================================================================

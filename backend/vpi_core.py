@@ -79,6 +79,22 @@ def is_short_duration(duration_seconds: int) -> bool:
     return 0 < duration_seconds <= SHORT_MAX_SECONDS
 
 
+#: I due formati che misuriamo. Il VPI confronta un video con la mediana del
+#: suo stesso canale, e quel confronto ha senso solo dentro lo stesso formato:
+#: su quasi tutti i canali gli Short e i video lunghi hanno distribuzioni di
+#: views diverse, quindi una baseline mista misurerebbe il mix di
+#: pubblicazione del canale invece della prestazione del video.
+FORMATO_SHORT = "SHORT"
+FORMATO_LONG = "LONG"
+
+
+def formato_da_durata(duration_seconds: int) -> str | None:
+    """SHORT, LONG, oppure None se la durata non e' utilizzabile (0 o assente)."""
+    if not duration_seconds or duration_seconds <= 0:
+        return None
+    return FORMATO_SHORT if duration_seconds <= SHORT_MAX_SECONDS else FORMATO_LONG
+
+
 def calculate_vpi_ratio(views, baseline) -> float:
     """
     VPI = views del video / mediana della baseline del canale.
@@ -97,7 +113,11 @@ def calculate_vpi_ratio(views, baseline) -> float:
 
 
 def baseline_from_samples(campioni, exclude_video_id: str = None, giorni_indietro: float = 0):
-    """Mediana delle views degli Short recenti e maturi del canale.
+    """Mediana delle views dei video recenti e maturi del canale.
+
+    I campioni che riceve sono gia' filtrati per formato da chi la chiama: qui
+    non si distingue fra Short e video lunghi, si applica la stessa regola alla
+    lista che arriva.
 
     Tre regole, invariate rispetto a prima:
       - solo Short pubblicati negli ultimi BASELINE_MAX_AGE_DAYS giorni, cosi'

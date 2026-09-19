@@ -24,6 +24,8 @@ export type Post = {
   channel_id: string | null;
   /** Handle reale del canale (customUrl). author_handle lo rispecchia quando c'e'. */
   channel_handle: string | null;
+  /** SHORT (<= 180s) oppure LONG. La baseline e' sempre dello stesso formato. */
+  format: 'SHORT' | 'LONG' | null;
   author_name: string | null;
   content_text: string | null;
   post_url: string | null;
@@ -40,7 +42,7 @@ export type Post = {
 };
 
 const CAMPI =
-  'id,external_post_id,author_handle,channel_id,channel_handle,author_name,content_text,post_url,country,category,platform,vpi_ratio,vpi_level,vpi_level_name,baseline_score,engagement_score,claim_token,detected_at';
+  'id,external_post_id,format,author_handle,channel_id,channel_handle,author_name,content_text,post_url,country,category,platform,vpi_ratio,vpi_level,vpi_level_name,baseline_score,engagement_score,claim_token,detected_at';
 
 /** Outlier attivi di un segmento, dal piu' alto al piu' basso. */
 export async function outlierDi(
