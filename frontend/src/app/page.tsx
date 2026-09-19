@@ -12,6 +12,14 @@ import { formatVPI, formatCount } from '@/lib/format';
 // compariva mai in tabella: tutti i suoi record si fermano a 1.4 esatto.
 // Il confronto e' quindi >= , non >.
 const MIN_VPI_DISPLAY = 1.4;
+
+// Quante righe si disegnano per volta.
+//
+// Prima la tabella renderizzava tutti i record insieme: 11.565 righe, circa
+// 300.000 nodi DOM e una pagina alta quasi due chilometri sul telefono. Una
+// pagina in quelle condizioni non viene nemmeno valutata da un motore di
+// ricerca, oltre a essere inusabile.
+const PER_PAGINA = 100;
 import { createClient } from '@supabase/supabase-js';
 import {
   Award,
@@ -121,6 +129,7 @@ export default function Home() {
 
   // English comment: State for floating scroll-to-top button visibility
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
+  const [pagina, setPagina] = useState<number>(1);
 
   useEffect(() => {
     document.title = 'IOSA — Viral Performance Index';
@@ -266,6 +275,20 @@ export default function Home() {
       return matchPlatform && matchCountry && matchCategory && matchSearch;
     });
   }, [posts, selectedPlatform, selectedCountry, selectedCategory, searchQuery]);
+
+  // Cambiando filtro o ricerca si riparte dalla prima pagina, altrimenti si
+  // resta su una pagina che nel nuovo risultato non esiste piu'.
+  useEffect(() => {
+    setPagina(1);
+  }, [selectedPlatform, selectedCountry, selectedCategory, searchQuery]);
+
+  const pagineTotali = Math.max(1, Math.ceil(filteredPosts.length / PER_PAGINA));
+  const paginaCorrente = Math.min(pagina, pagineTotali);
+  const primoIndice = (paginaCorrente - 1) * PER_PAGINA;
+  const postsVisibili = useMemo(
+    () => filteredPosts.slice(primoIndice, primoIndice + PER_PAGINA),
+    [filteredPosts, primoIndice]
+  );
 
   const avgSpike = useMemo(() => {
     if (filteredPosts.length === 0) return '0.0x';
@@ -562,7 +585,10 @@ export default function Home() {
           <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
             <div className="flex items-center gap-2">
               <span>
-                ACTIVE INDEX: <strong className="text-white">{filteredPosts.length} OUTLIERS</strong>
+                ACTIVE INDEX: <strong className="text-white">{filteredPosts.length} OUTLIERS</strong>{' '}
+                <Link href="/outliers" className="text-[#00E5FF] hover:underline ml-1">
+                  browse by country and category
+                </Link>
               </span>
               <span className="text-[10px] text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
                 15-DAY ROLLING
@@ -582,7 +608,8 @@ export default function Home() {
             {isLoading ? (
               <VPILoader />
             ) : filteredPosts.length > 0 ? (
-              filteredPosts.map((post, index) => {
+              postsVisibili.map((post, indiceLocale) => {
+                const index = primoIndice + indiceLocale;
                 const formattedVpi = formatVPI(Number(post.vpi_ratio || 0));
                 return (
                   <div
@@ -667,6 +694,40 @@ export default function Home() {
               </div>
             )}
           </div>
+
+          {filteredPosts.length > PER_PAGINA && (
+            <div className="flex items-center justify-between gap-3 px-3 py-3 border-t border-gray-800/60 font-mono text-[11px]">
+              <button
+                onClick={() => {
+                  setPagina(paginaCorrente - 1);
+                  document.getElementById('directory-table')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                disabled={paginaCorrente <= 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-800 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-500/40 hover:text-white transition-colors"
+              >
+                Previous
+              </button>
+
+              <span className="text-gray-500">
+                {primoIndice + 1}&ndash;{Math.min(primoIndice + PER_PAGINA, filteredPosts.length)}{' '}
+                of {filteredPosts.length.toLocaleString('en-US')}
+                <span className="hidden sm:inline">
+                  {' '}&middot; page {paginaCorrente} of {pagineTotali}
+                </span>
+              </span>
+
+              <button
+                onClick={() => {
+                  setPagina(paginaCorrente + 1);
+                  document.getElementById('directory-table')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                disabled={paginaCorrente >= pagineTotali}
+                className="px-3 py-1.5 rounded-lg border border-gray-800 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-500/40 hover:text-white transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </section>
 
         {/* How It Works Section - Aggiornato con la nuova metodologia di campionamento trasparente */}

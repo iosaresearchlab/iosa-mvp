@@ -169,17 +169,27 @@ export default function ClaimPage({
   if (!post) {
     return (
       <main className="min-h-screen bg-[#030508] text-white font-mono flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#070A10] border border-red-500/30 rounded-xl p-8 text-center shadow-2xl flex flex-col items-center gap-4">
-          <h1 className="text-xl font-bold text-red-400">404 — INVALID TOKEN</h1>
-          <p className="text-xs text-gray-400">
-            This verification link does not exist or has expired from the active evaluation window.
+        <div className="max-w-md w-full bg-[#070A10] border border-amber-500/30 rounded-xl p-8 text-center shadow-2xl flex flex-col items-center gap-4">
+          <h1 className="text-xl font-bold text-amber-400">MEASUREMENT EXPIRED</h1>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            This link is no longer active. Measurements stay published for 15
+            days, then leave the live index. Nothing went wrong on your side and
+            the link was valid when it was issued.
           </p>
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-2 text-xs font-mono text-white bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-[#00E5FF]/50 px-4 py-2 rounded-full transition-all mt-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF]" /> Return to Home
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-2 mt-2">
+            <Link
+              href="/outliers"
+              className="inline-flex items-center justify-center gap-2 text-xs font-mono text-black bg-[#00E5FF] hover:bg-cyan-400 px-4 py-2 rounded-full transition-all"
+            >
+              Browse current outliers
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center gap-2 text-xs font-mono text-white bg-gray-900 hover:bg-gray-800 border border-gray-700 hover:border-[#00E5FF]/50 px-4 py-2 rounded-full transition-all"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#00E5FF]" /> Search your channel
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -277,7 +287,7 @@ export default function ClaimPage({
           </div>
         </div>
 
-        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-red-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3 flex items-center gap-3 shadow-md`}>
+        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-amber-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3 flex items-center gap-3 shadow-md`}>
           <Timer className={`w-3.5 h-3.5 ${isExpired ? 'text-red-400' : 'text-amber-400 animate-pulse'} shrink-0`} />
           <div>
             <span className="opacity-80 block text-[9px] mb-0.5">CLAIM TOKEN EXPIRES IN</span>
