@@ -42,6 +42,12 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # il cliente non paga un servizio piu' rapido che poi non riceve.
 ENABLE_EXPRESS_SHIPPING = os.getenv("ENABLE_EXPRESS_SHIPPING", "false").lower() == "true"
 
+# Interruttore generale degli ordini. Default acceso: nulla cambia finche' non
+# lo si mette a "false". Serve a poter spegnere il negozio in un secondo, per
+# esempio finche' l'inquadramento fiscale non e' definito, senza toccare il
+# resto del sito: la targa digitale gratuita continua a funzionare.
+ENABLE_ORDERS = os.getenv("ENABLE_ORDERS", "true").lower() == "true"
+
 # Catalogo prezzi in centesimi di USD. Prezzo fisso per prodotto.
 PRODUCT_CATALOG = {"mug": 1900}
 DEFAULT_PRODUCT_KEY = "mug"
@@ -69,9 +75,10 @@ def _fetch_all_rows(table: str, columns: str, page_size: int = 1000, **filters):
     """
     Legge una tabella oltre il tetto implicito di 1.000 righe di Supabase.
 
-    Senza range esplicito PostgREST tronca a 1.000 righe senza dare errore:
-    le aggregazioni di /api/analytics/insights venivano calcolate su un
-    sottoinsieme arbitrario invece che su tutti i record attivi.
+    Su questo progetto max_rows non e' limitato e una singola risposta
+    restituisce tutte le righe (verificato: 11.188 in una sola chiamata).
+    La paginazione resta come rete di sicurezza, perche' il tetto e' una
+    impostazione di progetto che puo' cambiare senza preavviso.
     """
     rows = []
     offset = 0
@@ -563,6 +570,11 @@ async def initialize_claim_product(token: str):
 
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
+    if not ENABLE_ORDERS:
+        raise HTTPException(
+            status_code=503,
+            detail="Commemorative items are temporarily unavailable. The digital plaque remains free to download."
+        )
     try:
         unit_amount = PRODUCT_CATALOG.get(DEFAULT_PRODUCT_KEY, 1900)
         

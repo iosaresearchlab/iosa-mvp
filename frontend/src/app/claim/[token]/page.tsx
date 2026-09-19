@@ -7,6 +7,8 @@ import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLef
 import ClaimForm from './ClaimForm';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+// Deve corrispondere a ENABLE_ORDERS nel backend. Default acceso.
+const ORDERS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ORDERS !== 'false';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -448,7 +450,11 @@ export default function ClaimPage({
               </p>
             </div>
 
-            {isExpired ? (
+            {!ORDERS_ENABLED ? (
+              <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 text-center text-xs font-mono text-gray-300 shadow-inner">
+                Commemorative items are temporarily unavailable. Your digital plaque above stays free to download.
+              </div>
+            ) : isExpired ? (
               <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-4 text-center text-xs font-mono text-red-400 shadow-inner">
                 This claim token has expired. The 15-day validity window from publication has closed.
               </div>

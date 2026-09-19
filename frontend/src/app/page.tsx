@@ -191,15 +191,15 @@ export default function Home() {
   const loadData = async () => {
     try {
       // Aggiornato il filtro a min_vpi=1.4 come da piano per ridurre il rumore e velocizzare il rendering
-      // Supabase tronca a 1.000 righe senza segnalarlo: chiediamo il conteggio
-      // esatto a parte, cosi' la statistica non mente quando l'indice cresce.
+      // Verificato sul progetto: max_rows non e' limitato e la query restituisce
+      // tutte le righe. Nessun range, ma chiediamo comunque il conteggio esatto
+      // cosi' la statistica resta corretta anche se un domani il tetto cambia.
       const { data, error, count } = await supabase
         .from('posts')
         .select('*', { count: 'exact' })
         .eq('status', 'ACTIVE')
         .gt('vpi_ratio', 1.4)
-        .order('vpi_ratio', { ascending: false })
-        .range(0, 999);
+        .order('vpi_ratio', { ascending: false });
 
       if (!error && data) {
         setPosts(data);
