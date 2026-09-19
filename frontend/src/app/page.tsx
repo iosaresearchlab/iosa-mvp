@@ -290,6 +290,25 @@ export default function Home() {
     [filteredPosts, primoIndice]
   );
 
+  // La vetrina in alto mostra un record per canale. Senza questo vincolo un
+  // broadcaster che pubblica molte clip con la stessa baseline bassa occupa da
+  // solo quasi tutte e cinque le posizioni, e la prima cosa che vede chi arriva
+  // e' lo stesso programma ripetuto invece di cinque casi diversi.
+  // Il vincolo vale solo qui: l'indice completo, il conteggio e l'export
+  // restano integrali, perche' togliere record falserebbe il dataset.
+  const topCinque = useMemo(() => {
+    const visti = new Set<string>();
+    const fuori: typeof filteredPosts = [];
+    for (const post of filteredPosts) {
+      const canale = post.channel_id || post.author_handle || post.id;
+      if (visti.has(canale)) continue;
+      visti.add(canale);
+      fuori.push(post);
+      if (fuori.length === 5) break;
+    }
+    return fuori;
+  }, [filteredPosts]);
+
   const avgSpike = useMemo(() => {
     if (filteredPosts.length === 0) return '0.0x';
     const total = filteredPosts.reduce((acc, p) => acc + Number(p.vpi_ratio || 0), 0);
@@ -470,7 +489,7 @@ export default function Home() {
 
                   {filteredPosts.length > 0 ? (
                     <div className="divide-y divide-gray-800/60 max-h-48 overflow-y-auto">
-                      {filteredPosts.slice(0, 5).map((post, idx) => (
+                      {topCinque.map((post, idx) => (
                         <div key={idx} className="py-1.5 flex items-center justify-between text-xs hover:bg-black/40 px-1 rounded transition-colors">
                           <div className="truncate mr-2">
                             <span className="font-bold text-white font-mono text-[11px]">{post.author_handle || post.author_name}</span>

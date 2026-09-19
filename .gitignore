@@ -17,3 +17,6 @@ backend/renders/
 # stato locale del backfill degli identificatori canale
 backend/backfill_channel_ids.json
 backend/backfill_subscribers.json
+
+# contatti di creator reali: dati personali di terzi, fuori dal repo
+outreach/
