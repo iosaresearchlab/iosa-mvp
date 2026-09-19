@@ -64,9 +64,14 @@ BLOCCO = 50
 PAGINA = 1000
 
 
-def _ruolo(jwt: str) -> str:
+def _ruolo(chiave: str) -> str:
+    """Supabase ha due formati: il vecchio JWT e le nuove chiavi sb_publishable_/sb_secret_."""
+    if chiave.startswith("sb_secret_"):
+        return "service_role"
+    if chiave.startswith("sb_publishable_"):
+        return "anon"
     try:
-        corpo = jwt.split(".")[1]
+        corpo = chiave.split(".")[1]
         corpo += "=" * (-len(corpo) % 4)
         return json.loads(base64.urlsafe_b64decode(corpo)).get("role", "?")
     except Exception:
