@@ -13,3 +13,6 @@ backend/renders/
 *.pyc
 .DS_Store
 .cache/
+
+# stato locale del backfill degli identificatori canale
+backend/backfill_channel_ids.json

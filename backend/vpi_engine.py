@@ -239,7 +239,7 @@ def _filter_already_ingested(video_ids: list) -> set:
 
 
 def fetch_channels_metadata(channel_ids: list) -> dict:
-    """Retrieves real subscriber count for channel metadata."""
+    """Iscritti e handle reale dei canali. Una chiamata ogni 50 id, 1 unita' di quota."""
     if not channel_ids:
         return {}
     
@@ -255,7 +255,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         ids_str = ",".join(blocco)
         url = (
             "https://www.googleapis.com/youtube/v3/channels"
-            f"?part=statistics&id={ids_str}&key={YOUTUBE_API_KEY}"
+            f"?part=snippet,statistics&id={ids_str}&key={YOUTUBE_API_KEY}"
         )
         try:
             res = requests.get(url, timeout=10)
@@ -275,7 +275,14 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
                 subs = None
             else:
                 subs = int(stats["subscriberCount"])
-            channels_data[item["id"]] = {"subscribers": subs}
+            # customUrl e' l'handle vero del canale ("@qesek"). Finora l'handle
+            # veniva inventato dal titolo togliendo gli spazi, e per molti canali
+            # punta a un canale diverso o inesistente.
+            handle = (item.get("snippet", {}).get("customUrl") or "").strip()
+            channels_data[item["id"]] = {
+                "subscribers": subs,
+                "handle": handle if handle.startswith("@") else None,
+            }
 
     return channels_data
 
@@ -392,8 +399,9 @@ def fetch_and_ingest_real_youtube_content():
                 ch_id = snippet["channelId"]
                 views = float(vid_data["statistics"].get("viewCount", 0))
 
-                ch_info = channels_meta.get(ch_id)
-                subscribers = ch_info.get("subscribers") if ch_info else None
+                ch_info = channels_meta.get(ch_id) or {}
+                subscribers = ch_info.get("subscribers")
+                channel_handle = ch_info.get("handle")
 
                 baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
                 if not baseline or baseline < MIN_BASELINE_VIEWS:
@@ -413,7 +421,11 @@ def fetch_and_ingest_real_youtube_content():
                     supabase.table("posts").insert({
                         "platform": "YOUTUBE",
                         "external_post_id": vid_id,
-                        "author_handle": f"@{snippet['channelTitle'].replace(' ', '')}",
+                        # Se YouTube ci da' l'handle vero lo si usa; il ripiego
+                        # derivato dal titolo resta solo per i canali senza handle.
+                        "author_handle": channel_handle or f"@{snippet['channelTitle'].replace(' ', '')}",
+                        "channel_id": ch_id,
+                        "channel_handle": channel_handle,
                         "author_name": snippet["channelTitle"],
                         "subscribers": subscribers,
                         "post_url": f"https://www.youtube.com/watch?v={vid_id}",
