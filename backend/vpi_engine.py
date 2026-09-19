@@ -311,6 +311,7 @@ def fetch_and_ingest_real_youtube_content():
     skipped_age = 0
     skipped_not_short = 0
     skipped_vpi = 0
+    skipped_auto = 0
     skipped_baseline = 0
     already_exists = 0
     total_ingested = 0
@@ -403,6 +404,14 @@ def fetch_and_ingest_real_youtube_content():
                 subscribers = ch_info.get("subscribers")
                 channel_handle = ch_info.get("handle")
 
+                # I canali "X - Topic" sono Art Track generati da YouTube per i
+                # cataloghi musicali: non hanno handle, non c'e' un creator
+                # dietro e la mediana dei loro Shorts non descrive nessuno.
+                # Non sono outlier da misurare ne' persone da contattare.
+                if not channel_handle:
+                    skipped_auto += 1
+                    continue
+
                 baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
                 if not baseline or baseline < MIN_BASELINE_VIEWS:
                     skipped_baseline += 1
@@ -459,6 +468,7 @@ def fetch_and_ingest_real_youtube_content():
     print(f"   scartati fuori finestra 15gg:   {skipped_age}")
     print(f"   scartati perche' non Short:     {skipped_not_short}")
     print(f"   gia' presenti nel DB:           {already_exists}")
+    print(f"   scartati canali auto-generati:  {skipped_auto}")
     print(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
     print(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
     print(f"   NUOVI INSERITI:                 {total_ingested}\n")

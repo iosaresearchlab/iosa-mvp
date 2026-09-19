@@ -16,3 +16,4 @@ backend/renders/
 
 # stato locale del backfill degli identificatori canale
 backend/backfill_channel_ids.json
+backend/backfill_subscribers.json
