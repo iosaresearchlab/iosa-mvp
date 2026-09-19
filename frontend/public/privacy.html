@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — IOSA Research Lab</title>
+  <meta name="description" content="How IOSA Research Lab processes public creator metrics and customer data.">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #030508; color: #d6dbe3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.65; font-size: 16px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+    header { border-bottom: 1px solid #1c2330; padding-bottom: 20px; margin-bottom: 32px; }
+    .brand { display: flex; align-items: baseline; gap: 8px; }
+    .brand span:first-child { color: #00E5FF; font-weight: 800; letter-spacing: -0.5px; font-size: 20px; }
+    .brand span:last-child { color: #7b8698; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; }
+    h1 { color: #fff; font-size: 28px; margin: 18px 0 6px; letter-spacing: -0.5px; }
+    .date { color: #7b8698; font-size: 13px; margin: 0; }
+    h2 { color: #fff; font-size: 17px; margin: 34px 0 10px; }
+    p, li { color: #b9c2ce; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    a { color: #00E5FF; }
+    code, .todo {
+      background: #0d1420; border: 1px solid #1c2330; border-radius: 4px;
+      padding: 1px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+    }
+    .todo { color: #ffb84d; border-color: #4a3a1a; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #1c2330; vertical-align: top; }
+    th { color: #7b8698; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+    footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #1c2330; color: #6b7686; font-size: 13px; }
+    @media (max-width: 600px) { .wrap { padding: 28px 16px 60px; } h1 { font-size: 23px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand"><span>IOSA</span><span>Research Lab</span></div>
+      <h1>Privacy Policy</h1>
+      <p class="date">Last updated: 19 September 2026</p>
+    </header>
+    <p>This policy explains what data IOSA Research Lab processes, why, and how you can ask us to
+    stop. It covers both the creators whose public metrics we measure and the people who order a
+    commemorative item.</p>
+
+    <h2>1. Who we are</h2>
+    <p>IOSA Research Lab (&ldquo;we&rdquo;) is an independent research project studying how short-form
+    video performs relative to each channel&rsquo;s own historical baseline. The project has no profit
+    purpose; optional commemorative items fund servers, API quota and development.</p>
+    <p>Data controller: <span class="todo">TO COMPLETE: legal name, registered address, and VAT or tax
+    number if applicable</span>. Contact: <a href="mailto:iosa.research.lab@gmail.com">iosa.research.lab@gmail.com</a>.</p>
+
+    <h2>2. Creator data</h2>
+    <p>Our systems read publicly available metrics through the official YouTube Data API and TikTok
+    Research API. For each measured video we store:</p>
+    <ul>
+      <li>the channel name and public handle;</li>
+      <li>the video title, its public URL and its publication date;</li>
+      <li>public view counts, the computed baseline and the resulting VPI value;</li>
+      <li>the country and category under which the video was sampled.</li>
+    </ul>
+    <p>We do not collect email addresses, contact details, private messages, demographic data or any
+    non-public information about creators. We do not buy, sell, license or share this data with data
+    brokers or advertisers.</p>
+
+    <h2>3. Why we may process creator data, and on what basis</h2>
+    <p>Some of this information can identify a person, so under the GDPR it is personal data even
+    though it is public. We process it for statistical and research purposes, on the basis of our
+    legitimate interest in publishing an open measurement of public content performance
+    (Art. 6(1)(f) GDPR), with the safeguards for research set out in Art. 89 GDPR. Because we receive
+    the data from the platforms rather than from the creator, Art. 14(5)(b) GDPR applies: informing
+    every creator individually would require disproportionate effort, so we publish this notice
+    instead.</p>
+
+    <h2>4. How long we keep it</h2>
+    <p>A measured video stays visible in the public index for 15 days from the moment we detect it.
+    After that it is marked as expired and is no longer shown. Aggregated statistics that cannot
+    identify a single video or channel may be kept longer for research continuity.</p>
+
+    <h2>5. Creator rights and opt-out</h2>
+    <p>If you are a creator, you can ask us to stop processing your data or to delete your records at
+    any time, with no justification required. Write to
+    <a href="mailto:optout@iosaresearch.com">optout@iosaresearch.com</a> from any address, naming the
+    channel. We remove the records and exclude the channel from future scans. You also have the right
+    to access, rectification, restriction and portability, and the right to lodge a complaint with
+    your data protection authority.</p>
+
+    <h2>6. Data of people who order an item</h2>
+    <p>If you order a commemorative item we process your name, email address and shipping address, for
+    the sole purpose of producing and delivering that item and meeting our accounting obligations.
+    Payment card details never reach our servers: they are handled by Stripe.</p>
+
+    <h2>7. Service providers</h2>
+    <table>
+      <tr><th>Provider</th><th>Purpose</th></tr>
+      <tr><td>Supabase</td><td>Database hosting for the measurement index</td></tr>
+      <tr><td>Vercel</td><td>Website hosting and cookieless aggregate audience measurement</td></tr>
+      <tr><td>Stripe</td><td>Payment processing for optional orders</td></tr>
+      <tr><td>Printify and its print providers</td><td>Production and shipping of ordered items</td></tr>
+    </table>
+    <p>Some providers operate outside the European Economic Area. Transfers rely on the European
+    Commission&rsquo;s standard contractual clauses or an adequacy decision, as published by each
+    provider.</p>
+
+    <h2>8. Cookies</h2>
+    <p>The site sets no advertising or profiling cookies. Audience measurement uses Vercel Analytics,
+    which aggregates page views without cookies and without building a profile of you.</p>
+
+    <h2>9. Changes</h2>
+    <p>If this policy changes we update the date at the top of this page.</p>
+    <footer>
+      <p>IOSA Research Lab is an independent, self-funded research project with no profit purpose.
+      It is not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC,
+      TikTok, ByteDance, Instagram, X or Meta.</p>
+      <p><a href="/">Back to the index</a> &middot; <a href="/privacy.html">Privacy Policy</a> &middot; <a href="/terms.html">Terms of Service</a></p>
+    </footer>
+  </div>
+</body>
+</html>

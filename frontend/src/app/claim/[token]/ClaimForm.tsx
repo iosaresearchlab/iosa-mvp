@@ -22,7 +22,7 @@ export default function ClaimForm({
   authorHandle,
   postData,
   buttonText = 'Support IOSA: Order Trophy ($19.00)',
-  buttonSubtext = '100% optional. Thank you for supporting open data analytics!',
+  buttonSubtext = '100% optional. Proceeds fund servers, API quota and development.',
 }: ClaimFormProps) {
   // Safe creator handle fallback
   const activeAuthor = authorHandle || postData?.author || 'Creator';
@@ -137,7 +137,7 @@ export default function ClaimForm({
           className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-[#00E5FF] focus:outline-none focus:border-[#00E5FF]"
         >
           <option value="Independent Commemorative Award ($19.00)">
-            Commemorative Award ($19.00 — Production at cost + shipping calculated at checkout)
+            Commemorative Mug ($19.00 — shipping calculated at checkout)
           </option>
         </select>
       </div>

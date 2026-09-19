@@ -40,12 +40,13 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
   if (!lvl && vpiScore) {
     const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    if (v >= 100) lvl = 10;
-    else if (v >= 50) lvl = 9;
-    else if (v >= 25) lvl = 8;
-    else if (v >= 15) lvl = 7;
-    else if (v >= 10) lvl = 6;
-    else if (v >= 5) lvl = 5;
+    // Stesse soglie di vpi_core.py e della landing.
+    if (v >= 50.0) lvl = 10;
+    else if (v >= 25.0) lvl = 9;
+    else if (v >= 15.0) lvl = 8;
+    else if (v >= 10.0) lvl = 7;
+    else if (v >= 7.5) lvl = 6;
+    else if (v >= 5.0) lvl = 5;
     else if (v >= 3) lvl = 4;
     else if (v >= 2) lvl = 3;
     else if (v >= 1.5) lvl = 2;
@@ -176,7 +177,7 @@ export default function ClaimPage({
     return (
       <main className="min-h-screen bg-[#030508] text-white font-mono flex items-center justify-center p-6">
         <div className="text-xs text-[#00E5FF] animate-pulse font-mono tracking-widest flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-[#00E5FF]" /> RETRIEVING ACCREDITATION PARAMETERS...
+          <Loader2 className="w-4 h-4 animate-spin text-[#00E5FF]" /> RETRIEVING MEASUREMENT DATA...
         </div>
       </main>
     );
@@ -202,7 +203,7 @@ export default function ClaimPage({
   }
 
   const formattedVpi = Number(post.vpi_ratio || 0).toFixed(1);
-  const postTitle = post.content_text || post.title || post.content_title || 'Viral Video Accreditation';
+  const postTitle = post.content_text || post.title || post.content_title || 'Measured Video';
 
   const trophyPayload = {
     author: post.author_handle || 'Creator',
@@ -248,7 +249,7 @@ export default function ClaimPage({
         {/* Badge: Clean Verified Accreditation Status */}
         <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">VERIFIED ACCREDITATION</span>
+          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">INDEPENDENT MEASUREMENT</span>
         </div>
       </header>
 
@@ -271,9 +272,9 @@ export default function ClaimPage({
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h3 className="font-mono font-bold text-xs text-emerald-300">ACCREDITATION ORDER CONFIRMED</h3>
+              <h3 className="font-mono font-bold text-xs text-emerald-300">ORDER CONFIRMED</h3>
               <p className="text-[11px] text-gray-300 font-sans mt-0.5">
-                Payment verified. Your commemorative metric award for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
+                Payment verified. Your commemorative item for <span className="font-bold text-white">{post.author_handle}</span> is queued for production.
               </p>
             </div>
           </div>
@@ -372,7 +373,7 @@ export default function ClaimPage({
             </div>
 
             <p className="text-[10px] font-mono text-gray-400 mb-2 flex items-center justify-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes verified QR code for instant authenticity proof.
+              <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes a QR code linking back to this measurement page.
             </p>
 
             <span className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase mb-1.5 ${getBadgeStyle(post.vpi_level_name, post.vpi_ratio)}`}>
@@ -382,13 +383,13 @@ export default function ClaimPage({
             <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">
               +{formattedVpi}x <span className="text-[#00E5FF]">VPI</span>
             </h2>
-            <p className="text-[11px] font-mono text-gray-400">Viral Performance Index Accredited</p>
+            <p className="text-[11px] font-mono text-gray-400">Viral Performance Index &mdash; independent measurement</p>
           </div>
 
           {/* Post Metrics Details */}
           <div className="w-full mt-auto border-t border-gray-800/80 pt-3 text-left space-y-2 font-mono text-xs text-gray-300 bg-black/40 p-3 rounded-xl border border-gray-800/60">
             <div className="flex flex-col gap-1 pb-2 border-b border-gray-800/60">
-              <span className="text-[9px] text-gray-500 uppercase tracking-wider">ACCREDITED POST TITLE:</span>
+              <span className="text-[9px] text-gray-500 uppercase tracking-wider">MEASURED POST TITLE:</span>
               <span className="font-bold text-white text-[11px] leading-snug">{postTitle}</span>
             </div>
 
@@ -443,7 +444,7 @@ export default function ClaimPage({
                 <span>100% OPTIONAL SUPPORT</span>
               </div>
               <p className="text-sm font-sans text-gray-300 leading-relaxed">
-                Digital plaques and analytical reports are <span className="text-white font-semibold">100% free forever</span>. Ordering a physical trophy is completely optional and directly powers our open-source tracking nodes and algorithm audits.
+                Digital plaques and reports are <span className="text-white font-semibold">100% free forever</span>. Ordering a physical item is entirely optional: the proceeds cover servers, API quota and development.
               </p>
             </div>
 
@@ -470,7 +471,7 @@ export default function ClaimPage({
       {/* Footer Disclaimer */}
       <footer className="max-w-5xl mx-auto w-full mt-2 pt-2 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
         <p>
-          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent non-profit data research initiative. This platform and its metric certifications (VPI) are not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, or any other third-party social media platform.
+          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA Research Lab is an independent, self-funded research project with no profit purpose. Commemorative items are optional and their proceeds cover servers, API quota and development. VPI is our own measurement, not a certification issued by any authority. Not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, TikTok, or any other platform.
         </p>
       </footer>
     </main>

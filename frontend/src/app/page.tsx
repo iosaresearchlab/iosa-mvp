@@ -385,7 +385,7 @@ export default function Home() {
             </span>
           </div>
           <p className="text-xs md:text-xs text-gray-300 leading-relaxed font-sans">
-            The Institute for Open Social Analytics (IOSA) is an independent, non-profit data research initiative dedicated to auditing public social media metrics against statistical baselines. We provide open-access trend data and digital metric verifications. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
+            IOSA Research Lab is an independent, self-funded research project with no profit purpose, measuring public social media metrics against each channel&apos;s own statistical baseline. Trend data is open access. Optional commemorative items fund our servers, API quota and development. IOSA is fully independent and is not affiliated, endorsed, associated, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
           </p>
         </section>
 
@@ -673,7 +673,7 @@ export default function Home() {
               TRANSPARENT SAMPLING METHODOLOGY
             </h2>
             <p className="text-sm md:text-base font-extrabold font-mono text-white">
-              Automated Global Audit across 100+ Regions & Categories
+              Rotating sample across 34 countries and 15 categories
             </p>
           </div>
 
@@ -682,7 +682,7 @@ export default function Home() {
               <Zap className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">1. Global Video Ingestion</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Automated scanning of the top 100 trending contents across 100+ geographic regions and all main categories via YouTube Data API v3.
+                Each cycle scans the trending Shorts of three countries and one category, rotating across 34 countries and 15 categories, via the official YouTube Data API v3.
               </p>
             </div>
 
@@ -690,7 +690,7 @@ export default function Home() {
               <BarChart3 className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">2. VPI Outlier Filtering</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Filtering out standard variations to surface true viral outbreaks with $VPI \ge 1.4$, reducing background noise by 34%.
+                Only videos that outperform their own channel baseline are indexed, so a small creator and a large one are measured on the same scale.
               </p>
             </div>
 
@@ -796,7 +796,7 @@ export default function Home() {
                       VPI = E<sub>act</sub> / E<sub>base</sub>
                     </p>
                     <p className="text-[11px] text-gray-400">
-                      Where <strong>E<sub>act</sub></strong> is the observed public view count within the evaluation window, and <strong>E<sub>base</sub></strong> is the median baseline of the creator's preceding 10 public uploads.
+                      Where <strong>E<sub>act</sub></strong> is the observed public view count within the 15-day window, and <strong>E<sub>base</sub></strong> is the median view count of the channel&apos;s recent Shorts, taken from the last 90 days and requiring at least 5 videos.
                     </p>
                   </div>
 
@@ -922,7 +922,7 @@ export default function Home() {
               <span className="font-mono font-black text-base text-white">IOSA — Institute for Open Social Analytics</span>
             </div>
             <p className="text-[11px] text-gray-400 font-sans leading-relaxed max-w-md">
-              An independent, third-party community research project dedicated to open-source algorithmic monitoring and transparent viral metric analytics.
+              An independent, self-funded research project with no profit purpose, measuring how short-form content performs against each channel&apos;s own baseline.
             </p>
             <div className="flex items-center gap-2 text-[10px] text-[#00E5FF] pt-1">
               <Mail className="w-3.5 h-3.5" />
@@ -936,14 +936,14 @@ export default function Home() {
             </span>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
+                <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <ShieldCheck className="w-3 h-3 text-cyan-400" /> Privacy Policy
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
+                <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
                   <FileText className="w-3 h-3 text-cyan-400" /> Terms of Service
-                </Link>
+                </a>
               </li>
               <li>
                 <button 
@@ -974,7 +974,7 @@ export default function Home() {
 
         <div className="max-w-6xl mx-auto pt-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[10px] text-gray-400">
           <p className="text-center md:text-left font-sans">
-            © 2026 Institute for Open Social Analytics (IOSA). Independent research initiative.
+            © 2026 IOSA Research Lab. Independent, self-funded research project.
           </p>
           <p className="text-center md:text-right font-sans text-gray-400 max-w-xl">
             Disclaimer: IOSA is an independent analytics project and is not affiliated, endorsed, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
