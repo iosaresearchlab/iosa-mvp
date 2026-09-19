@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
+import { WaitlistForm } from '@/components/WaitlistForm';
 import { createClient } from '@supabase/supabase-js';
 import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
@@ -442,9 +443,10 @@ export default function ClaimPage({
             </div>
 
             {!ORDERS_ENABLED ? (
-              <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 text-center text-xs font-mono text-gray-300 shadow-inner">
-                Commemorative items are temporarily unavailable. Your digital plaque above stays free to download.
-              </div>
+              <WaitlistForm
+                claimToken={token}
+                authorHandle={post.author_handle || undefined}
+              />
             ) : isExpired ? (
               <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-4 text-center text-xs font-mono text-red-400 shadow-inner">
                 This claim token has expired. The 15-day validity window from publication has closed.
