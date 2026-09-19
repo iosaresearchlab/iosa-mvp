@@ -93,8 +93,16 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
 }
 
+const formatVPI = (value: number): string => {
+  if (value >= 1000) {
+    return `+${(value / 1000).toFixed(1)}Kx`;
+  }
+  return `+${value.toFixed(1)}x`;
+};
+
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
   const [selectedCountry, setSelectedCountry] = useState<string>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -112,6 +120,34 @@ export default function Home() {
   useEffect(() => {
     document.title = 'IOSA — Viral Performance Index';
   }, []);
+
+  function VPILoader() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4 space-y-4">
+      <div className="relative flex items-center justify-center">
+        {/* Anelli animati ad impulso neon */}
+        <div className="absolute w-16 h-16 rounded-full bg-[#00E5FF]/20 animate-ping" />
+        <div className="absolute w-24 h-24 rounded-full bg-cyan-500/10 animate-pulse" />
+        
+        {/* Badge Centrale VPI */}
+        <div className="relative z-10 w-12 h-12 rounded-xl bg-black border border-[#00E5FF]/50 flex items-center justify-center shadow-[0_0_20px_rgba(0,229,255,0.4)]">
+          <span className="text-transparent bg-clip-text bg-gradient-to-tr from-[#00E5FF] via-cyan-300 to-white font-black text-base font-mono">
+            VPI
+          </span>
+        </div>
+      </div>
+
+      <div className="text-center space-y-1">
+        <p className="text-xs font-mono font-bold tracking-widest text-white uppercase animate-pulse">
+          Analyzing Social Baselines...
+        </p>
+        <p className="text-[10px] text-gray-400 font-mono">
+          IOSA Research Lab • Fetching 15-Day Outliers
+        </p>
+      </div>
+    </div>
+  );
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -167,6 +203,8 @@ export default function Home() {
       }
     } catch (e) {
       console.error('Error loading live data:', e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -230,19 +268,18 @@ export default function Home() {
 
   const exportToCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
-    const headers = ['Rank', 'Platform', 'Country', 'Category', 'Creator Handle', 'Creator Name', 'VPI Ratio', 'Baseline Score', 'Recorded Score', 'Post URL', 'Record ID'];
+    // Nessun claim_token nell'export: e' il codice che autorizza il claim del creator.
+    const headers = ['Rank', 'Platform', 'Country', 'Category', 'Creator Handle', 'VPI Ratio', 'Baseline Score', 'Recorded Score', 'Post URL'];
     const rows = filteredPosts.map((post, idx) => [
       idx + 1,
       `"${post.platform || ''}"`,
       `"${post.country || ''}"`,
       `"${post.category || ''}"`,
       `"${(post.author_handle || '').replace(/"/g, '""')}"`,
-      `"${(post.author_name || '').replace(/"/g, '""')}"`,
       post.vpi_ratio || 0,
       post.baseline_score || 0,
       post.engagement_score || 0,
-      `"${post.post_url || ''}"`,
-      `"${post.claim_token || ''}"`
+      `"${post.post_url || ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -410,7 +447,7 @@ export default function Home() {
                             <p className="text-[9px] text-gray-400 truncate">{post.content_text || post.title}</p>
                           </div>
                           <span className="font-mono text-[#00E5FF] font-bold text-[10px] bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
-                            +{Number(post.vpi_ratio || 0).toFixed(1)}x
+                            {formatVPI(Number(post.vpi_ratio || 0))}
                           </span>
                         </div>
                       ))}
@@ -535,7 +572,9 @@ export default function Home() {
           </div>
 
           <div className="divide-y divide-gray-800/60">
-            {filteredPosts.length > 0 ? (
+            {isLoading ? (
+              <VPILoader />
+            ) : filteredPosts.length > 0 ? (
               filteredPosts.map((post, index) => {
                 const formattedVpi = Number(post.vpi_ratio || 0).toFixed(1);
                 return (

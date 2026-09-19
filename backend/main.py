@@ -1,6 +1,8 @@
 import sys
 import asyncio
 import json
+import time
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -23,7 +25,7 @@ from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import generate_trophy_png, generate_mug_preview_png
 from vpi_engine import start_engine
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -31,6 +33,63 @@ SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL"
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 print(f"DEBUG: FRONTEND_URL is set to: {FRONTEND_URL}")
+
+# Chiave richiesta dagli endpoint amministrativi (creazione prodotti Printify).
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+
+# Spedizione express: riattivare SOLO dopo aver verificato il costo reale del
+# corriere su Printify. Finche' e' False viene offerta la sola standard, cosi'
+# il cliente non paga un servizio piu' rapido che poi non riceve.
+ENABLE_EXPRESS_SHIPPING = os.getenv("ENABLE_EXPRESS_SHIPPING", "false").lower() == "true"
+
+# Catalogo prezzi in centesimi di USD. Prezzo fisso per prodotto.
+PRODUCT_CATALOG = {"mug": 1900}
+DEFAULT_PRODUCT_KEY = "mug"
+
+# Limita i rendering Chromium simultanei e mette in cache le preview su disco.
+RENDER_SEMAPHORE = asyncio.Semaphore(2)
+PREVIEW_CACHE_SECONDS = 24 * 60 * 60
+RENDERS_DIR = Path(__file__).resolve().parent / "renders"
+
+
+def _safe_record_id(value) -> str:
+    """Rende un record_id sicuro come nome file senza alterare i claim_token."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", str(value or "preview"))[:120]
+
+
+def _cached_render(record_id: str):
+    """Restituisce il PNG gia' renderizzato se e' abbastanza recente."""
+    path = RENDERS_DIR / f"trophy_{record_id}.png"
+    if path.exists() and (time.time() - path.stat().st_mtime) < PREVIEW_CACHE_SECONDS:
+        return path
+    return None
+
+
+def _build_shipping_options():
+    options = [{
+        "shipping_rate_data": {
+            "type": "fixed_amount",
+            "fixed_amount": {"amount": 499, "currency": "usd"},
+            "display_name": "Standard Tracked Shipping (US / EU / UK)",
+            "delivery_estimate": {
+                "minimum": {"unit": "business_day", "value": 3},
+                "maximum": {"unit": "business_day", "value": 7},
+            },
+        }
+    }]
+    if ENABLE_EXPRESS_SHIPPING:
+        options.append({
+            "shipping_rate_data": {
+                "type": "fixed_amount",
+                "fixed_amount": {"amount": 1299, "currency": "usd"},
+                "display_name": "Express Shipping",
+                "delivery_estimate": {
+                    "minimum": {"unit": "business_day", "value": 2},
+                    "maximum": {"unit": "business_day", "value": 5},
+                },
+            }
+        })
+    return options
 
 if not STRIPE_SECRET_KEY:
     print("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
@@ -47,9 +106,17 @@ app = FastAPI(title="IOSA Trophy API")
 def startup_event():
     start_engine()
 
+ALLOWED_ORIGINS = [o for o in [
+    FRONTEND_URL,
+    "http://localhost:3000",
+    "https://iosaresearch.com",
+    "https://www.iosaresearch.com",
+] if o]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -314,7 +381,9 @@ def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
 # ==============================================================================
 
 @app.post("/api/trophy/generate")
-async def api_generate_trophy(data: TrophyRequest):
+async def api_generate_trophy(data: TrophyRequest, x_iosa_admin_key: str = Header(None)):
+    if not ADMIN_API_KEY or x_iosa_admin_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         image_path = await generate_trophy_png(
             record_id=data.record_id,
@@ -399,17 +468,26 @@ async def get_trophy_preview(
         if not resolved_title:
             resolved_title = "Viral Content Title"
 
-        image_path = await generate_trophy_png(
-            record_id=resolved_record_id or "preview",
-            vpi_score=vpi,
-            user_handle=author,
-            content_title=resolved_title,
-            e_act=e_act,
-            e_base=e_base,
-            gamma=gamma,
-            recorded_date=req_date or "2026-08-20",
-            level_name=resolved_level_name
-        )
+        cache_key = _safe_record_id(resolved_record_id or "preview")
+        cached = _cached_render(cache_key)
+        if cached:
+            return FileResponse(str(cached), media_type="image/png")
+
+        async with RENDER_SEMAPHORE:
+            cached = _cached_render(cache_key)
+            if cached:
+                return FileResponse(str(cached), media_type="image/png")
+            image_path = await generate_trophy_png(
+                record_id=cache_key,
+                vpi_score=vpi,
+                user_handle=author,
+                content_title=resolved_title,
+                e_act=e_act,
+                e_base=e_base,
+                gamma=gamma,
+                recorded_date=req_date or "2026-08-20",
+                level_name=resolved_level_name
+            )
         return FileResponse(image_path, media_type="image/png")
     except Exception as e:
         traceback.print_exc()
@@ -422,11 +500,12 @@ async def get_trophy_mug_preview(
     record_id: str = "PREVIEW_MUG_REC"
 ):
     try:
-        image_path = await generate_mug_preview_png(
-            record_id=record_id,
-            vpi_score=vpi,
-            user_handle=author
-        )
+        async with RENDER_SEMAPHORE:
+            image_path = await generate_mug_preview_png(
+                record_id=_safe_record_id(record_id),
+                vpi_score=vpi,
+                user_handle=author
+            )
         return FileResponse(image_path, media_type="image/png")
     except Exception as e:
         traceback.print_exc()
@@ -441,7 +520,7 @@ async def initialize_claim_product(token: str):
         db_res = supabase.table("posts").select("*").eq("claim_token", token).execute()
         post_data = db_res.data[0] if db_res.data else None
 
-        if not post_data and token != "REC_8F9A2B":
+        if not post_data:
             raise HTTPException(status_code=404, detail="Token not found")
 
         return {"status": "ready", "token": token}
@@ -453,12 +532,14 @@ async def initialize_claim_product(token: str):
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
     try:
-        unit_amount = 1900
+        unit_amount = PRODUCT_CATALOG.get(DEFAULT_PRODUCT_KEY, 1900)
         
         vpi_ratio = "+8.7x"
         level_name = "LVL 5 — OUTLIER"
         content_title = "Viral Performance Accreditation"
         date_str = "2026-08-20"
+        e_act_meta = "N/A"
+        e_base_meta = "N/A"
 
         if supabase and req.claimToken:
             try:
@@ -478,6 +559,10 @@ def create_checkout_session(req: CheckoutSessionRequest):
                     content_title = p.get("content_text") or content_title
                     if p.get("created_at"):
                         date_str = str(p.get("created_at"))[:10]
+                    if p.get("engagement_score") is not None:
+                        e_act_meta = str(p.get("engagement_score"))
+                    if p.get("baseline_score") is not None:
+                        e_base_meta = str(p.get("baseline_score"))
             except Exception as err:
                 print(f"Error fetching metadata for checkout session: {err}")
 
@@ -491,30 +576,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
                     'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
                 ]
             },
-            shipping_options=[
-                {
-                    'shipping_rate_data': {
-                        'type': 'fixed_amount',
-                        'fixed_amount': {'amount': 499, 'currency': 'usd'}, 
-                        'display_name': 'Standard Tracked Shipping (US / EU / UK)',
-                        'delivery_estimate': {
-                            'minimum': {'unit': 'business_day', 'value': 3},
-                            'maximum': {'unit': 'business_day', 'value': 7},
-                        },
-                    }
-                },
-                {
-                    'shipping_rate_data': {
-                        'type': 'fixed_amount',
-                        'fixed_amount': {'amount': 1299, 'currency': 'usd'}, 
-                        'display_name': 'Express Shipping',
-                        'delivery_estimate': {
-                            'minimum': {'unit': 'business_day', 'value': 2},
-                            'maximum': {'unit': 'business_day', 'value': 5},
-                        },
-                    }
-                }
-            ],
+            shipping_options=_build_shipping_options(),
             line_items=[{
                 'price_data': {
                     'currency': 'usd',
@@ -534,7 +596,9 @@ def create_checkout_session(req: CheckoutSessionRequest):
                 'vpi_ratio': vpi_ratio,
                 'level_name': level_name,
                 'content_title': content_title,
-                'date_str': date_str
+                'date_str': date_str,
+                'e_act': e_act_meta,
+                'e_base': e_base_meta
             },
             mode='payment',
             success_url=f'{FRONTEND_URL}/claim/{req.claimToken}?status=success',
@@ -549,13 +613,14 @@ def create_checkout_session(req: CheckoutSessionRequest):
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
 
+    if not STRIPE_WEBHOOK_SECRET:
+        print("[WEBHOOK] STRIPE_WEBHOOK_SECRET non configurato: richiesta rifiutata.")
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
     try:
-        if STRIPE_WEBHOOK_SECRET:
-            stripe.Webhook.construct_event(
-                payload, stripe_signature, STRIPE_WEBHOOK_SECRET
-            )
-        event = json.loads(payload)
-        
+        event = stripe.Webhook.construct_event(
+            payload, stripe_signature, STRIPE_WEBHOOK_SECRET
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Webhook Error: {str(e)}")
@@ -565,6 +630,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         metadata = session.get("metadata", {})
         
         claim_token = metadata.get("claim_token")
+        stripe_session_id = session.get("id") or ""
         
         shipping_details = session.get("shipping_details") or {}
         customer_details = session.get("customer_details") or {}
@@ -597,6 +663,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         level_name = metadata.get("level_name", "LVL 5 — OUTLIER")
         content_title = metadata.get("content_title", "Viral Performance Accreditation")
         date_str = metadata.get("date_str", "2026-08-20")
+        e_act = metadata.get("e_act", "N/A")
+        e_base = metadata.get("e_base", "N/A")
+        already_fulfilled = False
 
         if supabase and claim_token:
             try:
@@ -616,8 +685,21 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     content_title = p.get("content_text") or content_title
                     if p.get("created_at"):
                         date_str = str(p.get("created_at"))[:10]
+                    if p.get("engagement_score") is not None:
+                        e_act = str(p.get("engagement_score"))
+                    if p.get("baseline_score") is not None:
+                        e_base = str(p.get("baseline_score"))
+
+                    # Idempotenza: se l'ordine e' gia' stato evaso non lo ripetiamo.
+                    prev = p.get("printify_product_id")
+                    if prev and not str(prev).startswith("FAILED"):
+                        already_fulfilled = True
             except Exception as err:
                 print(f"Error fetching post details for token {claim_token}: {err}")
+
+        if already_fulfilled:
+            print(f"[WEBHOOK] Ordine gia' evaso per {claim_token}, nessuna azione.")
+            return {"status": "already_fulfilled"}
 
         print(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
 
@@ -628,7 +710,11 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 level_name=level_name,
                 content_title=content_title,
                 date_str=date_str,
-                shipping_address=shipping_info
+                shipping_address=shipping_info,
+                e_act=e_act,
+                e_base=e_base,
+                claim_token=claim_token,
+                external_ref=stripe_session_id
             )
             
             product_id = order_result.get("product_id")
@@ -646,7 +732,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     supabase.table("posts").update({"printify_product_id": "FAILED_ORDER_ERROR"}).eq("claim_token", claim_token).execute()
                 except Exception as db_err:
                     print(f"Failed to update DB error state: {db_err}")
-                    
-            raise HTTPException(status_code=500, detail=f"Order fulfillment failed: {str(err)}")
+
+            # Rispondiamo 200: un 500 farebbe ritentare Stripe e ogni tentativo
+            # creerebbe un nuovo ordine Printify a pagamento.
+            return {"status": "error_recorded", "detail": str(err)}
 
     return {"status": "success"}

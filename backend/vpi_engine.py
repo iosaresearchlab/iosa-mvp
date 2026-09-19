@@ -79,6 +79,18 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def is_real_youtube_short(video_id: str) -> bool:
+    """
+    Verifica con certezza assoluta se un video è uno Short sfruttando 
+    il router HTTP interno di YouTube (Status 200 vs Redirect 302).
+    """
+    url = f"https://www.youtube.com/shorts/{video_id}"
+    try:
+        response = requests.head(url, allow_redirects=False, timeout=3)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
 def parse_iso_duration(duration_str: str) -> int:
     """Parses ISO 8601 duration string (e.g. PT1M15S, PT59S) into total seconds."""
     if not duration_str:
@@ -122,7 +134,7 @@ def get_vpi_metadata(vpi_ratio: float):
         return 1, "Lvl 1 - Standard", "#888888"
 
 def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
-    """Calculates baseline as the MEDIAN view count of recent SHORTS (duration <= 60s) of the channel."""
+    """Calculates baseline as the MEDIAN view count of recent SHORTS (duration <= 180s and HTTP check) of the channel."""
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
         ch_res = requests.get(ch_url, timeout=10)
@@ -163,8 +175,8 @@ def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
             dur_str = c_details.get("duration", "")
             dur_sec = parse_iso_duration(dur_str)
 
-            # Consider strictly YouTube Shorts (duration <= 60s)
-            if 0 < dur_sec <= 60:
+            # Consider strictly YouTube Shorts (duration <= 180s + HTTP check)
+            if 0 < dur_sec <= 180 and is_real_youtube_short(v_item["id"]):
                 v_stats = v_item.get("statistics", {})
                 views_str = v_stats.get("viewCount")
                 if views_str is not None:
@@ -210,7 +222,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
     return channels_data
 
 def fetch_and_ingest_real_youtube_content():
-    """Scans YouTube trending Shorts (duration <= 60s) and ingests outliers into Supabase."""
+    """Scans YouTube trending Shorts (duration <= 180s + HTTP check) and ingests outliers into Supabase."""
     if not YOUTUBE_API_KEY:
         print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
         return
@@ -284,8 +296,8 @@ def fetch_and_ingest_real_youtube_content():
                 dur_str = c_details.get("duration", "")
                 dur_sec = parse_iso_duration(dur_str)
 
-                # Filtro di coorte: accetta ed analizza ESCLUSIVAMENTE gli Short (durata <= 60s)
-                if dur_sec <= 0 or dur_sec > 60:
+                # Filtro di coorte: accetta ed analizza ESCLUSIVAMENTE gli Short reali (durata <= 180s + HTTP check)
+                if dur_sec <= 0 or dur_sec > 180 or not is_real_youtube_short(vid_id):
                     continue
 
                 ch_id = snippet["channelId"]

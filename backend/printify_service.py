@@ -205,10 +205,11 @@ def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=
     
     return product_data["id"], variant_id
 
-def send_printify_order(product_id, variant_id, shipping_address, line_item_title="IOSA Trophy Mug"):
+def send_printify_order(product_id, variant_id, shipping_address, line_item_title="IOSA Trophy Mug", external_ref=None, shipping_method=1):
     """Dispatches the order to production."""
     payload = {
-        "external_id": f"order_{os.urandom(4).hex()}",
+        # external_ref = ID sessione Stripe: rende l'ordine idempotente sui retry.
+        "external_id": external_ref or f"order_{os.urandom(4).hex()}",
         "line_items": [
             {
                 "product_id": product_id,
@@ -216,7 +217,7 @@ def send_printify_order(product_id, variant_id, shipping_address, line_item_titl
                 "quantity": 1
             }
         ],
-        "shipping_method": 1,
+        "shipping_method": shipping_method,
         "send_shipping_notification": True,
         "address_to": {
             "first_name": shipping_address.get("first_name", "Valued"),

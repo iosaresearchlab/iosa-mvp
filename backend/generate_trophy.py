@@ -1,11 +1,23 @@
 import base64
 import concurrent.futures
+import os
 import re
 import uuid
 import asyncio
 import urllib.parse
 from pathlib import Path
+from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+
+# Dominio usato nel QR della targa. Configurabile via .env, cosi' non resta
+# inchiodato al dominio di anteprima di Vercel.
+DEFAULT_CLAIM_BASE_URL = (
+    os.getenv("NEXT_PUBLIC_SITE_URL")
+    or os.getenv("FRONTEND_URL")
+    or "https://iosa-mvp-psi.vercel.app"
+)
 
 
 def format_count(val) -> str:
@@ -290,7 +302,7 @@ def _render_png_sync(
     recorded_date: str = "2026-08-20",
     output_dir: str = "renders",
     level_name: str = None,
-    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
+    claim_base_url: str = None
 ) -> str:
     print("\n" + "="*80, flush=True)
     print("[DEBUG TROPHY] Invocata _render_png_sync con i seguenti parametri:", flush=True)
@@ -306,6 +318,8 @@ def _render_png_sync(
     print(f"  - level_name:      {repr(level_name)}", flush=True)
     print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
     print("="*80 + "\n", flush=True)
+
+    claim_base_url = claim_base_url or DEFAULT_CLAIM_BASE_URL
 
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
@@ -372,7 +386,7 @@ async def generate_trophy_png(
     recorded_date: str = "2026-08-20",
     output_dir: str = "renders",
     level_name: str = None,
-    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
+    claim_base_url: str = None
 ) -> str:
     print("\n" + "="*80, flush=True)
     print("[DEBUG TROPHY] Invocata generate_trophy_png con i seguenti parametri:", flush=True)
@@ -502,7 +516,7 @@ def create_trophy_image(
     e_base: str = "10.0K",
     gamma: str = "1.0x",
     record_id: str = None,
-    claim_base_url: str = "https://iosa-mvp-psi.vercel.app"
+    claim_base_url: str = None
 ) -> str:
     print("\n" + "="*80, flush=True)
     print("[DEBUG TROPHY] Invocata create_trophy_image con i seguenti parametri:", flush=True)

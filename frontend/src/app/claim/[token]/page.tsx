@@ -86,20 +86,6 @@ function getBadgeStyle(levelName?: string, vpiScore?: any): string {
   }
 }
 
-const MOCK_POSTS: Record<string, any> = {
-  'REC_8F9A2B': {
-    author_handle: '@TEARDOWNMAYHEM',
-    vpi_ratio: 8.7,
-    vpi_level_name: 'LVL 5 — OUTLIER',
-    title: 'Rick Astley - Never Gonna Give You Up',
-    created_at: '2026-08-20',
-    detected_at: '2026-08-21',
-    platform: 'youtube',
-    baseline_score: '10.0K',
-    engagement_score: '87.2K',
-  },
-};
-
 export default function ClaimPage({
   params,
 }: {
@@ -138,14 +124,9 @@ export default function ClaimPage({
           .eq('claim_token', token)
           .single();
 
-        let currentPost = data;
-        if (!currentPost && MOCK_POSTS[token]) {
-          currentPost = MOCK_POSTS[token];
-        }
-
-        setPost(currentPost || null);
+        setPost(data || null);
       } catch {
-        setPost(MOCK_POSTS[token] || null);
+        setPost(null);
       } finally {
         setLoading(false);
       }
