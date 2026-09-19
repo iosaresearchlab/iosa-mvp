@@ -1,9 +1,16 @@
-fastapi
-uvicorn
-stripe
-supabase
-pillow
-requests
-python-dotenv
-playwright
-APScheduler
+# Versioni minime verificate. Per bloccare le versioni esatte in produzione:
+#   pip freeze > requirements.lock.txt
+# Playwright richiede anche il browser, non incluso nel pacchetto pip:
+#   playwright install chromium
+fastapi>=0.110
+uvicorn>=0.29
+stripe>=8.0
+supabase>=2.0
+pillow>=10.0
+requests>=2.31
+python-dotenv>=1.0
+playwright>=1.40
+APScheduler>=3.10
+
+# Opzionale: monitoraggio errori, attivo solo se SENTRY_DSN e' configurato.
+# sentry-sdk>=2.0

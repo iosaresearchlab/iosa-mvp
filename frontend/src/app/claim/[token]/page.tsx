@@ -138,9 +138,12 @@ export default function ClaimPage({
   }, [token]);
 
   useEffect(() => {
-    if (!post || !post.created_at) return;
+    // La finestra parte dal rilevamento, non dalla pubblicazione: altrimenti
+    // un video trovato al dodicesimo giorno darebbe al creator solo 3 giorni.
+    const windowStart = post?.detected_at || post?.created_at;
+    if (!post || !windowStart) return;
 
-    const createdAt = new Date(post.created_at);
+    const createdAt = new Date(windowStart);
     const expiresAt = new Date(createdAt.getTime() + 15 * 24 * 60 * 60 * 1000);
 
     setTokenWindow({

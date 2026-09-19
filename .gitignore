@@ -12,3 +12,4 @@ backend/renders/
 .tmp.driveupload/
 *.pyc
 .DS_Store
+.cache/

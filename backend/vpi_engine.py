@@ -11,6 +11,28 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from vpi_core import (
+    BASELINE_MAX_AGE_DAYS,
+    BASELINE_MIN_AGE_DAYS,
+    CAMPAIGN_DAYS,
+    MIN_BASELINE_SAMPLES,
+    MIN_VPI_FOR_INGESTION,
+    TTLCache,
+    age_in_days,
+    calculate_vpi_ratio,
+    get_vpi_metadata,
+    is_short_duration,
+    parse_iso_duration,
+    round_vpi,
+)
+
+# Cache persistenti: a budget zero la quota API e' la risorsa piu' scarsa.
+_SHORT_CHECK_CACHE = TTLCache("short_checks", 30 * 86400)
+_BASELINE_CACHE = TTLCache("channel_baselines", 7 * 86400)
+
+# Intervallo fra due cicli di ingestion, in minuti.
+INGEST_INTERVAL_MINUTES = int(os.getenv("INGEST_INTERVAL_MINUTES", "60"))
+
 # Load environment variables
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
@@ -34,7 +56,6 @@ OPTOUT_EMAIL = "optout@iosaresearch.com"
 # Maximum subscriber threshold (increased to 1.5M to include small/medium channels)
 MAX_SUBSCRIBERS = 1_500_000 
 MIN_SUBSCRIBERS = 1_000
-CAMPAIGN_DAYS = 15
 
 # Global Country/Category map (Expanded global rotation)
 TARGET_COUNTRIES = [
@@ -79,117 +100,150 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def is_real_youtube_short(video_id: str) -> bool:
+def is_real_youtube_short(video_id: str):
     """
-    Verifica con certezza assoluta se un video è uno Short sfruttando 
-    il router HTTP interno di YouTube (Status 200 vs Redirect 302).
+    Verifica se un video e' realmente uno Short interrogando il router HTTP di
+    YouTube (200 = Short, redirect = video normale).
+
+    L'API ufficiale non espone questo flag, quindi la verifica HTTP resta
+    necessaria. Tre regole la rendono sostenibile:
+      - viene chiamata una sola volta per video, mai dentro i cicli di baseline;
+      - l'esito e' messo in cache per 30 giorni;
+      - se la rete fallisce restituisce None ("non so"), non False, cosi' un
+        timeout non fa scartare in silenzio un video valido.
     """
+    cached = _SHORT_CHECK_CACHE.get(video_id)
+    if cached is not None:
+        return cached
+
     url = f"https://www.youtube.com/shorts/{video_id}"
     try:
-        response = requests.head(url, allow_redirects=False, timeout=3)
-        return response.status_code == 200
+        response = requests.head(url, allow_redirects=False, timeout=5)
     except requests.RequestException:
+        return None
+
+    if response.status_code == 200:
+        _SHORT_CHECK_CACHE.set(video_id, True)
+        return True
+    if response.status_code in (301, 302, 303, 307, 308):
+        _SHORT_CHECK_CACHE.set(video_id, False)
         return False
+    # 429 o altri errori: non sappiamo, meglio non decidere.
+    return None
 
-def parse_iso_duration(duration_str: str) -> int:
-    """Parses ISO 8601 duration string (e.g. PT1M15S, PT59S) into total seconds."""
-    if not duration_str:
-        return 0
-    match = re.match(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
-    if not match:
-        return 0
-    days = int(match.group(1) or 0)
-    hours = int(match.group(2) or 0)
-    minutes = int(match.group(3) or 0)
-    seconds = int(match.group(4) or 0)
-    return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
-def calculate_vpi_ratio(views: float, baseline: float) -> float:
-    """Calculates VPI ratio normalized against channel baseline."""
-    if not baseline or baseline <= 0:
-        return 1.0
-    return round(views / baseline, 1)
+def get_channel_recent_videos_baseline(channel_id: str, exclude_video_id: str = None):
+    """
+    Baseline del canale = mediana delle views dei suoi Short recenti e maturi.
 
-def get_vpi_metadata(vpi_ratio: float):
-    """Returns (vpi_level, vpi_level_name, vpi_color) based on the 10-Level VPI Scale."""
-    if vpi_ratio >= 50.0:
-        return 10, "Lvl 10 - Hyper Outlier", "#FF0055"
-    elif vpi_ratio >= 25.0:
-        return 9, "Lvl 9 - Mega Outlier", "#FF2A00"
-    elif vpi_ratio >= 15.0:
-        return 8, "Lvl 8 - Outlier", "#FF5500"
-    elif vpi_ratio >= 10.0:
-        return 7, "Lvl 7 - Super Viral", "#FF8800"
-    elif vpi_ratio >= 7.5:
-        return 6, "Lvl 6 - Viral", "#FFAA00"
-    elif vpi_ratio >= 5.0:
-        return 5, "Lvl 5 - Breakout", "#FFCC00"
-    elif vpi_ratio >= 3.0:
-        return 4, "Lvl 4 - Trending", "#00CC88"
-    elif vpi_ratio >= 2.0:
-        return 3, "Lvl 3 - Rising", "#0099FF"
-    elif vpi_ratio >= 1.5:
-        return 2, "Lvl 2 - Moderate", "#7755FF"
-    else:
-        return 1, "Lvl 1 - Standard", "#888888"
+    Tre correzioni rispetto alla versione precedente:
+      - solo Short pubblicati negli ultimi BASELINE_MAX_AGE_DAYS giorni, cosi' un
+        video di due anni fa non gonfia il denominatore con views accumulate
+        in un arco temporale incomparabile;
+      - si preferiscono i video con almeno BASELINE_MIN_AGE_DAYS di eta', gia'
+        arrivati a regime; se sono troppo pochi si allarga a tutti i recenti;
+      - il video che stiamo misurando e' escluso dalla propria baseline.
 
-def get_channel_recent_videos_baseline(channel_id: str) -> float | None:
-    """Calculates baseline as the MEDIAN view count of recent SHORTS (duration <= 180s and HTTP check) of the channel."""
+    Restituisce (baseline, numero_di_campioni). baseline e' None se i campioni
+    non bastano a rendere la mediana significativa.
+    """
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
         ch_res = requests.get(ch_url, timeout=10)
         if ch_res.status_code != 200:
-            return None
+            return None, 0
         ch_items = ch_res.json().get("items", [])
         if not ch_items:
-            return None
-        
+            return None, 0
+
         uploads_playlist_id = ch_items[0].get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads")
         if not uploads_playlist_id:
-            return None
+            return None, 0
 
         playlist_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=50&key={YOUTUBE_API_KEY}"
         pl_res = requests.get(playlist_url, timeout=10)
         if pl_res.status_code != 200:
-            return None
+            return None, 0
         pl_items = pl_res.json().get("items", [])
         if not pl_items:
-            return None
+            return None, 0
 
-        video_ids = [item["contentDetails"]["videoId"] for item in pl_items if "contentDetails" in item and "videoId" in item["contentDetails"]]
+        video_ids = [
+            item["contentDetails"]["videoId"]
+            for item in pl_items
+            if "contentDetails" in item and "videoId" in item["contentDetails"]
+        ]
+        video_ids = [v for v in video_ids if v != exclude_video_id]
         if not video_ids:
-            return None
+            return None, 0
 
-        vid_ids_str = ",".join(video_ids)
-        stats_url = f"https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id={vid_ids_str}&key={YOUTUBE_API_KEY}"
+        stats_url = (
+            "https://www.googleapis.com/youtube/v3/videos"
+            f"?part=snippet,contentDetails,statistics&id={','.join(video_ids)}&key={YOUTUBE_API_KEY}"
+        )
         stats_res = requests.get(stats_url, timeout=10)
         if stats_res.status_code != 200:
-            return None
+            return None, 0
         stat_items = stats_res.json().get("items", [])
         if not stat_items:
-            return None
+            return None, 0
 
-        short_view_counts = []
+        now = datetime.now(timezone.utc)
+        recent, mature = [], []
+
         for v_item in stat_items:
-            c_details = v_item.get("contentDetails", {})
-            dur_str = c_details.get("duration", "")
-            dur_sec = parse_iso_duration(dur_str)
+            duration = parse_iso_duration(v_item.get("contentDetails", {}).get("duration", ""))
+            if not is_short_duration(duration):
+                continue
 
-            # Consider strictly YouTube Shorts (duration <= 180s + HTTP check)
-            if 0 < dur_sec <= 180 and is_real_youtube_short(v_item["id"]):
-                v_stats = v_item.get("statistics", {})
-                views_str = v_stats.get("viewCount")
-                if views_str is not None:
-                    short_view_counts.append(float(views_str))
+            views_str = v_item.get("statistics", {}).get("viewCount")
+            if views_str is None:
+                continue
 
-        if not short_view_counts:
-            return None
+            published_at = v_item.get("snippet", {}).get("publishedAt")
+            age_days = age_in_days(published_at, now)
+            if age_days is None or age_days > BASELINE_MAX_AGE_DAYS:
+                continue
 
-        # Calcolo della Mediana Mobile basata esclusivamente sugli Short del canale
-        median_baseline = float(statistics.median(short_view_counts))
-        return median_baseline if median_baseline > 0 else None
+            views = float(views_str)
+            recent.append(views)
+            if age_days >= BASELINE_MIN_AGE_DAYS:
+                mature.append(views)
+
+        sample = mature if len(mature) >= MIN_BASELINE_SAMPLES else recent
+        if len(sample) < MIN_BASELINE_SAMPLES:
+            return None, len(sample)
+
+        median_baseline = float(statistics.median(sample))
+        return (median_baseline if median_baseline > 0 else None), len(sample)
     except Exception:
-        return None
+        return None, 0
+
+
+def _cached_channel_baseline(channel_id: str, exclude_video_id: str = None):
+    """Baseline del canale con cache su file (7 giorni), per risparmiare quota."""
+    cached = _BASELINE_CACHE.get(channel_id)
+    if cached is not None:
+        return cached[0], cached[1]
+    baseline, samples = get_channel_recent_videos_baseline(channel_id, exclude_video_id)
+    _BASELINE_CACHE.set(channel_id, [baseline, samples])
+    return baseline, samples
+
+
+def _filter_already_ingested(video_ids: list) -> set:
+    """Restituisce gli id gia' presenti in tabella, in una sola query."""
+    if not video_ids:
+        return set()
+    found = set()
+    for i in range(0, len(video_ids), 100):
+        chunk = video_ids[i:i + 100]
+        try:
+            res = supabase.table("posts").select("external_post_id").in_("external_post_id", chunk).execute()
+            found.update(row["external_post_id"] for row in (res.data or []))
+        except Exception as e:
+            print(f"Errore nel controllo duplicati: {e}")
+    return found
+
 
 def fetch_channels_metadata(channel_ids: list) -> dict:
     """Retrieves real subscriber count for channel metadata."""
@@ -222,113 +276,128 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
     return channels_data
 
 def fetch_and_ingest_real_youtube_content():
-    """Scans YouTube trending Shorts (duration <= 180s + HTTP check) and ingests outliers into Supabase."""
+    """
+    Scansiona i trending YouTube e registra gli outlier in Supabase.
+
+    Ordine delle operazioni pensato per la quota: prima i filtri che non
+    costano chiamate (durata, eta' di pubblicazione), poi il controllo
+    duplicati in blocco, e solo alla fine le baseline, che sono la voce piu'
+    cara del ciclo.
+    """
     if not YOUTUBE_API_KEY:
-        print("⚠️ YOUTUBE_API_KEY missing in .env. Skipping live ingestion.")
+        print("YOUTUBE_API_KEY mancante in .env. Ingestion saltata.")
         return
 
-    # Opzione 3: US + 2 paesi casuali (3 paesi totali)
     other_countries = [c for c in TARGET_COUNTRIES if c != 'US']
     selected_countries = ['US'] + random.sample(other_countries, k=2)
-
-    # Opzione 3: 1 categoria casuale per run (3 coppie Paese-Categoria totali per run)
     selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=1)
 
-    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning YouTube Shorts (Countries: {selected_countries}, Categories: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
-    
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione YouTube Shorts "
+          f"(paesi: {selected_countries}, categorie: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
+
     scanned_total = 0
-    skipped_subs = 0
+    skipped_duration = 0
+    skipped_age = 0
+    skipped_not_short = 0
     skipped_vpi = 0
     skipped_baseline = 0
     already_exists = 0
     total_ingested = 0
 
-    # Cache di sessione in memoria per le mediane calcolate durante questo ciclo
-    channel_recent_baseline_cache = {}
+    now_dt = datetime.now(timezone.utc)
 
     for country in selected_countries:
         for cat_id in selected_category_ids:
             cat_name = CATEGORY_MAP[cat_id]
             items = []
 
-            # Paginazione: Pagina 1 (da 1 a 50)
             url_p1 = (
-                f"https://www.googleapis.com/youtube/v3/videos?"
-                f"part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=50"
+                "https://www.googleapis.com/youtube/v3/videos?"
+                "part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=50"
                 f"&regionCode={country}&videoCategoryId={cat_id}&key={YOUTUBE_API_KEY}"
             )
-            
+
             try:
                 res1 = requests.get(url_p1, timeout=10)
+                if res1.status_code == 403:
+                    print(f"[QUOTA] YouTube ha risposto 403 per {country}/{cat_name}: "
+                          f"quota giornaliera probabilmente esaurita. Ciclo interrotto.")
+                    return
                 if res1.status_code == 404:
-                    print(f"⚠️ Errore API YouTube (404) per {country}/{cat_name}: Risorsa non trovata o non disponibile per la regione.")
+                    print(f"YouTube 404 per {country}/{cat_name}: combinazione non disponibile.")
                     continue
-                elif res1.status_code != 200:
-                    print(f"⚠️ Errore API YouTube ({res1.status_code}) per {country}/{cat_name}: {res1.text}")
+                if res1.status_code != 200:
+                    print(f"YouTube {res1.status_code} per {country}/{cat_name}: {res1.text[:200]}")
                     continue
 
                 data1 = res1.json()
                 items.extend(data1.get("items", []))
                 next_page_token = data1.get("nextPageToken")
 
-                # Paginazione: Pagina 2 (da 51 a 100) per intercettare gli exploit di canali piccoli/medi
                 if next_page_token:
-                    url_p2 = f"{url_p1}&pageToken={next_page_token}"
-                    res2 = requests.get(url_p2, timeout=10)
+                    res2 = requests.get(f"{url_p1}&pageToken={next_page_token}", timeout=10)
                     if res2.status_code == 200:
-                        data2 = res2.json()
-                        items.extend(data2.get("items", []))
+                        items.extend(res2.json().get("items", []))
             except Exception as e:
-                print(f"⚠️ Eccezione di rete o timeout per {country}/{cat_name}: {e}")
+                print(f"Errore di rete per {country}/{cat_name}: {e}")
                 continue
 
             if not items:
                 continue
 
-            channel_ids = [item["snippet"]["channelId"] for item in items]
-            channels_meta = fetch_channels_metadata(channel_ids)
-
+            # --- filtri a costo zero: durata ed eta' di pubblicazione ---
+            candidates = []
             for vid_data in items:
                 scanned_total += 1
+                duration = parse_iso_duration(vid_data.get("contentDetails", {}).get("duration", ""))
+                if not is_short_duration(duration):
+                    skipped_duration += 1
+                    continue
+
+                published_at = vid_data["snippet"].get("publishedAt")
+                age_days = age_in_days(published_at, now_dt)
+                if age_days is None or age_days > CAMPAIGN_DAYS:
+                    skipped_age += 1
+                    continue
+
+                candidates.append(vid_data)
+
+            if not candidates:
+                continue
+
+            # --- controllo duplicati in una sola query, prima di spendere quota ---
+            existing_ids = _filter_already_ingested([c["id"] for c in candidates])
+            new_candidates = [c for c in candidates if c["id"] not in existing_ids]
+            already_exists += len(candidates) - len(new_candidates)
+            if not new_candidates:
+                continue
+
+            channels_meta = fetch_channels_metadata([c["snippet"]["channelId"] for c in new_candidates])
+
+            for vid_data in new_candidates:
                 vid_id = vid_data["id"]
                 snippet = vid_data["snippet"]
-                c_details = vid_data.get("contentDetails", {})
-                dur_str = c_details.get("duration", "")
-                dur_sec = parse_iso_duration(dur_str)
 
-                # Filtro di coorte: accetta ed analizza ESCLUSIVAMENTE gli Short reali (durata <= 180s + HTTP check)
-                if dur_sec <= 0 or dur_sec > 180 or not is_real_youtube_short(vid_id):
+                # Verifica Short: una sola volta per video. None = non so, accettiamo
+                # (la durata e' gia' compatibile) invece di scartare in silenzio.
+                short_check = is_real_youtube_short(vid_id)
+                if short_check is False:
+                    skipped_not_short += 1
                     continue
 
                 ch_id = snippet["channelId"]
-                title = snippet["title"]
-                channel_title = snippet["channelTitle"]
-                published_at = snippet["publishedAt"]
                 views = float(vid_data["statistics"].get("viewCount", 0))
 
                 ch_info = channels_meta.get(ch_id)
                 subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
 
-                # 1. Calcola la Mediana Mobile basata SOLO sugli Short del canale (cache in memoria)
-                if ch_id not in channel_recent_baseline_cache:
-                    baseline = get_channel_recent_videos_baseline(ch_id)
-                    channel_recent_baseline_cache[ch_id] = baseline
-                else:
-                    baseline = channel_recent_baseline_cache[ch_id]
-
-                # 2. Se non vi sono abbastanza Short recenti per stabilire una baseline di coorte, scarta il video
+                baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
                 if not baseline or baseline <= 0:
                     skipped_baseline += 1
                     continue
 
-                # --- TEMP DISABLED FOR FULL DATA ACCURACY ---
-                # if subscribers > MAX_SUBSCRIBERS:
-                #     skipped_subs += 1
-                #     continue
-                # --------------------------------------------
-
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
-                if vpi_ratio <= 1.0:
+                if vpi_ratio <= MIN_VPI_FOR_INGESTION:
                     skipped_vpi += 1
                     continue
 
@@ -336,42 +405,48 @@ def fetch_and_ingest_real_youtube_content():
                 claim_token = f"iosa_{secrets.token_urlsafe(12)}"
                 now_utc = datetime.now(timezone.utc).isoformat()
 
-                existing = supabase.table("posts").select("id").eq("external_post_id", vid_id).execute()
-                if existing.data:
-                    already_exists += 1
-                    continue
+                try:
+                    supabase.table("posts").insert({
+                        "platform": "YOUTUBE",
+                        "external_post_id": vid_id,
+                        "author_handle": f"@{snippet['channelTitle'].replace(' ', '')}",
+                        "author_name": snippet["channelTitle"],
+                        "subscribers": subscribers,
+                        "post_url": f"https://www.youtube.com/watch?v={vid_id}",
+                        "content_text": snippet["title"],
+                        "category": cat_name,
+                        "country": country,
+                        "engagement_score": views,
+                        "baseline_score": baseline,
+                        "vpi_ratio": round_vpi(vpi_ratio),
+                        "vpi_level": vpi_level,
+                        "vpi_level_name": level_name,
+                        "vpi_color": vpi_color,
+                        "claim_token": claim_token,
+                        "status": "ACTIVE",
+                        "comment_sent": False,
+                        "created_at": snippet["publishedAt"],
+                        "detected_at": now_utc
+                    }).execute()
+                    total_ingested += 1
+                except Exception as e:
+                    print(f"Insert fallito per {vid_id}: {e}")
 
-                supabase.table("posts").insert({
-                    "platform": "YOUTUBE",
-                    "external_post_id": vid_id,
-                    "author_handle": f"@{channel_title.replace(' ', '')}",
-                    "author_name": channel_title,
-                    "subscribers": subscribers,
-                    "post_url": f"https://www.youtube.com/watch?v={vid_id}",
-                    "content_text": title,
-                    "category": cat_name,
-                    "country": country,
-                    "engagement_score": views,
-                    "baseline_score": baseline,
-                    "vpi_ratio": vpi_ratio,
-                    "vpi_level": vpi_level,
-                    "vpi_level_name": level_name,
-                    "vpi_color": vpi_color,
-                    "claim_token": claim_token,
-                    "status": "ACTIVE",
-                    "comment_sent": False,
-                    "created_at": published_at,
-                    "detected_at": now_utc
-                }).execute()
-                total_ingested += 1
+    _SHORT_CHECK_CACHE.purge_expired()
+    _BASELINE_CACHE.purge_expired()
+    _SHORT_CHECK_CACHE.save()
+    _BASELINE_CACHE.save()
 
-    print("📊 [LOG YOUTUBE INGESTION SUMMARY]")
-    print(f"   ├─ Video analizzati in totale: {scanned_total}")
-    print(f"   ├─ Scartati per Iscritti > {MAX_SUBSCRIBERS:,}: {skipped_subs} [CHECK DISABLED]")
-    print(f"   ├─ Scartati per Baseline assente/non calcolabile su Short: {skipped_baseline}")
-    print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
-    print(f"   ├─ Già presenti nel DB: {already_exists}")
-    print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
+    print("[INGESTION YOUTUBE]")
+    print(f"   video analizzati:               {scanned_total}")
+    print(f"   scartati per durata:            {skipped_duration}")
+    print(f"   scartati fuori finestra 15gg:   {skipped_age}")
+    print(f"   scartati perche' non Short:     {skipped_not_short}")
+    print(f"   gia' presenti nel DB:           {already_exists}")
+    print(f"   scartati per baseline assente:  {skipped_baseline}")
+    print(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
+    print(f"   NUOVI INSERITI:                 {total_ingested}\n")
+
 
 # ==============================================================================
 # TIKTOK INGESTION ENGINE (OFFICIAL API v2)
@@ -521,7 +596,7 @@ def fetch_and_ingest_tiktok_content():
                     continue
 
                 vpi_ratio = calculate_vpi_ratio(views, baseline)
-                if vpi_ratio <= 1.0:
+                if vpi_ratio <= MIN_VPI_FOR_INGESTION:
                     skipped_vpi += 1
                     continue
 
@@ -548,7 +623,7 @@ def fetch_and_ingest_tiktok_content():
                     "country": country,
                     "engagement_score": views,
                     "baseline_score": baseline,
-                    "vpi_ratio": vpi_ratio,
+                    "vpi_ratio": round_vpi(vpi_ratio),
                     "vpi_level": vpi_level,
                     "vpi_level_name": level_name,
                     "vpi_color": vpi_color,
@@ -572,15 +647,28 @@ def fetch_and_ingest_tiktok_content():
     print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
 
 def mark_expired_campaign_data():
-    """Soft-delete: marca come EXPIRED i record più vecchi di 15 giorni invece di eliminarli."""
-    print("🧹 Verifica ed eventuale scadenza record (> 15 giorni)...")
+    """
+    Chiude la finestra di 15 giorni.
+
+    Il conteggio parte da detected_at, non dalla data di pubblicazione: un
+    creator rilevato oggi ha 15 giorni pieni per il claim, non i giorni
+    residui dalla pubblicazione del video.
+    """
+    print("Verifica record fuori finestra (> 15 giorni dal rilevamento)...")
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=CAMPAIGN_DAYS)).isoformat()
     try:
-        res = supabase.table("posts").update({"status": "EXPIRED"}).lt("created_at", cutoff_date).eq("status", "ACTIVE").execute()
+        res = (
+            supabase.table("posts")
+            .update({"status": "EXPIRED"})
+            .lt("detected_at", cutoff_date)
+            .eq("status", "ACTIVE")
+            .execute()
+        )
         expired_count = len(res.data) if res.data else 0
-        print(f"🟡 {expired_count} record marcati come EXPIRED.")
+        print(f"{expired_count} record marcati come EXPIRED.")
     except Exception as e:
-        print(f"❌ Errore durante la disattivazione dei vecchi record: {e}")
+        print(f"Errore durante la chiusura dei vecchi record: {e}")
+
 
 # ==============================================================================
 # OUTREACH VIA YOUTUBE COMMENTS - DISABLED / COMMENTED OUT TO PREVENT BAN
@@ -592,29 +680,21 @@ def dispatch_cautious_outreach():
     return
 
 def start_engine():
-    """Initializes and starts background tasks (YouTube + TikTok ingestion every 20 minutes)."""
-    print("⏱️ Avvio IOSA Background Ingestion Engine (YouTube + TikTok)...")
+    """Avvia lo scheduler di ingestion in background."""
+    print(f"Avvio IOSA Background Ingestion Engine (ciclo: {INGEST_INTERVAL_MINUTES} min)...")
     scheduler = BackgroundScheduler()
-    
-    scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=20)
-    scheduler.add_job(fetch_and_ingest_tiktok_content, 'interval', minutes=20)
+
+    scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
+    scheduler.add_job(fetch_and_ingest_tiktok_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
     scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
-    # scheduler.add_job(dispatch_cautious_outreach, 'interval', hours=1) # DISABLED OUTREACH
-    
+
     scheduler.start()
-    
+
     try:
         fetch_and_ingest_real_youtube_content()
         fetch_and_ingest_tiktok_content()
         mark_expired_campaign_data()
-        # dispatch_cautious_outreach() # DISABLED OUTREACH
     except Exception as e:
-        print(f"❌ Errore durante l'avvio: {e}")
+        print(f"Errore durante l'avvio: {e}")
 
-if __name__ == "__main__":
-    start_engine()
-    try:
-        while True:
-            time.sleep(1)
-    except (KeyboardInterrupt, SystemExit):
-        print("🛑 Engine fermato.")
+

@@ -102,6 +102,7 @@ const formatVPI = (value: number): string => {
 
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
+  const [totalIndexed, setTotalIndexed] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
   const [selectedCountry, setSelectedCountry] = useState<string>('ALL');
@@ -190,15 +191,19 @@ export default function Home() {
   const loadData = async () => {
     try {
       // Aggiornato il filtro a min_vpi=1.4 come da piano per ridurre il rumore e velocizzare il rendering
-      const { data, error } = await supabase
+      // Supabase tronca a 1.000 righe senza segnalarlo: chiediamo il conteggio
+      // esatto a parte, cosi' la statistica non mente quando l'indice cresce.
+      const { data, error, count } = await supabase
         .from('posts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('status', 'ACTIVE')
         .gt('vpi_ratio', 1.4)
-        .order('vpi_ratio', { ascending: false });
+        .order('vpi_ratio', { ascending: false })
+        .range(0, 999);
 
       if (!error && data) {
         setPosts(data);
+        setTotalIndexed(count ?? data.length);
         setLastUpdated(new Date().toLocaleTimeString());
       }
     } catch (e) {
@@ -211,8 +216,8 @@ export default function Home() {
   useEffect(() => {
     loadData();
 
-    const interval = setInterval(loadData, 15000);
-
+    // Niente polling: la sottoscrizione realtime basta e non moltiplica
+    // le letture Supabase per ogni scheda aperta.
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -225,7 +230,6 @@ export default function Home() {
       .subscribe();
 
     return () => {
-      clearInterval(interval);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -474,7 +478,7 @@ export default function Home() {
 
               <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
                 <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">INDEXED OUTLIERS</div>
-                <div className="text-sm md:text-base font-black text-white">{posts.length}</div>
+                <div className="text-sm md:text-base font-black text-white">{totalIndexed || posts.length}</div>
               </div>
 
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">

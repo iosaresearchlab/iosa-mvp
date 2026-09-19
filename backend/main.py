@@ -65,6 +65,29 @@ def _cached_render(record_id: str):
     return None
 
 
+def _fetch_all_rows(table: str, columns: str, page_size: int = 1000, **filters):
+    """
+    Legge una tabella oltre il tetto implicito di 1.000 righe di Supabase.
+
+    Senza range esplicito PostgREST tronca a 1.000 righe senza dare errore:
+    le aggregazioni di /api/analytics/insights venivano calcolate su un
+    sottoinsieme arbitrario invece che su tutti i record attivi.
+    """
+    rows = []
+    offset = 0
+    while True:
+        query = supabase.table(table).select(columns)
+        for column, value in filters.items():
+            query = query.eq(column, value)
+        page = query.range(offset, offset + page_size - 1).execute()
+        batch = page.data or []
+        rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return rows
+
+
 def _build_shipping_options():
     options = [{
         "shipping_rate_data": {
@@ -99,6 +122,16 @@ stripe.api_key = STRIPE_SECRET_KEY
 supabase = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Monitoraggio errori opzionale: attivo solo se SENTRY_DSN e' configurato.
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.0)
+        print("Sentry attivo.")
+    except ImportError:
+        print("SENTRY_DSN configurato ma sentry-sdk non installato.")
 
 app = FastAPI(title="IOSA Trophy API")
 
@@ -265,8 +298,7 @@ def get_insights_analytics():
         if not supabase:
             return {"by_country": {}, "by_category": {}, "macro_regions": {}}
 
-        res = supabase.table("posts").select("country, category, vpi_ratio").eq("status", "ACTIVE").execute()
-        data = res.data or []
+        data = _fetch_all_rows("posts", "country, category, vpi_ratio", status="ACTIVE")
 
         country_stats = {}
         category_stats = {}
@@ -340,8 +372,8 @@ def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
         if not supabase:
             return {"keywords": []}
 
-        res = supabase.table("posts").select("content_text, vpi_ratio").gte("vpi_ratio", min_vpi).eq("status", "ACTIVE").execute()
-        data = res.data or []
+        rows = _fetch_all_rows("posts", "content_text, vpi_ratio", status="ACTIVE")
+        data = [r for r in rows if float(r.get("vpi_ratio") or 0) >= min_vpi]
 
         kw_stats = {}
 
