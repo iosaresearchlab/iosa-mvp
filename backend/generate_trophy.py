@@ -150,7 +150,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="w-[23%] bg-gray-50 text-gray-900 flex flex-col justify-between h-full py-10 px-8 relative z-10 border-2 border-gray-200 shadow-sm rounded-3xl">
       <div class="space-y-2 text-center">
         <div class="text-2xl font-mono-tech text-emerald-700 font-extrabold tracking-wider">METHODOLOGY</div>
-        <div class="text-sm font-mono-tech text-gray-500 font-semibold">INSTITUTE FOR OPEN SOCIAL ANALYTICS</div>
+        <div class="text-sm font-mono-tech text-gray-500 font-semibold">INDEPENDENT RESEARCH PROJECT</div>
       </div>
 
       <div class="space-y-6 font-mono-tech my-auto">
@@ -169,21 +169,23 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
 
         <p class="text-gray-600 text-sm leading-relaxed font-sans-tech bg-white p-4 rounded-2xl border border-gray-200 italic">
-          Official accreditation for viral performance exceeding baseline standards.
+          Independent measurement of this video against the median of the same channel&#39;s recent Shorts.
         </p>
 
         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
           <div>
-            <div class="text-gray-900 text-base font-mono-tech font-black">DR. M. A. PIERCE</div>
-            <div class="text-gray-500 text-xs font-mono-tech uppercase font-bold">EXECUTIVE CHAIR</div>
+            <div class="text-gray-900 text-base font-mono-tech font-black">IOSA RESEARCH LAB</div>
+            <div class="text-gray-500 text-xs font-mono-tech uppercase font-bold">AUTOMATED MEASUREMENT</div>
           </div>
-          <div class="font-signature text-emerald-700 text-4xl opacity-90 -rotate-3">M. A. Pierce</div>
+          <div class="text-gray-500 text-xs font-mono-tech text-right leading-tight">
+            RECORD<br><span class="text-gray-800 font-bold">{record_hash}</span>
+          </div>
         </div>
       </div>
 
       <div class="text-sm font-mono-tech text-gray-500 flex justify-between items-end border-t border-gray-200 pt-4">
         <div>HASH: <span class="text-gray-800 font-bold">{record_hash}</span></div>
-        <span class="font-bold">IOSA-LAB</span>
+        <span class="font-bold">{domain_display}</span>
       </div>
     </div>
 
@@ -198,7 +200,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
           <span class="font-mono-tech font-black text-6xl tracking-tighter text-white leading-none">OSA</span>
         </div>
         <span class="text-lg font-mono-tech px-4 py-1.5 rounded bg-cyan-950 text-[#00E5FF] border border-cyan-500/30 font-extrabold tracking-wide">
-          ACCREDITED
+          RESEARCH LAB
         </span>
       </div>
 
@@ -212,7 +214,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         
         <div class="pt-2 space-y-2">
           <div class="text-cyan-100/90 font-mono-tech text-2xl font-bold tracking-wider uppercase">
-            Viral Performance Accreditation for
+            Viral Performance Measurement for
           </div>
           <div class="text-4xl text-white font-bold italic max-w-4xl mx-auto px-4 line-clamp-3 leading-tight font-sans-tech">
             "{content_title}"
@@ -222,7 +224,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 
       <div>
         <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl {level_badge_style} font-black tracking-widest">
-          ACCREDITATION: {level_name}
+          MEASURED LEVEL: {level_name}
         </span>
       </div>
     </div>

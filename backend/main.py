@@ -579,7 +579,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
         unit_amount = PRODUCT_CATALOG.get(DEFAULT_PRODUCT_KEY, 1900)
         
         vpi_ratio = "+8.7x"
-        level_name = "LVL 5 — OUTLIER"
+        level_name = None  # se manca, viene calcolato dal VPI
         content_title = "Viral Performance Accreditation"
         date_str = "2026-08-20"
         e_act_meta = "N/A"
@@ -704,7 +704,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         author = metadata.get("creator_name", "Creator")
         vpi_ratio = metadata.get("vpi_ratio", "+8.7x")
-        level_name = metadata.get("level_name", "LVL 5 — OUTLIER")
+        level_name = metadata.get("level_name") or None  # se manca, calcolato dal VPI
         content_title = metadata.get("content_title", "Viral Performance Accreditation")
         date_str = metadata.get("date_str", "2026-08-20")
         e_act = metadata.get("e_act", "N/A")
