@@ -13,9 +13,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://iosa-mvp-psi.vercel.app";
+const TITLE = "IOSA — Institute for Open Social Analytics";
+const DESCRIPTION =
+  "Independent audit of social media metrics against statistical baselines.";
+
 export const metadata: Metadata = {
-  title: "IOSA — Institute for Open Social Analytics",
-  description: "Independent audit of social media metrics against statistical baselines.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "IOSA",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: TITLE }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
