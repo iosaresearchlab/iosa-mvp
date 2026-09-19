@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
 import { ExternalLink } from 'lucide-react';
 import { formatVPI, formatCount } from '@/lib/format';
 import type { Post } from '@/lib/supabase-server';
@@ -6,14 +7,6 @@ import { slugCreator } from '@/lib/segments';
 
 // Componente server: il markup che produce finisce nell'HTML della risposta,
 // quindi e' questo che un motore di ricerca legge davvero.
-
-function colonnaLivello(livello: number): string {
-  if (livello >= 9) return 'bg-rose-950/50 text-rose-300 border-rose-500/40';
-  if (livello >= 7) return 'bg-orange-950/50 text-orange-300 border-orange-500/40';
-  if (livello >= 5) return 'bg-amber-950/50 text-amber-300 border-amber-500/40';
-  if (livello >= 3) return 'bg-emerald-950/50 text-emerald-300 border-emerald-500/40';
-  return 'bg-slate-900 text-slate-400 border-slate-600/50';
-}
 
 export function OutlierList({
   posts,
@@ -58,11 +51,10 @@ export function OutlierList({
                     {post.platform || 'YOUTUBE'}
                   </span>
                   <span
-                    className={`text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border ${colonnaLivello(
-                      post.vpi_level
-                    )}`}
+                    className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
+                    style={stileBadge(livelloDiRecord(post).colore)}
                   >
-                    {post.vpi_level_name || 'Lvl 1 - Standard'}
+                    {post.vpi_level_name || livelloDiRecord(post).nome}
                   </span>
                 </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
+import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -16,60 +17,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 
-function getBadgeStyle(levelName?: string, vpiScore?: any): string {
-  let lvl = 0;
-  if (levelName) {
-    const match = levelName.match(/LVL\s*(\d+)/i);
-    if (match) lvl = parseInt(match[1], 10);
-  }
-  if (!lvl && vpiScore) {
-    const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    // Stesse soglie di vpi_core.py e della landing.
-    if (v >= 50.0) lvl = 10;
-    else if (v >= 25.0) lvl = 9;
-    else if (v >= 15.0) lvl = 8;
-    else if (v >= 10.0) lvl = 7;
-    else if (v >= 7.5) lvl = 6;
-    else if (v >= 5.0) lvl = 5;
-    else if (v >= 3) lvl = 4;
-    else if (v >= 2) lvl = 3;
-    else if (v >= 1.5) lvl = 2;
-    else lvl = 1;
-  }
-
-  switch (lvl) {
-    case 10:
-      // Mythic Gold
-      return 'bg-amber-950/60 text-amber-300 border border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.4)]';
-    case 9:
-      // Electric Cyan
-      return 'bg-cyan-950/50 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]';
-    case 8:
-      // Deep Violet
-      return 'bg-purple-950/70 text-purple-400 border border-purple-700 shadow-[0_0_10px_rgba(124,58,237,0.3)]';
-    case 7:
-      // Light Pink
-      return 'bg-pink-950/50 text-pink-300 border border-pink-400 shadow-[0_0_10px_rgba(244,114,182,0.3)]';
-    case 6:
-      // Crimson Red
-      return 'bg-red-950/50 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]';
-    case 5:
-      // Vibrant Orange
-      return 'bg-orange-950/50 text-orange-400 border border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]';
-    case 4:
-      // Canary Yellow
-      return 'bg-yellow-950/50 text-yellow-400 border border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]';
-    case 3:
-      // Neon Lime
-      return 'bg-lime-950/50 text-lime-400 border border-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.3)]';
-    case 2:
-      // Forest Green
-      return 'bg-green-950/80 text-green-500 border border-green-700 shadow-[0_0_10px_rgba(21,128,61,0.3)]';
-    default:
-      // Slate Gray
-      return 'bg-slate-950/50 text-slate-400 border border-slate-600 shadow-[0_0_10px_rgba(100,116,139,0.2)]';
-  }
-}
 
 export default function ClaimPage({
   params,
@@ -370,8 +317,11 @@ export default function ClaimPage({
               <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes a QR code linking back to this measurement page.
             </p>
 
-            <span className={`text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase mb-1.5 ${getBadgeStyle(post.vpi_level_name, post.vpi_ratio)}`}>
-              {post.vpi_level_name}
+            <span
+              className="text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase mb-1.5 border"
+              style={stileBadge(livelloDiRecord(post).colore)}
+            >
+              {post.vpi_level_name || livelloDiRecord(post).nome}
             </span>
 
             <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">

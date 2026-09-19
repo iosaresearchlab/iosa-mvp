@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { formatVPI, formatCount } from '@/lib/format';
+import { LIVELLI, SOGLIE, livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
 
 // Soglia di ingresso nella tabella pubblica.
 //
@@ -56,62 +57,6 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type ModalType = 'faq' | 'methodology' | null;
 
 // English comment: Level badge styling aligned strictly with the 10-tier high-contrast VPI color hierarchy
-function getBadgeStyle(levelName?: string, vpiScore?: any): string {
-  let lvl = 0;
-  if (levelName) {
-    const match = levelName.match(/LVL\s*(\d+)/i);
-    if (match) lvl = parseInt(match[1], 10);
-  }
-  if (!lvl && vpiScore) {
-    const v = parseFloat(String(vpiScore).replace(/[^\d.]/g, '')) || 0;
-    if (v >= 50.0) lvl = 10;
-    else if (v >= 25.0) lvl = 9;
-    else if (v >= 15.0) lvl = 8;
-    else if (v >= 10.0) lvl = 7;
-    else if (v >= 7.5) lvl = 6;
-    else if (v >= 5.0) lvl = 5;
-    else if (v >= 3.0) lvl = 4;
-    else if (v >= 2.0) lvl = 3;
-    else if (v >= 1.5) lvl = 2;
-    else lvl = 1;
-  }
-
-  switch (lvl) {
-    case 10:
-      // Mythic Gold
-      return 'bg-amber-950/60 text-amber-300 border border-amber-300 shadow-[0_0_15px_rgba(255,215,0,0.6)]';
-    case 9:
-      // Electric Cyan
-      return 'bg-cyan-950/50 text-cyan-300 border border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.5)]';
-    case 8:
-      // Deep Violet
-      return 'bg-purple-950/70 text-purple-400 border border-purple-700 shadow-[0_0_15px_rgba(124,58,237,0.5)]';
-    case 7:
-      // Light Pink
-      return 'bg-pink-950/50 text-pink-300 border border-pink-400 shadow-[0_0_15px_rgba(244,114,182,0.4)]';
-    case 6:
-      // Crimson Red
-      return 'bg-red-950/50 text-red-400 border border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]';
-    case 5:
-      // Vibrant Orange
-      return 'bg-orange-950/50 text-orange-400 border border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]';
-    case 4:
-      // Canary Yellow
-      return 'bg-yellow-950/50 text-yellow-400 border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)]';
-    case 3:
-      // Neon Lime
-      return 'bg-lime-950/50 text-lime-400 border border-lime-500 shadow-[0_0_15px_rgba(132,204,22,0.4)]';
-    case 2:
-      // Forest Green
-      return 'bg-green-950/80 text-green-500 border border-green-700 shadow-[0_0_15px_rgba(21,128,61,0.4)]';
-    case 1:
-    default:
-      // Slate Gray
-      return 'bg-slate-950/50 text-slate-400 border border-slate-600 shadow-[0_0_10px_rgba(100,116,139,0.3)]';
-  }
-}
-
-
 export default function Home() {
   const [posts, setPosts] = useState<any[]>([]);
   const [totalIndexed, setTotalIndexed] = useState<number>(0);
@@ -655,8 +600,11 @@ export default function Home() {
                           <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
                             {post.country || 'GLOBAL'}
                           </span>
-                          <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${getBadgeStyle(post.vpi_level_name, post.vpi_ratio)}`}>
-                            {post.vpi_level_name || 'LVL 5 — OUTLIER'}
+                          <span
+                            className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
+                            style={stileBadge(livelloDiRecord(post).colore)}
+                          >
+                            {post.vpi_level_name || livelloDiRecord(post).nome}
                           </span>
                         </div>
 
@@ -886,87 +834,37 @@ export default function Home() {
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
                     <h3 className="font-bold text-white font-mono text-xs text-[#00E5FF]">Outlier Qualification Thresholds (10 Levels)</h3>
                     <div className="space-y-1.5 font-mono text-[11px] max-h-64 overflow-y-auto pr-1">
-                      
-                      <div className="flex items-center justify-between p-1.5 rounded bg-amber-950/40 border border-amber-300/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-300 shadow-[0_0_8px_rgba(255,215,0,0.8)]"></span>
-                          <strong className="text-amber-300">Lvl 10 — Hyper Outlier</strong>
-                        </span>
-                        <span className="text-amber-300 font-bold">VPI ≥ 50.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-cyan-950/40 border border-cyan-400/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
-                          <strong className="text-cyan-300">Lvl 9 — Mega Outlier</strong>
-                        </span>
-                        <span className="text-cyan-300 font-bold">VPI ≥ 25.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-purple-950/40 border border-purple-500/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-purple-400 shadow-[0_0_8px_rgba(124,58,237,0.8)]"></span>
-                          <strong className="text-purple-300">Lvl 8 — Outlier</strong>
-                        </span>
-                        <span className="text-purple-300 font-bold">VPI ≥ 15.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-pink-950/40 border border-pink-400/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-pink-300 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></span>
-                          <strong className="text-pink-300">Lvl 7 — Super Viral</strong>
-                        </span>
-                        <span className="text-pink-300 font-bold">VPI ≥ 10.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-red-950/40 border border-red-500/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-                          <strong className="text-red-300">Lvl 6 — Viral</strong>
-                        </span>
-                        <span className="text-red-300 font-bold">VPI ≥ 7.5x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-orange-950/40 border border-orange-500/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>
-                          <strong className="text-orange-300">Lvl 5 — Breakout</strong>
-                        </span>
-                        <span className="text-orange-300 font-bold">VPI ≥ 5.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-yellow-950/40 border border-yellow-500/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.8)]"></span>
-                          <strong className="text-yellow-300">Lvl 4 — Trending</strong>
-                        </span>
-                        <span className="text-yellow-300 font-bold">VPI ≥ 3.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-lime-950/40 border border-lime-500/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-lime-400 shadow-[0_0_8px_rgba(132,204,22,0.8)]"></span>
-                          <strong className="text-lime-300">Lvl 3 — Rising</strong>
-                        </span>
-                        <span className="text-lime-300 font-bold">VPI ≥ 2.0x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-green-950/40 border border-green-600/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-green-500 shadow-[0_0_8px_rgba(21,128,61,0.8)]"></span>
-                          <strong className="text-green-300">Lvl 2 — Moderate</strong>
-                        </span>
-                        <span className="text-green-300 font-bold">VPI ≥ 1.5x</span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-1.5 rounded bg-slate-950/40 border border-slate-600/40">
-                        <span className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-slate-400 shadow-[0_0_8px_rgba(100,116,139,0.5)]"></span>
-                          <strong className="text-slate-300">Lvl 1 — Standard</strong>
-                        </span>
-                        <span className="text-slate-300 font-bold">VPI &lt; 1.5x</span>
-                      </div>
-
+                      {/* Le soglie e i colori vengono dalla scala condivisa: la lista
+                          era scritta a mano con una palette che non corrispondeva
+                          ne' al database ne' ai badge. */}
+                      {LIVELLI.map((l, indice) => (
+                        <div
+                          key={l.livello}
+                          className="flex items-center justify-between p-1.5 rounded border"
+                          style={{
+                            backgroundColor: `${l.colore}1a`,
+                            borderColor: `${l.colore}66`,
+                          }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: l.colore,
+                                boxShadow: `0 0 8px ${l.colore}cc`,
+                              }}
+                            />
+                            <strong style={{ color: l.colore }}>
+                              {l.nome.replace(' - ', ' — ')}
+                            </strong>
+                          </span>
+                          <span className="font-bold" style={{ color: l.colore }}>
+                            {indice === LIVELLI.length - 1
+                              ? `VPI < ${SOGLIE[indice - 1]}x`
+                              : `VPI ≥ ${SOGLIE[indice]}x`}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 

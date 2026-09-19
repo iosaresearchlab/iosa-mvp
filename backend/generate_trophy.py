@@ -6,6 +6,8 @@ import uuid
 import asyncio
 import urllib.parse
 from pathlib import Path
+
+from vpi_core import VPI_SCALE
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
@@ -66,77 +68,44 @@ def format_count_full(val) -> str:
 
 
 def resolve_level_and_style(level_name: str, vpi_score: str):
-    """Resolves level name and dynamic color styling based directly on DB level values or calculated from vpi_engine thresholds if missing."""
-    computed_level_num = 1
+    """
+    Livello e stile del badge per la targa.
+
+    Colori e soglie vengono da VPI_SCALE in vpi_core: e' l'unica definizione
+    della scala, la stessa che il motore scrive in vpi_color e che il frontend
+    legge da lib/vpi-scale.ts. Prima la targa aveva una palette tutta sua, per
+    cui lo stesso livello usciva oro sulla targa e rosa sul sito.
+    """
+    livello = None
     if level_name:
-        final_level_name = str(level_name)
         match = re.search(r'(\d+)', str(level_name))
         if match:
-            computed_level_num = int(match.group(1))
-    else:
-        v_num = 1.0
+            cercato = int(match.group(1))
+            livello = next((v for v in VPI_SCALE if v[1] == cercato), None)
+
+    if livello is None:
+        valore = 1.0
         if vpi_score:
             try:
-                cleaned_vpi = re.sub(r'[^\d.]', '', str(vpi_score))
-                if cleaned_vpi:
-                    v_num = float(cleaned_vpi)
+                ripulito = re.sub(r'[^\d.]', '', str(vpi_score))
+                if ripulito:
+                    valore = float(ripulito)
             except (ValueError, TypeError):
-                v_num = 1.0
+                valore = 1.0
+        livello = next(v for v in VPI_SCALE if valore >= v[0])
 
-        if v_num >= 50.0:
-            computed_level_num, final_level_name = 10, "Lvl 10 - Hyper Outlier"
-        elif v_num >= 25.0:
-            computed_level_num, final_level_name = 9, "Lvl 9 - Mega Outlier"
-        elif v_num >= 15.0:
-            computed_level_num, final_level_name = 8, "Lvl 8 - Outlier"
-        elif v_num >= 10.0:
-            computed_level_num, final_level_name = 7, "Lvl 7 - Super Viral"
-        elif v_num >= 7.5:
-            computed_level_num, final_level_name = 6, "Lvl 6 - Viral"
-        elif v_num >= 5.0:
-            computed_level_num, final_level_name = 5, "Lvl 5 - Breakout"
-        elif v_num >= 3.0:
-            computed_level_num, final_level_name = 4, "Lvl 4 - Trending"
-        elif v_num >= 2.0:
-            computed_level_num, final_level_name = 3, "Lvl 3 - Rising"
-        elif v_num >= 1.5:
-            computed_level_num, final_level_name = 2, "Lvl 2 - Moderate"
-        else:
-            computed_level_num, final_level_name = 1, "Lvl 1 - Standard"
+    _, _, nome, colore = livello
+    finale = str(level_name) if level_name else nome
 
-    # Dynamic color styling for all 10 levels (High contrast palette)
-    if computed_level_num >= 10:
-        # Mythic Gold
-        badge_style = "bg-amber-950/60 text-amber-300 border-4 border-amber-300 shadow-[0_0_40px_rgba(255,215,0,0.6)]"
-    elif computed_level_num == 9:
-        # Electric Cyan
-        badge_style = "bg-cyan-950/50 text-cyan-300 border-4 border-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.5)]"
-    elif computed_level_num == 8:
-        # Deep Violet
-        badge_style = "bg-purple-950/70 text-purple-400 border-4 border-purple-700 shadow-[0_0_35px_rgba(124,58,237,0.5)]"
-    elif computed_level_num == 7:
-        # Light Pink
-        badge_style = "bg-pink-950/50 text-pink-300 border-4 border-pink-400 shadow-[0_0_35px_rgba(244,114,182,0.4)]"
-    elif computed_level_num == 6:
-        # Crimson Red
-        badge_style = "bg-red-950/50 text-red-400 border-4 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)]"
-    elif computed_level_num == 5:
-        # Vibrant Orange
-        badge_style = "bg-orange-950/50 text-orange-400 border-4 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.4)]"
-    elif computed_level_num == 4:
-        # Canary Yellow
-        badge_style = "bg-yellow-950/50 text-yellow-400 border-4 border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)]"
-    elif computed_level_num == 3:
-        # Neon Lime
-        badge_style = "bg-lime-950/50 text-lime-400 border-4 border-lime-500 shadow-[0_0_30px_rgba(132,204,22,0.4)]"
-    elif computed_level_num == 2:
-        # Forest Green
-        badge_style = "bg-green-950/80 text-green-500 border-4 border-green-700 shadow-[0_0_25px_rgba(21,128,61,0.4)]"
-    else:
-        # Slate Gray
-        badge_style = "bg-slate-950/50 text-slate-400 border-4 border-slate-600 shadow-[0_0_25px_rgba(100,116,139,0.3)]"
-
-    return final_level_name, badge_style
+    # Stile inline: il colore e' un valore esatto, una classe Tailwind
+    # costruita a runtime non verrebbe generata dal CDN.
+    stile = (
+        f"color:{colore};"
+        f"border:4px solid {colore};"
+        f"background-color:{colore}1f;"
+        f"box-shadow:0 0 40px {colore}55;"
+    )
+    return finale, stile
 
 
 # ------------------------------------------------------------------------------
@@ -246,7 +215,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
 
       <div>
-        <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl {level_badge_style} font-black tracking-widest">
+        <span class="inline-block text-3xl font-mono-tech px-12 py-4 rounded-2xl font-black tracking-widest" style="{level_badge_style}">
           MEASURED LEVEL: {level_name}
         </span>
       </div>
