@@ -51,7 +51,7 @@ TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET")
 
 BASE_DOMAIN = os.getenv("NEXT_PUBLIC_SITE_URL", "https://iosaresearch.com")
-OPTOUT_EMAIL = "optout@iosaresearch.com"
+OPTOUT_EMAIL = os.getenv("OPTOUT_EMAIL", "iosa.research.lab@gmail.com")
 
 # Maximum subscriber threshold (increased to 1.5M to include small/medium channels)
 MAX_SUBSCRIBERS = 1_500_000 
