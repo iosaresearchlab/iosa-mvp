@@ -8,6 +8,7 @@ diversi per lo stesso video.
 """
 
 import json
+import statistics
 import re
 import time
 from datetime import datetime, timezone
@@ -93,6 +94,53 @@ def calculate_vpi_ratio(views, baseline) -> float:
     if baseline <= 0:
         return 1.0
     return views / baseline
+
+
+def baseline_from_samples(campioni, exclude_video_id: str = None, giorni_indietro: float = 0):
+    """Mediana delle views degli Short recenti e maturi del canale.
+
+    Tre regole, invariate rispetto a prima:
+      - solo Short pubblicati negli ultimi BASELINE_MAX_AGE_DAYS giorni, cosi'
+        un video di due anni fa non gonfia il denominatore con views accumulate
+        in un arco temporale incomparabile;
+      - si preferiscono i video con almeno BASELINE_MIN_AGE_DAYS di eta', gia'
+        arrivati a regime; se sono troppo pochi si allarga a tutti i recenti;
+      - il video che stiamo misurando e' escluso dalla propria baseline.
+
+    giorni_indietro sposta la finestra all'indietro nel tempo ed e' quello che
+    serve per ricalcolare un record vecchio: l'eta' dei campioni e' misurata da
+    adesso, ma un record rilevato dieci giorni fa va confrontato con la baseline
+    che il canale aveva allora, non con quella di oggi. Senza questo, per un
+    canale che pubblica molto il denominatore di oggi e' piu' basso e il VPI
+    risulterebbe gonfiato dal solo passare del tempo. I video pubblicati dopo la
+    rilevazione vengono quindi esclusi, e maturita' e scadenza sono valutate
+    rispetto a quel momento.
+
+    Restituisce (baseline, numero_di_campioni); baseline e' None se i campioni
+    non bastano a rendere la mediana significativa.
+    """
+    if not campioni:
+        return None, 0
+
+    recent, mature = [], []
+    for c in campioni:
+        if c["video_id"] == exclude_video_id:
+            continue
+        eta = c["age_days"] - giorni_indietro
+        if eta < 0:
+            continue          # non esisteva ancora quando abbiamo misurato
+        if eta > BASELINE_MAX_AGE_DAYS:
+            continue
+        recent.append(c["views"])
+        if eta >= BASELINE_MIN_AGE_DAYS:
+            mature.append(c["views"])
+
+    sample = mature if len(mature) >= MIN_BASELINE_SAMPLES else recent
+    if len(sample) < MIN_BASELINE_SAMPLES:
+        return None, len(sample)
+
+    median_baseline = float(statistics.median(sample))
+    return (median_baseline if median_baseline > 0 else None), len(sample)
 
 
 def get_vpi_metadata(vpi_ratio: float):

@@ -17,6 +17,7 @@ from vpi_core import (
     CAMPAIGN_DAYS,
     MIN_BASELINE_SAMPLES,
     MIN_BASELINE_VIEWS,
+    baseline_from_samples,
     MIN_VPI_FOR_INGESTION,
     TTLCache,
     age_in_days,
@@ -133,50 +134,46 @@ def is_real_youtube_short(video_id: str):
     return None
 
 
-def get_channel_recent_videos_baseline(channel_id: str, exclude_video_id: str = None):
-    """
-    Baseline del canale = mediana delle views dei suoi Short recenti e maturi.
+def get_channel_short_samples(channel_id: str):
+    """Campioni per la baseline: gli Short recenti del canale, con eta' e views.
 
-    Tre correzioni rispetto alla versione precedente:
-      - solo Short pubblicati negli ultimi BASELINE_MAX_AGE_DAYS giorni, cosi' un
-        video di due anni fa non gonfia il denominatore con views accumulate
-        in un arco temporale incomparabile;
-      - si preferiscono i video con almeno BASELINE_MIN_AGE_DAYS di eta', gia'
-        arrivati a regime; se sono troppo pochi si allarga a tutti i recenti;
-      - il video che stiamo misurando e' escluso dalla propria baseline.
+    Costa 3 unita' di quota (channels + playlistItems + videos) e viene fatta
+    una volta sola per canale: chi deve calcolare piu' baseline sullo stesso
+    canale riusa questa lista invece di ripagare la quota.
 
-    Restituisce (baseline, numero_di_campioni). baseline e' None se i campioni
-    non bastano a rendere la mediana significativa.
+    Restituisce una lista di dizionari {video_id, views, age_days}, oppure None
+    se la chiamata non e' andata a buon fine. Lista vuota e None sono cose
+    diverse: la prima significa "nessuno Short utile", la seconda "non lo so",
+    e solo la seconda deve lasciare intatto un dato gia' salvato.
     """
     try:
         ch_url = f"https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={channel_id}&key={YOUTUBE_API_KEY}"
         ch_res = requests.get(ch_url, timeout=10)
         if ch_res.status_code != 200:
-            return None, 0
+            return None
         ch_items = ch_res.json().get("items", [])
         if not ch_items:
-            return None, 0
+            return None
 
         uploads_playlist_id = ch_items[0].get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads")
         if not uploads_playlist_id:
-            return None, 0
+            return None
 
         playlist_url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId={uploads_playlist_id}&maxResults=50&key={YOUTUBE_API_KEY}"
         pl_res = requests.get(playlist_url, timeout=10)
         if pl_res.status_code != 200:
-            return None, 0
+            return None
         pl_items = pl_res.json().get("items", [])
         if not pl_items:
-            return None, 0
+            return []
 
         video_ids = [
             item["contentDetails"]["videoId"]
             for item in pl_items
             if "contentDetails" in item and "videoId" in item["contentDetails"]
         ]
-        video_ids = [v for v in video_ids if v != exclude_video_id]
         if not video_ids:
-            return None, 0
+            return []
 
         stats_url = (
             "https://www.googleapis.com/youtube/v3/videos"
@@ -184,41 +181,36 @@ def get_channel_recent_videos_baseline(channel_id: str, exclude_video_id: str = 
         )
         stats_res = requests.get(stats_url, timeout=10)
         if stats_res.status_code != 200:
-            return None, 0
-        stat_items = stats_res.json().get("items", [])
-        if not stat_items:
-            return None, 0
+            return None
 
         now = datetime.now(timezone.utc)
-        recent, mature = [], []
-
-        for v_item in stat_items:
+        campioni = []
+        for v_item in stats_res.json().get("items", []):
             duration = parse_iso_duration(v_item.get("contentDetails", {}).get("duration", ""))
             if not is_short_duration(duration):
                 continue
-
             views_str = v_item.get("statistics", {}).get("viewCount")
             if views_str is None:
                 continue
-
-            published_at = v_item.get("snippet", {}).get("publishedAt")
-            age_days = age_in_days(published_at, now)
-            if age_days is None or age_days > BASELINE_MAX_AGE_DAYS:
+            age_days = age_in_days(v_item.get("snippet", {}).get("publishedAt"), now)
+            if age_days is None:
                 continue
-
-            views = float(views_str)
-            recent.append(views)
-            if age_days >= BASELINE_MIN_AGE_DAYS:
-                mature.append(views)
-
-        sample = mature if len(mature) >= MIN_BASELINE_SAMPLES else recent
-        if len(sample) < MIN_BASELINE_SAMPLES:
-            return None, len(sample)
-
-        median_baseline = float(statistics.median(sample))
-        return (median_baseline if median_baseline > 0 else None), len(sample)
+            campioni.append({
+                "video_id": v_item.get("id"),
+                "views": float(views_str),
+                "age_days": age_days,
+            })
+        return campioni
     except Exception:
+        return None
+
+
+def get_channel_recent_videos_baseline(channel_id: str, exclude_video_id: str = None):
+    """Baseline del canale a partire dai suoi Short. Vedi le due funzioni sopra."""
+    campioni = get_channel_short_samples(channel_id)
+    if campioni is None:
         return None, 0
+    return baseline_from_samples(campioni, exclude_video_id)
 
 
 def _cached_channel_baseline(channel_id: str, exclude_video_id: str = None):
@@ -251,28 +243,39 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
     if not channel_ids:
         return {}
     
-    ids_str = ",".join(list(set(channel_ids)))
-    url = f"https://www.googleapis.com/youtube/v3/channels?part=statistics&id={ids_str}&key={YOUTUBE_API_KEY}"
-    
-    try:
-        res = requests.get(url, timeout=10)
-        if res.status_code == 404:
-            return {}
-        if res.status_code != 200:
-            return {}
-    except Exception:
-        return {}
-
+    # L'endpoint channels accetta al massimo 50 id per chiamata: passandone di
+    # piu' YouTube risponde 400 e la vecchia versione restituiva {} in silenzio,
+    # per cui quasi ogni record finiva con la sentinella 999_999_999 al posto
+    # degli iscritti. Si spezza quindi in blocchi da 50.
+    unici = list(set(channel_ids))
     channels_data = {}
-    for item in res.json().get("items", []):
-        ch_id = item["id"]
-        stats = item.get("statistics", {})
-        
-        subs = int(stats.get("subscriberCount", 0)) if not stats.get("hiddenSubscriberCount") else 999_999_999
-        
-        channels_data[ch_id] = {
-            "subscribers": subs
-        }
+
+    for inizio in range(0, len(unici), 50):
+        blocco = unici[inizio:inizio + 50]
+        ids_str = ",".join(blocco)
+        url = (
+            "https://www.googleapis.com/youtube/v3/channels"
+            f"?part=statistics&id={ids_str}&key={YOUTUBE_API_KEY}"
+        )
+        try:
+            res = requests.get(url, timeout=10)
+            if res.status_code != 200:
+                print(f"[SUBS] channels.list ha risposto {res.status_code} "
+                      f"per un blocco di {len(blocco)} canali: iscritti ignoti.")
+                continue
+        except Exception as exc:
+            print(f"[SUBS] channels.list non raggiungibile: {exc}")
+            continue
+
+        for item in res.json().get("items", []):
+            stats = item.get("statistics", {})
+            # Quando il canale nasconde il numero di iscritti si scrive None:
+            # una sentinella numerica verrebbe letta come un valore vero.
+            if stats.get("hiddenSubscriberCount") or "subscriberCount" not in stats:
+                subs = None
+            else:
+                subs = int(stats["subscriberCount"])
+            channels_data[item["id"]] = {"subscribers": subs}
 
     return channels_data
 
@@ -390,7 +393,7 @@ def fetch_and_ingest_real_youtube_content():
                 views = float(vid_data["statistics"].get("viewCount", 0))
 
                 ch_info = channels_meta.get(ch_id)
-                subscribers = ch_info.get("subscribers", 999_999_999) if ch_info else 999_999_999
+                subscribers = ch_info.get("subscribers") if ch_info else None
 
                 baseline, samples = _cached_channel_baseline(ch_id, exclude_video_id=vid_id)
                 if not baseline or baseline < MIN_BASELINE_VIEWS:

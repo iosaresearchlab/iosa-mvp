@@ -3,6 +3,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { formatVPI, formatCount } from '@/lib/format';
+
+// Soglia di ingresso nella tabella pubblica.
+//
+// Il VPI viene memorizzato arrotondato a una decimale, quindi fra 1.4 e 1.5
+// esiste un solo valore rappresentabile: 1.4. Con il confronto stretto che
+// c'era prima (> 1.4) il livello 1, che arriva fino a 1.5 escluso, non
+// compariva mai in tabella: tutti i suoi record si fermano a 1.4 esatto.
+// Il confronto e' quindi >= , non >.
+const MIN_VPI_DISPLAY = 1.4;
 import { createClient } from '@supabase/supabase-js';
 import {
   Award,
@@ -185,7 +194,6 @@ export default function Home() {
 
   const loadData = async () => {
     try {
-      // Aggiornato il filtro a min_vpi=1.4 come da piano per ridurre il rumore e velocizzare il rendering
       // Verificato sul progetto: max_rows non e' limitato e la query restituisce
       // tutte le righe. Nessun range, ma chiediamo comunque il conteggio esatto
       // cosi' la statistica resta corretta anche se un domani il tetto cambia.
@@ -193,7 +201,7 @@ export default function Home() {
         .from('posts')
         .select('*', { count: 'exact' })
         .eq('status', 'ACTIVE')
-        .gt('vpi_ratio', 1.4)
+        .gte('vpi_ratio', MIN_VPI_DISPLAY)
         .order('vpi_ratio', { ascending: false });
 
       if (!error && data) {
@@ -232,7 +240,7 @@ export default function Home() {
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
       if (post.status && post.status !== 'ACTIVE') return false;
-      if (!post.vpi_ratio || Number(post.vpi_ratio) <= 1.4) return false;
+      if (!post.vpi_ratio || Number(post.vpi_ratio) < MIN_VPI_DISPLAY) return false;
 
       const matchPlatform =
         selectedPlatform === 'ALL' ||

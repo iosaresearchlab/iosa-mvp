@@ -86,6 +86,61 @@ def test_ttl_cache():
     assert scaduta.get("k") is None
 
 
+def _campione(video_id, views, age_days):
+    return {"video_id": video_id, "views": float(views), "age_days": age_days}
+
+
+def test_baseline_e_la_mediana_dei_maturi():
+    campioni = [_campione(f"v{i}", views, 30) for i, views in enumerate([100, 200, 300, 400, 500])]
+    assert core.baseline_from_samples(campioni) == (300.0, 5)
+
+
+def test_baseline_esclude_il_video_misurato():
+    campioni = [_campione("v0", 10000, 30)] + [_campione(f"v{i}", 100, 30) for i in range(1, 6)]
+    assert core.baseline_from_samples(campioni, exclude_video_id="v0") == (100.0, 5)
+
+
+def test_baseline_scarta_i_video_troppo_vecchi():
+    vecchi = [_campione(f"o{i}", 999999, core.BASELINE_MAX_AGE_DAYS + 10) for i in range(5)]
+    recenti = [_campione(f"n{i}", 100, 30) for i in range(5)]
+    assert core.baseline_from_samples(vecchi + recenti) == (100.0, 5)
+
+
+def test_baseline_preferisce_i_maturi_ma_ripiega_sui_recenti():
+    maturi = [_campione(f"m{i}", 1000, core.BASELINE_MIN_AGE_DAYS + 1) for i in range(2)]
+    freschi = [_campione(f"f{i}", 10, 1) for i in range(4)]
+    # 6 campioni: [10, 10, 10, 10, 1000, 1000] -> mediana 10.0
+    assert core.baseline_from_samples(maturi + freschi) == (10.0, 6)
+
+
+def test_baseline_riportata_indietro_esclude_i_video_successivi():
+    # Record rilevato 40 giorni fa. I 5 Short pubblicati 20 giorni fa sono
+    # successivi alla rilevazione e non devono entrare nel denominatore, anche
+    # se visti da oggi sembrano campioni maturi a tutti gli effetti.
+    dopo = [_campione(f"d{i}", 5, 20) for i in range(5)]
+    prima = [_campione(f"p{i}", 1000, 60) for i in range(5)]
+    assert core.baseline_from_samples(dopo + prima, giorni_indietro=40) == (1000.0, 5)
+    # Senza lo spostamento la mediana crolla e il VPI si gonfierebbe.
+    assert core.baseline_from_samples(dopo + prima) == (502.5, 10)
+
+
+def test_baseline_none_se_i_campioni_non_bastano():
+    campioni = [_campione(f"v{i}", 100, 30) for i in range(core.MIN_BASELINE_SAMPLES - 1)]
+    assert core.baseline_from_samples(campioni) == (None, core.MIN_BASELINE_SAMPLES - 1)
+
+
+def test_baseline_none_se_lista_vuota():
+    assert core.baseline_from_samples([]) == (None, 0)
+    assert core.baseline_from_samples(None) == (None, 0)
+
+
+def test_soglia_minima_di_baseline_e_coerente():
+    # La mediana ha granularita' 0.5 view: sotto questa soglia il VPI a una
+    # decimale dichiarerebbe una precisione che la misura non possiede.
+    assert core.MIN_BASELINE_VIEWS >= 500
+    assert 0.5 / core.MIN_BASELINE_VIEWS <= 0.001
+
+
 if __name__ == "__main__":
     fallimenti = 0
     for nome, funzione in sorted(globals().items()):
