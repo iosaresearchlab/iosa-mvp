@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatVPI } from "@/lib/format";
+import ContenutoMetodologia from '@/components/MetodologiaModal';
 import {
   TrendingUp,
   Trophy,
@@ -437,22 +438,7 @@ export default function InsightsPage() {
               </>
             )}
 
-            {activeModal === 'methodology' && (
-              <>
-                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
-                  <Info className="w-4 h-4 text-[#00E5FF]" /> STATISTICAL AUDIT STANDARD
-                </div>
-                <h2 className="text-xl font-bold font-mono text-white mb-4">VPI Methodology Standard</h2>
-                <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
-                  <div className="bg-black/40 border border-cyan-500/30 p-3.5 rounded-xl space-y-2">
-                    <h3 className="font-bold text-[#00E5FF] font-mono text-xs">Mathematical Formulation</h3>
-                    <p className="font-mono text-sm text-white bg-black p-2 rounded border border-gray-800 text-center">
-                      VPI = E<sub>act</sub> / E<sub>base</sub>
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
+            {activeModal === 'methodology' && <ContenutoMetodologia />}
 
             <div className="mt-5 pt-3 border-t border-gray-800 flex justify-end">
               <button

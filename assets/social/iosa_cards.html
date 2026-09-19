@@ -1,0 +1,246 @@
+<title>IOSA Social Cards</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #0d1117;
+    --surface: #161c26;
+    --line: #26303d;
+    --ink: #eef3f8;
+    --muted: #8496a8;
+    --accent: #00e5ff;
+    --amber: #ffb020;
+    --green: #00cc88;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card { display: none; height: 100%; box-sizing: border-box; padding: clamp(28px, 5vmin, 64px); }
+  body[data-c="1"] #c1, body[data-c="2"] #c2, body[data-c="3"] #c3, body[data-c="4"] #c4 { display: flex; }
+  .card { flex-direction: column; justify-content: space-between; align-items: center; }
+  .card > * { width: 100%; max-width: 1180px; }
+  /* Formato quadrato 1080x1080: la griglia del profilo Instagram ritaglia
+     sempre a 1:1, quindi una card orizzontale arriva decapitata. */
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(10px, 1.8vmin, 18px);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex; gap: .7em; align-items: center; flex-wrap: wrap;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  .mid { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: clamp(18px, 3.2vmin, 38px); }
+
+  h1 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(28px, 7.2vmin, 78px);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  p { margin: 0; font-size: clamp(15px, 2.9vmin, 31px); line-height: 1.45; color: var(--muted); max-width: 26ch; }
+  p strong { color: var(--ink); font-weight: 500; }
+
+  .formula {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: clamp(14px, 2.6vmin, 28px);
+    font-size: clamp(13px, 2.5vmin, 26px);
+    line-height: 1.75;
+    color: var(--ink);
+  }
+  .formula span { color: var(--accent); }
+  .formula em { color: var(--muted); font-style: normal; }
+
+  /* Su una card che mostra un record, il colore portante e' quello del suo
+     livello, non l'accento del marchio: una cifra ciano accanto a un badge
+     Lvl 10 rosa dice due cose diverse sulla stessa misura. --lvl vale
+     l'accento finche' la card non dichiara un livello. */
+  .card { --lvl: var(--accent); }
+
+  .figure {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(48px, 14.5vmin, 155px);
+    line-height: .95;
+    letter-spacing: -.035em;
+    color: var(--lvl);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Badge di livello: i colori sono quelli di VPI_SCALE in backend/vpi_core.py,
+     l'unica definizione documentata della scala. */
+  .badge {
+    color: var(--lvl);
+    display: inline-flex; align-items: center; gap: .55em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(11px, 2.1vmin, 22px);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: .38em .85em;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    width: fit-content;
+  }
+  .badge .pip { width: .6em; height: .6em; border-radius: 50%; background: currentColor; flex: none; }
+
+  /* Il nome dell'indice sta alla pari con la cifra: senza, 6.770x non dice
+     di che cosa e' la misura. */
+  .fx { display: flex; align-items: baseline; gap: .3em; flex-wrap: wrap; }
+  .fx .idx {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(40px, 12vmin, 130px);
+    line-height: .95;
+    letter-spacing: .01em;
+    color: var(--ink);
+  }
+
+  .scala { display: flex; flex-direction: column; gap: clamp(5px, .95vmin, 11px); }
+  .lvl {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .9em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(11px, 2.05vmin, 22px);
+    font-variant-numeric: tabular-nums;
+    padding-bottom: clamp(4px, .8vmin, 9px);
+    border-bottom: 1px solid var(--line);
+  }
+  .lvl .chip {
+    width: 2.9em; text-align: center; border-radius: 4px;
+    border: 1px solid currentColor;
+    background: color-mix(in srgb, currentColor 16%, transparent);
+    font-weight: 700; font-size: .84em; padding: .2em 0;
+  }
+  .lvl .nome { color: var(--ink); font-weight: 600; letter-spacing: .02em; }
+  .lvl .sogl { color: var(--muted); }
+
+  .ledger { display: flex; flex-direction: column; gap: clamp(8px, 1.4vmin, 16px); font-variant-numeric: tabular-nums; }
+  .row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 1.5em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(13px, 2.5vmin, 26px);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: clamp(6px, 1.1vmin, 12px);
+  }
+  .row .k { color: var(--muted); }
+  .row .v { color: var(--ink); font-weight: 600; }
+  .row.hi .v { color: var(--lvl); font-weight: 700; }
+  .row.hi { border-bottom-color: color-mix(in srgb, var(--lvl) 45%, transparent); }
+
+  .status { display: flex; flex-direction: column; gap: clamp(10px, 1.8vmin, 20px); }
+  .st {
+    display: flex; align-items: baseline; gap: .8em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(14px, 2.7vmin, 29px);
+  }
+  .dot { width: .62em; height: .62em; border-radius: 50%; flex: none; transform: translateY(-.05em); }
+  .d-on { background: var(--green); }
+  .d-wait { background: var(--amber); }
+  .d-off { background: var(--line); border: 1px solid #3a4756; }
+  .st .n { color: var(--ink); font-weight: 600; }
+  .st .s { color: var(--muted); font-size: .78em; }
+
+  footer {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 1em;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: clamp(10px, 1.7vmin, 17px);
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: clamp(10px, 1.8vmin, 20px);
+  }
+  footer .mark { color: var(--ink); font-weight: 700; letter-spacing: .04em; }
+  footer .sub { display: block; color: var(--muted); font-weight: 400; letter-spacing: .1em; font-size: .82em; }
+</style>
+
+<section class="card" id="c1">
+  <div class="eyebrow"><b>VPI</b> <span>viral performance index</span></div>
+  <div class="mid">
+    <h1>How far did it beat its own channel?</h1>
+    <div class="formula">
+      VPI = <span>views</span> ÷ <span>median views of that channel's recent Shorts</span><br>
+      <em>Not raw views. Raw views only tell you the channel was already big.</em>
+    </div>
+    <p><strong>11,488</strong> live measurements across <strong>34 markets</strong>, recomputed every 20 minutes.</p>
+  </div>
+  <footer>
+    <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
+    <div>iosa-mvp-psi.vercel.app</div>
+  </footer>
+</section>
+
+<!-- --lvl = il colore di Lvl 10 in VPI_SCALE (backend/vpi_core.py). -->
+<section class="card" id="c2" style="--lvl:#FF0055">
+  <div class="eyebrow"><b>Case</b> <span>YouTube Shorts · United States</span></div>
+  <div class="mid">
+    <div class="fx"><span class="idx">VPI</span><span class="figure">6,770×</span></div>
+    <div class="badge"><span class="pip"></span>Lvl 10 · Hyper Outlier</div>
+    <div class="ledger">
+      <div class="row"><span class="k">channel subscribers</span><span class="v">26,000</span></div>
+      <div class="row"><span class="k">baseline — median of recent Shorts</span><span class="v">4,333</span></div>
+      <div class="row"><span class="k">this video</span><span class="v">29,335,793</span></div>
+      <div class="row hi"><span class="k">VPI — views ÷ channel baseline</span><span class="v">6,770×</span></div>
+    </div>
+    <p><strong>1,686 channels more than three times its size</strong> scored below it. On a raw-views leaderboard this video never appears.</p>
+  </div>
+  <footer>
+    <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
+    <div>iosa-mvp-psi.vercel.app</div>
+  </footer>
+</section>
+
+<section class="card" id="c3">
+  <div class="eyebrow"><b>Coverage</b> <span>what we measure, and what we don't</span></div>
+  <div class="mid">
+    <h1>We only claim what we can measure.</h1>
+    <div class="status">
+      <div class="st"><span class="dot d-on"></span><span><span class="n">YouTube Shorts</span> <span class="s">— live, 9,703 channels</span></span></div>
+      <div class="st"><span class="dot d-wait"></span><span><span class="n">TikTok</span> <span class="s">— research API application in review</span></span></div>
+      <div class="st"><span class="dot d-off"></span><span><span class="n">Instagram Reels</span> <span class="s">— not covered: no public API returns another creator's recent media</span></span></div>
+    </div>
+    <p>An index that guesses is worth less than an index with a gap in it. So the gap stays visible.</p>
+  </div>
+  <footer>
+    <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
+    <div>iosa-mvp-psi.vercel.app</div>
+  </footer>
+</section>
+
+<section class="card" id="c4">
+  <div class="eyebrow"><b>Scale</b> <span>ten levels, one ratio</span></div>
+  <div class="mid">
+    <h1>The VPI scale.</h1>
+    <div class="scala">
+      <div class="lvl" style="color:#FF0055"><span class="chip">L10</span><span class="nome">Hyper Outlier</span><span class="sogl">≥ 50×</span></div>
+      <div class="lvl" style="color:#FF2A00"><span class="chip">L9</span><span class="nome">Mega Outlier</span><span class="sogl">25 – 49.9×</span></div>
+      <div class="lvl" style="color:#FF5500"><span class="chip">L8</span><span class="nome">Outlier</span><span class="sogl">15 – 24.9×</span></div>
+      <div class="lvl" style="color:#FF8800"><span class="chip">L7</span><span class="nome">Super Viral</span><span class="sogl">10 – 14.9×</span></div>
+      <div class="lvl" style="color:#FFAA00"><span class="chip">L6</span><span class="nome">Viral</span><span class="sogl">7.5 – 9.9×</span></div>
+      <div class="lvl" style="color:#FFCC00"><span class="chip">L5</span><span class="nome">Breakout</span><span class="sogl">5 – 7.4×</span></div>
+      <div class="lvl" style="color:#00CC88"><span class="chip">L4</span><span class="nome">Trending</span><span class="sogl">3 – 4.9×</span></div>
+      <div class="lvl" style="color:#0099FF"><span class="chip">L3</span><span class="nome">Rising</span><span class="sogl">2 – 2.9×</span></div>
+      <div class="lvl" style="color:#7755FF"><span class="chip">L2</span><span class="nome">Moderate</span><span class="sogl">1.5 – 1.9×</span></div>
+      <div class="lvl" style="color:#888888"><span class="chip">L1</span><span class="nome">Standard</span><span class="sogl">< 1.5×</span></div>
+    </div>
+    <p>The level is just a band on the ratio. Same rule for a channel with ten thousand subscribers and one with ten million.</p>
+  </div>
+  <footer>
+    <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
+    <div>iosa-mvp-psi.vercel.app</div>
+  </footer>
+</section>
+
+<script>
+  var n = new URLSearchParams(location.search).get('c') || '1';
+  document.body.setAttribute('data-c', n);
+</script>
