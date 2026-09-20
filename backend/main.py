@@ -572,6 +572,7 @@ async def get_trophy_preview(
         resolved_record_id = claim_token
         resolved_level_name = level_name
         req_date = recorded_date
+        misura_date = None
 
         if supabase and claim_token:
             try:
@@ -602,6 +603,13 @@ async def get_trophy_preview(
 
                     if post.get("created_at"):
                         req_date = str(post.get("created_at"))[:10]
+
+                    # La targa porta due date: quando il video e' uscito e
+                    # quando lo abbiamo misurato. Il conteggio e' congelato
+                    # alla seconda, e senza dirlo la prima si presterebbe a
+                    # essere letta come la data delle visualizzazioni.
+                    if post.get("detected_at"):
+                        misura_date = str(post.get("detected_at"))[:10]
             except Exception as db_err:
                 log.info(f"Error fetching post details for trophy preview: {db_err}")
         
@@ -638,6 +646,7 @@ async def get_trophy_preview(
                     e_base=e_base,
                     gamma=gamma,
                     recorded_date=req_date or "2026-08-20",
+                    measured_date=misura_date or req_date or "2026-08-20",
                     level_name=resolved_level_name
                 )
 

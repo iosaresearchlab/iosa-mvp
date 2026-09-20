@@ -251,8 +251,12 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         <span class="text-sm font-mono-tech text-gray-800 font-black tracking-wider">{domain_display}</span>
       </div>
 
-      <div class="text-sm font-mono-tech text-gray-500 font-bold border-t border-gray-200 pt-4 w-full">
-        DATE: <span class="text-gray-800">{recorded_date}</span>
+      <!-- Due date, non una: il conteggio e' congelato al momento della
+           misura, quindi dire solo la data di pubblicazione lascerebbe
+           credere che le visualizzazioni siano di quel giorno. -->
+      <div class="text-sm font-mono-tech text-gray-500 font-bold border-t border-gray-200 pt-4 w-full space-y-1">
+        <div class="flex justify-between"><span>PUBLISHED:</span> <span class="text-gray-800">{recorded_date}</span></div>
+        <div class="flex justify-between"><span>MEASURED:</span> <span class="text-gray-800">{measured_date}</span></div>
       </div>
     </div>
 
@@ -307,6 +311,7 @@ def _render_png_sync(
     e_base: str,
     gamma: str = "1.0x",
     recorded_date: str = "2026-08-20",
+    measured_date: str = "",
     output_dir: str = "renders",
     level_name: str = None,
     claim_base_url: str = None
@@ -321,6 +326,7 @@ def _render_png_sync(
     log.info(f"  - e_base:          {repr(e_base)}")
     log.info(f"  - gamma:           {repr(gamma)}")
     log.info(f"  - recorded_date:   {repr(recorded_date)}")
+    log.info(f"  - measured_date:   {repr(measured_date)}")
     log.info(f"  - output_dir:      {repr(output_dir)}")
     log.info(f"  - level_name:      {repr(level_name)}")
     log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
@@ -361,6 +367,7 @@ def _render_png_sync(
         level_badge_style=level_badge_style,
         level_frame_style=level_frame_style,
         recorded_date=recorded_date,
+        measured_date=measured_date or recorded_date,
         record_hash=record_hash,
         encoded_claim_url=encoded_claim_url,
         domain_display=domain_display
@@ -392,6 +399,7 @@ async def generate_trophy_png(
     e_base: str = "10.0K",
     gamma: str = "1.0x",
     recorded_date: str = "2026-08-20",
+    measured_date: str = "",
     output_dir: str = "renders",
     level_name: str = None,
     claim_base_url: str = None
@@ -406,6 +414,7 @@ async def generate_trophy_png(
     log.info(f"  - e_base:          {repr(e_base)}")
     log.info(f"  - gamma:           {repr(gamma)}")
     log.info(f"  - recorded_date:   {repr(recorded_date)}")
+    log.info(f"  - measured_date:   {repr(measured_date)}")
     log.info(f"  - output_dir:      {repr(output_dir)}")
     log.info(f"  - level_name:      {repr(level_name)}")
     log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
@@ -421,6 +430,7 @@ async def generate_trophy_png(
         e_base=e_base,
         gamma=gamma,
         recorded_date=recorded_date,
+        measured_date=measured_date or recorded_date,
         output_dir=output_dir,
         level_name=level_name,
         claim_base_url=claim_base_url

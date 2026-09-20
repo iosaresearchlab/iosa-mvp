@@ -80,6 +80,13 @@ esiti.append(("targa — badge e cornice seguono la scala",
               and "emerald" not in classi_centrali,
               classi_centrali[-60:] or None))
 
+# Due date e non una: il conteggio e' congelato al momento della misura, e la
+# sola data di pubblicazione si presterebbe a essere letta come la data delle
+# visualizzazioni.
+esiti.append(("targa — due date, pubblicazione e misura",
+              "PUBLISHED:" in t and "MEASURED:" in t and "{measured_date}" in t,
+              None))
+
 # Il resto del disegno non si tocca: le misure sono quelle dell'area di stampa
 # della tazza. Se cambiano, la tazza esce sbagliata.
 esiti.append(("targa — misure e colonne invariate",
