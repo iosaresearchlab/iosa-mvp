@@ -3,6 +3,10 @@ import base64
 import requests
 from dotenv import load_dotenv
 
+from log_iosa import prendi
+
+log = prendi(__name__)
+
 load_dotenv()
 
 PRINTIFY_API_TOKEN = os.getenv("PRINTIFY_API_TOKEN")
@@ -66,7 +70,7 @@ def get_optimal_routing(target_country):
         fallback_provider = 1   # SPOKE Custom Products (US)
         region = "US/GLOBAL"
         
-    print(f"🌍 [ROUTING STRATEGY] Target: {target_iso} ({region}) -> Blueprint: {blueprint_id}")
+    log.info(f"🌍 [ROUTING STRATEGY] Target: {target_iso} ({region}) -> Blueprint: {blueprint_id}")
 
     # Step 2: Dynamic Search for Nearest Local Provider on Blueprint 1125
     try:
@@ -81,7 +85,7 @@ def get_optimal_routing(target_country):
                 p_country = normalize_country(p.get("location", {}).get("country", ""))
                 if p_country == target_iso:
                     provider_title = p.get('title', f"ID {p['id']}")
-                    print(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title} (ID {p['id']})")
+                    log.info(f"🎯 [LOCAL MATCH FOUND] Perfect local routing to {target_iso}: {provider_title} (ID {p['id']})")
                     return blueprint_id, p["id"]
             
             # 2. If target is UK, explicitly scan for recognized UK providers (Harrier, T Shirt and Sons, etc.)
@@ -91,22 +95,22 @@ def get_optimal_routing(target_country):
                     p_country = normalize_country(p.get("location", {}).get("country", ""))
                     if p_country in UK_COUNTRIES or "harrier" in p_title or "t shirt" in p_title:
                         provider_title = p.get('title', f"ID {p['id']}")
-                        print(f"🎯 [UK PROVIDER MATCH FOUND] Routing to UK provider: {provider_title} (ID {p['id']})")
+                        log.info(f"🎯 [UK PROVIDER MATCH FOUND] Routing to UK provider: {provider_title} (ID {p['id']})")
                         return blueprint_id, p["id"]
 
             # 3. Catalog fallback: pick the first available active provider for this blueprint
             if providers:
                 valid_fallback_id = providers[0]["id"]
-                print(f"🛡️ [CATALOG FALLBACK] No direct local provider found in {target_iso}. Falling back to active catalog provider ID {valid_fallback_id}.")
+                log.info(f"🛡️ [CATALOG FALLBACK] No direct local provider found in {target_iso}. Falling back to active catalog provider ID {valid_fallback_id}.")
                 return blueprint_id, valid_fallback_id
         else:
-            print(f"⚠️ [API WARNING] Provider list fetch failed ({response.status_code})")
+            log.warning(f"⚠️ [API WARNING] Provider list fetch failed ({response.status_code})")
             
     except Exception as e:
-        print(f"⚠️ [API WARNING] Dynamic search error: {e}")
+        log.warning(f"⚠️ [API WARNING] Dynamic search error: {e}")
         
     # Step 3: Hardcoded Fallback safety net
-    print(f"🛡️ [REGIONAL FALLBACK] Using default regional provider {fallback_provider}.")
+    log.info(f"🛡️ [REGIONAL FALLBACK] Using default regional provider {fallback_provider}.")
     return blueprint_id, fallback_provider
 
 def get_variant_for_provider(blueprint_id, provider_id):
@@ -145,11 +149,11 @@ def upload_image_to_printify(image_path="trophy_design.png"):
     response = requests.post(f"{BASE_URL}/uploads/images.json", json=payload, headers=headers)
     
     if not response.ok:
-        print(f"❌ Printify upload error ({response.status_code}): {response.text}")
+        log.info(f"❌ Printify upload error ({response.status_code}): {response.text}")
         response.raise_for_status()
 
     image_data = response.json()
-    print(f"✅ Image successfully uploaded. ID: {image_data['id']}")
+    log.info(f"✅ Image successfully uploaded. ID: {image_data['id']}")
     return image_data["id"]
 
 def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=None):
@@ -197,11 +201,11 @@ def create_dynamic_mug_product(image_id, creator_name="Creator", target_country=
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"\n❌ [PRINTIFY API ERROR] Code {response.status_code}: {response.text}")
+        log.info(f"\n❌ [PRINTIFY API ERROR] Code {response.status_code}: {response.text}")
         response.raise_for_status()
 
     product_data = response.json()
-    print(f"✅ Product configured for {target_country}! Product ID: {product_data['id']}")
+    log.info(f"✅ Product configured for {target_country}! Product ID: {product_data['id']}")
     
     return product_data["id"], variant_id
 
@@ -237,9 +241,9 @@ def send_printify_order(product_id, variant_id, shipping_address, line_item_titl
     response = requests.post(url, json=payload, headers=headers)
     
     if not response.ok:
-        print(f"❌ Error submitting Printify order: {response.text}")
+        log.info(f"❌ Error submitting Printify order: {response.text}")
         response.raise_for_status()
 
     order_data = response.json()
-    print(f"✅ Order dispatched to production! Order ID: {order_data['id']}")
+    log.info(f"✅ Order dispatched to production! Order ID: {order_data['id']}")
     return order_data["id"]

@@ -47,6 +47,10 @@ from vpi_core import (
     round_vpi,
 )
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 COSTO_VIDEOS_LIST = 1      # una chiamata ogni 50 video
 COSTO_CANALE = 3           # channels + playlistItems + videos
 COSTO_SUBSCRIBERS = 1      # una chiamata ogni 50 canali
@@ -111,10 +115,10 @@ def mappa_video_canale(video_ids, stato):
         try:
             res = motore.requests.get(url, timeout=15)
             if res.status_code != 200:
-                print(f"  videos.list ha risposto {res.status_code} su un blocco di {len(blocco)}")
+                log.info(f"  videos.list ha risposto {res.status_code} su un blocco di {len(blocco)}")
                 continue
         except Exception as exc:
-            print(f"  videos.list non raggiungibile: {exc}")
+            log.warning(f"  videos.list non raggiungibile: {exc}")
             continue
         visti = set()
         for item in res.json().get("items", []):
@@ -133,11 +137,11 @@ def raccogli(args, stato, righe):
     video_ids = sorted({r["external_post_id"] for r in righe if r.get("external_post_id")})
     mappa = mappa_video_canale(video_ids, stato)
     vivi = sum(1 for v in video_ids if mappa.get(v))
-    print(f"Video ancora esistenti: {vivi} su {len(video_ids)}")
+    log.info(f"Video ancora esistenti: {vivi} su {len(video_ids)}")
 
     canali = sorted({mappa[v] for v in video_ids if mappa.get(v)})
     da_fare = [c for c in canali if c not in stato["canali"]]
-    print(f"Canali totali: {len(canali)}   gia' raccolti: {len(canali) - len(da_fare)}   da fare: {len(da_fare)}")
+    log.info(f"Canali totali: {len(canali)}   gia' raccolti: {len(canali) - len(da_fare)}   da fare: {len(da_fare)}")
     if not da_fare:
         return 0
 
@@ -151,7 +155,7 @@ def raccogli(args, stato, righe):
         for c in blocco:
             stato["subscribers"][c] = meta.get(c, {}).get("subscribers")
         noti = sum(1 for c in blocco if stato["subscribers"].get(c) is not None)
-        print(f"Iscritti: recuperati {noti} su {len(blocco)} canali")
+        log.info(f"Iscritti: recuperati {noti} su {len(blocco)} canali")
 
     # Ogni canale sono tre chiamate in fila, quindi il collo di bottiglia e'
     # la latenza, non la quota: si lavora a piccoli gruppi in parallelo.
@@ -163,7 +167,7 @@ def raccogli(args, stato, righe):
                 break
             gruppo = da_fare[i:i + args.parallelo]
             if stato["quota"] + COSTO_CANALE * len(gruppo) > args.budget:
-                print(f"Budget quota esaurito a {stato['quota']} unita'.")
+                log.warning(f"Budget quota esaurito a {stato['quota']} unita'.")
                 break
             risultati = list(pool.map(motore.get_channel_video_samples, gruppo))
             stato["quota"] += COSTO_CANALE * len(gruppo)
@@ -178,8 +182,8 @@ def raccogli(args, stato, righe):
 
     salva_stato(args.stato, stato)
     restanti = len([c for c in canali if c not in stato["canali"]])
-    print(f"Raccolti ora: {fatti}   falliti (ritentabili): {falliti}   ancora da fare: {restanti}")
-    print(f"Quota spesa in totale: {stato['quota']} unita'")
+    log.error(f"Raccolti ora: {fatti}   falliti (ritentabili): {falliti}   ancora da fare: {restanti}")
+    log.warning(f"Quota spesa in totale: {stato['quota']} unita'")
     return restanti
 
 
@@ -302,7 +306,7 @@ def main():
 
     stato = carica_stato(args.stato)
     righe = leggi_candidati(args.min_vpi, args.prima_di)
-    print(f"Soglia VPI {args.min_vpi}, rilevati prima di {args.prima_di}: {len(righe)} record candidati",
+    log.info(f"Soglia VPI {args.min_vpi}, rilevati prima di {args.prima_di}: {len(righe)} record candidati",
           flush=True)
     if not righe:
         return 0
@@ -310,36 +314,36 @@ def main():
     if not args.sql:
         restanti = raccogli(args, stato, righe)
         if restanti:
-            print(f"\nNon ho finito: rilancia lo stesso comando ({restanti} canali mancanti).", flush=True)
+            log.info(f"\nNon ho finito: rilancia lo stesso comando ({restanti} canali mancanti).")
             return 0
-        print("\nRaccolta completa. Rilancia con --sql per generare l'aggiornamento.", flush=True)
+        log.info("\nRaccolta completa. Rilancia con --sql per generare l'aggiornamento.")
         return 0
 
     aggiornamenti, senza_canale, senza_campioni, senza_baseline = costruisci_aggiornamenti(stato, righe)
     disattivati = sum(1 for a in aggiornamenti if a["status"] == "INACTIVE")
 
-    print()
-    print(f"Record ricalcolati:                  {len(aggiornamenti)}")
-    print(f"Saltati (video non piu' su YouTube): {senza_canale}")
-    print(f"Saltati (canale non raccolto):       {senza_campioni}")
-    print(f"Saltati (campioni insufficienti):    {senza_baseline}")
-    print(f"Che passano a INACTIVE:              {disattivati}")
-    print(f"Quota spesa in totale:               {stato['quota']} unita'")
+    log.info(f"Record ricalcolati:                  {len(aggiornamenti)}")
+    log.warning(f"Saltati (video non piu' su YouTube): {senza_canale}")
+    log.warning(f"Saltati (canale non raccolto):       {senza_campioni}")
+    log.warning(f"Saltati (campioni insufficienti):    {senza_baseline}")
+    log.warning(f"Che passano a INACTIVE:              {disattivati}")
+    log.warning(f"Quota spesa in totale:               {stato['quota']} unita'")
 
     if aggiornamenti:
         scarti = sorted(aggiornamenti, key=lambda a: abs(a["vpi_nuovo"] - a["vpi_vecchio"]), reverse=True)
-        print("\nScostamenti maggiori:")
+        log.info("\nScostamenti maggiori:")
         for a in scarti[:15]:
-            print(f"  {str(a['handle'])[:26]:<26} baseline {a['baseline_vecchia']:>10.1f} -> {a['baseline_nuova']:>10.1f}"
+            log.info(f"  {str(a['handle'])[:26]:<26} baseline {a['baseline_vecchia']:>10.1f} -> {a['baseline_nuova']:>10.1f}"
                   f"   VPI {a['vpi_vecchio']:>9.1f} -> {a['vpi_nuovo']:>8.1f}  [{a['status']}]")
 
         with open(args.out + ".json", "w", encoding="utf-8") as f:
             json.dump(aggiornamenti, f, indent=1, ensure_ascii=False)
         scrivi_sql(args.out, aggiornamenti)
-        print(f"\nSQL in {args.out}, dettaglio in {args.out}.json")
+        log.info(f"\nSQL in {args.out}, dettaglio in {args.out}.json")
 
     return 0
 
 
 if __name__ == "__main__":
+    configura()
     sys.exit(main())

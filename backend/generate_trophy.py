@@ -11,6 +11,10 @@ from vpi_core import VPI_SCALE
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
+from log_iosa import prendi
+
+log = prendi(__name__)
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 # Dominio usato nel QR della targa. Configurabile via .env, cosi' non resta
@@ -306,20 +310,20 @@ def _render_png_sync(
     level_name: str = None,
     claim_base_url: str = None
 ) -> str:
-    print("\n" + "="*80, flush=True)
-    print("[DEBUG TROPHY] Invocata _render_png_sync con i seguenti parametri:", flush=True)
-    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
-    print(f"  - vpi_score:       {repr(vpi_score)}", flush=True)
-    print(f"  - user_handle:     {repr(user_handle)}", flush=True)
-    print(f"  - content_title:   {repr(content_title)}", flush=True)
-    print(f"  - e_act:           {repr(e_act)}", flush=True)
-    print(f"  - e_base:          {repr(e_base)}", flush=True)
-    print(f"  - gamma:           {repr(gamma)}", flush=True)
-    print(f"  - recorded_date:   {repr(recorded_date)}", flush=True)
-    print(f"  - output_dir:      {repr(output_dir)}", flush=True)
-    print(f"  - level_name:      {repr(level_name)}", flush=True)
-    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
-    print("="*80 + "\n", flush=True)
+    log.info("\n" + "="*80)
+    log.debug("[DEBUG TROPHY] Invocata _render_png_sync con i seguenti parametri:")
+    log.info(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})")
+    log.info(f"  - vpi_score:       {repr(vpi_score)}")
+    log.info(f"  - user_handle:     {repr(user_handle)}")
+    log.info(f"  - content_title:   {repr(content_title)}")
+    log.info(f"  - e_act:           {repr(e_act)}")
+    log.info(f"  - e_base:          {repr(e_base)}")
+    log.info(f"  - gamma:           {repr(gamma)}")
+    log.info(f"  - recorded_date:   {repr(recorded_date)}")
+    log.info(f"  - output_dir:      {repr(output_dir)}")
+    log.info(f"  - level_name:      {repr(level_name)}")
+    log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
+    log.info("="*80 + "\n")
 
     claim_base_url = claim_base_url or DEFAULT_CLAIM_BASE_URL
 
@@ -391,20 +395,20 @@ async def generate_trophy_png(
     level_name: str = None,
     claim_base_url: str = None
 ) -> str:
-    print("\n" + "="*80, flush=True)
-    print("[DEBUG TROPHY] Invocata generate_trophy_png con i seguenti parametri:", flush=True)
-    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
-    print(f"  - vpi_score:       {repr(vpi_score)}", flush=True)
-    print(f"  - user_handle:     {repr(user_handle)}", flush=True)
-    print(f"  - content_title:   {repr(content_title)}", flush=True)
-    print(f"  - e_act:           {repr(e_act)}", flush=True)
-    print(f"  - e_base:          {repr(e_base)}", flush=True)
-    print(f"  - gamma:           {repr(gamma)}", flush=True)
-    print(f"  - recorded_date:   {repr(recorded_date)}", flush=True)
-    print(f"  - output_dir:      {repr(output_dir)}", flush=True)
-    print(f"  - level_name:      {repr(level_name)}", flush=True)
-    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
-    print("="*80 + "\n", flush=True)
+    log.info("\n" + "="*80)
+    log.debug("[DEBUG TROPHY] Invocata generate_trophy_png con i seguenti parametri:")
+    log.info(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})")
+    log.info(f"  - vpi_score:       {repr(vpi_score)}")
+    log.info(f"  - user_handle:     {repr(user_handle)}")
+    log.info(f"  - content_title:   {repr(content_title)}")
+    log.info(f"  - e_act:           {repr(e_act)}")
+    log.info(f"  - e_base:          {repr(e_base)}")
+    log.info(f"  - gamma:           {repr(gamma)}")
+    log.info(f"  - recorded_date:   {repr(recorded_date)}")
+    log.info(f"  - output_dir:      {repr(output_dir)}")
+    log.info(f"  - level_name:      {repr(level_name)}")
+    log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
+    log.info("="*80 + "\n")
 
     return await asyncio.to_thread(
         _render_png_sync,
@@ -447,13 +451,13 @@ def _render_mug_preview_sync(
     user_handle: str,
     output_dir: str
 ) -> str:
-    print("\n" + "="*80, flush=True)
-    print("[DEBUG TROPHY] Invocata _render_mug_preview_sync con i seguenti parametri:", flush=True)
-    print(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
-    print(f"  - vpi_score:   {repr(vpi_score)}", flush=True)
-    print(f"  - user_handle: {repr(user_handle)}", flush=True)
-    print(f"  - output_dir:  {repr(output_dir)}", flush=True)
-    print("="*80 + "\n", flush=True)
+    log.info("\n" + "="*80)
+    log.debug("[DEBUG TROPHY] Invocata _render_mug_preview_sync con i seguenti parametri:")
+    log.info(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})")
+    log.info(f"  - vpi_score:   {repr(vpi_score)}")
+    log.info(f"  - user_handle: {repr(user_handle)}")
+    log.info(f"  - output_dir:  {repr(output_dir)}")
+    log.info("="*80 + "\n")
 
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
@@ -488,13 +492,13 @@ async def generate_mug_preview_png(
     user_handle: str = "@TEARDOWNMAYHEM",
     output_dir: str = "renders"
 ) -> str:
-    print("\n" + "="*80, flush=True)
-    print("[DEBUG TROPHY] Invocata generate_mug_preview_png con i seguenti parametri:", flush=True)
-    print(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
-    print(f"  - vpi_score:   {repr(vpi_score)}", flush=True)
-    print(f"  - user_handle: {repr(user_handle)}", flush=True)
-    print(f"  - output_dir:  {repr(output_dir)}", flush=True)
-    print("="*80 + "\n", flush=True)
+    log.info("\n" + "="*80)
+    log.debug("[DEBUG TROPHY] Invocata generate_mug_preview_png con i seguenti parametri:")
+    log.info(f"  - record_id:   {repr(record_id)} (tipo: {type(record_id).__name__})")
+    log.info(f"  - vpi_score:   {repr(vpi_score)}")
+    log.info(f"  - user_handle: {repr(user_handle)}")
+    log.info(f"  - output_dir:  {repr(output_dir)}")
+    log.info("="*80 + "\n")
 
     return await asyncio.to_thread(
         _render_mug_preview_sync,
@@ -521,29 +525,29 @@ def create_trophy_image(
     record_id: str = None,
     claim_base_url: str = None
 ) -> str:
-    print("\n" + "="*80, flush=True)
-    print("[DEBUG TROPHY] Invocata create_trophy_image con i seguenti parametri:", flush=True)
-    print(f"  - author:          {repr(author)}", flush=True)
-    print(f"  - vpi_ratio:       {repr(vpi_ratio)}", flush=True)
-    print(f"  - level_name:      {repr(level_name)}", flush=True)
-    print(f"  - content_title:   {repr(content_title)}", flush=True)
-    print(f"  - date_str:        {repr(date_str)}", flush=True)
-    print(f"  - output_path:     {repr(output_path)}", flush=True)
-    print(f"  - e_act:           {repr(e_act)}", flush=True)
-    print(f"  - e_base:          {repr(e_base)}", flush=True)
-    print(f"  - gamma:           {repr(gamma)}", flush=True)
-    print(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})", flush=True)
-    print(f"  - claim_base_url:  {repr(claim_base_url)}", flush=True)
-    print("="*80 + "\n", flush=True)
+    log.info("\n" + "="*80)
+    log.debug("[DEBUG TROPHY] Invocata create_trophy_image con i seguenti parametri:")
+    log.info(f"  - author:          {repr(author)}")
+    log.info(f"  - vpi_ratio:       {repr(vpi_ratio)}")
+    log.info(f"  - level_name:      {repr(level_name)}")
+    log.info(f"  - content_title:   {repr(content_title)}")
+    log.info(f"  - date_str:        {repr(date_str)}")
+    log.info(f"  - output_path:     {repr(output_path)}")
+    log.info(f"  - e_act:           {repr(e_act)}")
+    log.info(f"  - e_base:          {repr(e_base)}")
+    log.info(f"  - gamma:           {repr(gamma)}")
+    log.info(f"  - record_id:       {repr(record_id)} (tipo: {type(record_id).__name__})")
+    log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
+    log.info("="*80 + "\n")
 
     out_file = Path(output_path)
     out_dir = out_file.parent if out_file.parent else Path("renders")
 
     if not record_id:
-        print(f"[DEBUG TROPHY - FALLBACK ATTIVATO] record_id è valuto False ({repr(record_id)}). Tentativo di estrazione dal nome file 'out_file.stem': {repr(out_file.stem)}", flush=True)
+        log.debug(f"[DEBUG TROPHY - FALLBACK ATTIVATO] record_id è valuto False ({repr(record_id)}). Tentativo di estrazione dal nome file 'out_file.stem': {repr(out_file.stem)}")
         extracted = out_file.stem.replace("trophy_", "").replace("preview_", "")
         record_id = extracted if extracted != "trophy" else "preview"
-        print(f"[DEBUG TROPHY - FALLBACK ESITO] record_id calcolato da fallback: {repr(record_id)}", flush=True)
+        log.debug(f"[DEBUG TROPHY - FALLBACK ESITO] record_id calcolato da fallback: {repr(record_id)}")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(

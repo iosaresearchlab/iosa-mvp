@@ -20,3 +20,6 @@ backend/backfill_subscribers.json
 
 # contatti di creator reali: dati personali di terzi, fuori dal repo
 outreach/
+
+# I log sono locali alla macchina che fa girare il motore.
+backend/logs/

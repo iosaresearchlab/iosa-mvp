@@ -25,6 +25,10 @@ from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import generate_trophy_png, generate_mug_preview_png
 from vpi_engine import start_engine
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
@@ -32,7 +36,7 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL") or os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-print(f"DEBUG: FRONTEND_URL is set to: {FRONTEND_URL}")
+log.info(f"DEBUG: FRONTEND_URL is set to: {FRONTEND_URL}")
 
 # Chiave richiesta dagli endpoint amministrativi (creazione prodotti Printify).
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
@@ -123,7 +127,7 @@ def _build_shipping_options():
     return options
 
 if not STRIPE_SECRET_KEY:
-    print("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
+    log.warning("⚠️ WARNING: STRIPE_SECRET_KEY not found in .env file!")
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -137,10 +141,11 @@ if SENTRY_DSN:
     try:
         import sentry_sdk
         sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.0)
-        print("Sentry attivo.")
+        log.info("Sentry attivo.")
     except ImportError:
-        print("SENTRY_DSN configurato ma sentry-sdk non installato.")
+        log.info("SENTRY_DSN configurato ma sentry-sdk non installato.")
 
+configura()
 app = FastAPI(title="IOSA Trophy API")
 
 @app.on_event("startup")
@@ -503,7 +508,7 @@ async def get_trophy_preview(
                     if post.get("created_at"):
                         req_date = str(post.get("created_at"))[:10]
             except Exception as db_err:
-                print(f"Error fetching post details for trophy preview: {db_err}")
+                log.info(f"Error fetching post details for trophy preview: {db_err}")
         
         if not resolved_title:
             resolved_title = "Viral Content Title"
@@ -609,7 +614,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
                     if p.get("baseline_score") is not None:
                         e_base_meta = str(p.get("baseline_score"))
             except Exception as err:
-                print(f"Error fetching metadata for checkout session: {err}")
+                log.info(f"Error fetching metadata for checkout session: {err}")
 
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -659,7 +664,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     payload = await request.body()
 
     if not STRIPE_WEBHOOK_SECRET:
-        print("[WEBHOOK] STRIPE_WEBHOOK_SECRET non configurato: richiesta rifiutata.")
+        log.warning("[WEBHOOK] STRIPE_WEBHOOK_SECRET non configurato: richiesta rifiutata.")
         raise HTTPException(status_code=500, detail="Webhook secret not configured")
 
     try:
@@ -740,13 +745,13 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     if prev and not str(prev).startswith("FAILED"):
                         already_fulfilled = True
             except Exception as err:
-                print(f"Error fetching post details for token {claim_token}: {err}")
+                log.info(f"Error fetching post details for token {claim_token}: {err}")
 
         if already_fulfilled:
-            print(f"[WEBHOOK] Ordine gia' evaso per {claim_token}, nessuna azione.")
+            log.info(f"[WEBHOOK] Ordine gia' evaso per {claim_token}, nessuna azione.")
             return {"status": "already_fulfilled"}
 
-        print(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
+        log.info(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
 
         try:
             order_result = fulfill_trophy_order(
@@ -766,17 +771,17 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
             if supabase and claim_token and product_id:
                 supabase.table("posts").update({"printify_product_id": product_id}).eq("claim_token", claim_token).execute()
                 
-            print(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
+            log.info(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
             
         except Exception as err:
-            print(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
+            log.info(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
             traceback.print_exc()
             
             if supabase and claim_token:
                 try:
                     supabase.table("posts").update({"printify_product_id": "FAILED_ORDER_ERROR"}).eq("claim_token", claim_token).execute()
                 except Exception as db_err:
-                    print(f"Failed to update DB error state: {db_err}")
+                    log.info(f"Failed to update DB error state: {db_err}")
 
             # Rispondiamo 200: un 500 farebbe ritentare Stripe e ogni tentativo
             # creerebbe un nuovo ordine Printify a pagamento.

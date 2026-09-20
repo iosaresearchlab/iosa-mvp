@@ -8,6 +8,10 @@ from printify_service import (
     send_printify_order,
 )
 
+from log_iosa import prendi
+
+log = prendi(__name__)
+
 # Aree di spedizione servite dai print provider configurati.
 SUPPORTED_REGIONS = {
     'US', 'GB', 'UK', 'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE',
@@ -42,7 +46,7 @@ def generate_and_publish_trophy(
     safe_id = _safe_id(record_id) or f"order_{uuid.uuid4().hex[:6]}"
 
     try:
-        print(f"\n[PIPELINE] 1. Rendering artwork for {author}...")
+        log.info(f"\n[PIPELINE] 1. Rendering artwork for {author}...")
         rendered_path = create_trophy_image(
             author=author,
             vpi_ratio=vpi_ratio,
@@ -56,10 +60,10 @@ def generate_and_publish_trophy(
             claim_base_url=claim_base_url,
         )
 
-        print("[PIPELINE] 2. Uploading asset to Printify...")
+        log.info("[PIPELINE] 2. Uploading asset to Printify...")
         image_id = upload_image_to_printify(rendered_path)
 
-        print(f"[PIPELINE] 3. Configuring product for target country: {target_country}...")
+        log.info(f"[PIPELINE] 3. Configuring product for target country: {target_country}...")
         product_id, variant_id = create_dynamic_mug_product(
             image_id=image_id,
             creator_name=author,
@@ -69,7 +73,7 @@ def generate_and_publish_trophy(
         return product_id, variant_id
 
     except Exception as e:
-        print(f"[PIPELINE] Errore durante l'esecuzione: {e}")
+        log.error(f"[PIPELINE] Errore durante l'esecuzione: {e}")
         raise
 
 
@@ -94,10 +98,10 @@ def fulfill_trophy_order(
 
     if country_code not in SUPPORTED_REGIONS:
         err_msg = f"Order blocked: Shipping to {country_code} is currently not supported (Allowed: US/UK/EU)."
-        print(f"[FULFILLMENT] {err_msg}")
+        log.info(f"[FULFILLMENT] {err_msg}")
         raise ValueError(err_msg)
 
-    print(f"\n[FULFILLMENT] Avvio ordine - Destinazione: {country_code}")
+    log.info(f"\n[FULFILLMENT] Avvio ordine - Destinazione: {country_code}")
 
     product_id, variant_id = generate_and_publish_trophy(
         author=author,
@@ -111,7 +115,7 @@ def fulfill_trophy_order(
         record_id=claim_token,
     )
 
-    print("[PIPELINE] 4. Transmitting final order...")
+    log.info("[PIPELINE] 4. Transmitting final order...")
     order_id = send_printify_order(
         product_id=product_id,
         variant_id=variant_id,

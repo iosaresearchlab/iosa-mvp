@@ -31,6 +31,10 @@ from vpi_core import (
     round_vpi,
 )
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 # Cache persistenti: a budget zero la quota API e' la risorsa piu' scarsa.
 _SHORT_CHECK_CACHE = TTLCache("short_checks", 30 * 86400)
 _BASELINE_CACHE = TTLCache("channel_baselines", 7 * 86400)
@@ -251,7 +255,7 @@ def _filter_already_ingested(video_ids: list) -> set:
             res = supabase.table("posts").select("external_post_id").in_("external_post_id", chunk).execute()
             found.update(row["external_post_id"] for row in (res.data or []))
         except Exception as e:
-            print(f"Errore nel controllo duplicati: {e}")
+            log.error(f"Errore nel controllo duplicati: {e}")
     return found
 
 
@@ -277,11 +281,11 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
         try:
             res = requests.get(url, timeout=10)
             if res.status_code != 200:
-                print(f"[SUBS] channels.list ha risposto {res.status_code} "
+                log.info(f"[SUBS] channels.list ha risposto {res.status_code} "
                       f"per un blocco di {len(blocco)} canali: iscritti ignoti.")
                 continue
         except Exception as exc:
-            print(f"[SUBS] channels.list non raggiungibile: {exc}")
+            log.warning(f"[SUBS] channels.list non raggiungibile: {exc}")
             continue
 
         for item in res.json().get("items", []):
@@ -313,14 +317,14 @@ def fetch_and_ingest_real_youtube_content():
     cara del ciclo.
     """
     if not YOUTUBE_API_KEY:
-        print("YOUTUBE_API_KEY mancante in .env. Ingestion saltata.")
+        log.warning("YOUTUBE_API_KEY mancante in .env. Ingestion saltata.")
         return
 
     other_countries = [c for c in TARGET_COUNTRIES if c != 'US']
     selected_countries = ['US'] + random.sample(other_countries, k=2)
     selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=1)
 
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione YouTube Shorts "
+    log.info(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione YouTube Shorts "
           f"(paesi: {selected_countries}, categorie: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
 
     scanned_total = 0
@@ -350,14 +354,14 @@ def fetch_and_ingest_real_youtube_content():
             try:
                 res1 = requests.get(url_p1, timeout=10)
                 if res1.status_code == 403:
-                    print(f"[QUOTA] YouTube ha risposto 403 per {country}/{cat_name}: "
+                    log.warning(f"[QUOTA] YouTube ha risposto 403 per {country}/{cat_name}: "
                           f"quota giornaliera probabilmente esaurita. Ciclo interrotto.")
                     return
                 if res1.status_code == 404:
-                    print(f"YouTube 404 per {country}/{cat_name}: combinazione non disponibile.")
+                    log.warning(f"YouTube 404 per {country}/{cat_name}: combinazione non disponibile.")
                     continue
                 if res1.status_code != 200:
-                    print(f"YouTube {res1.status_code} per {country}/{cat_name}: {res1.text[:200]}")
+                    log.info(f"YouTube {res1.status_code} per {country}/{cat_name}: {res1.text[:200]}")
                     continue
 
                 data1 = res1.json()
@@ -369,7 +373,7 @@ def fetch_and_ingest_real_youtube_content():
                     if res2.status_code == 200:
                         items.extend(res2.json().get("items", []))
             except Exception as e:
-                print(f"Errore di rete per {country}/{cat_name}: {e}")
+                log.error(f"Errore di rete per {country}/{cat_name}: {e}")
                 continue
 
             if not items:
@@ -486,25 +490,25 @@ def fetch_and_ingest_real_youtube_content():
                     total_ingested += 1
                     ingeriti_per_formato[formato] += 1
                 except Exception as e:
-                    print(f"Insert fallito per {vid_id}: {e}")
+                    log.error(f"Insert fallito per {vid_id}: {e}")
 
     _SHORT_CHECK_CACHE.purge_expired()
     _BASELINE_CACHE.purge_expired()
     _SHORT_CHECK_CACHE.save()
     _BASELINE_CACHE.save()
 
-    print("[INGESTION YOUTUBE]")
-    print(f"   video analizzati:               {scanned_total}")
-    print(f"   scartati per durata:            {skipped_duration}")
-    print(f"   scartati fuori finestra 15gg:   {skipped_age}")
-    print(f"   scartati perche' non Short:     {skipped_not_short}")
-    print(f"   gia' presenti nel DB:           {already_exists}")
-    print(f"   scartati canali auto-generati:  {skipped_auto}")
-    print(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
-    print(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
-    print(f"   NUOVI INSERITI:                 {total_ingested}")
-    print(f"      di cui Short:                {ingeriti_per_formato[FORMATO_SHORT]}")
-    print(f"      di cui video lunghi:         {ingeriti_per_formato[FORMATO_LONG]}\n")
+    log.info("[INGESTION YOUTUBE]")
+    log.info(f"   video analizzati:               {scanned_total}")
+    log.info(f"   scartati per durata:            {skipped_duration}")
+    log.info(f"   scartati fuori finestra 15gg:   {skipped_age}")
+    log.info(f"   scartati perche' non Short:     {skipped_not_short}")
+    log.info(f"   gia' presenti nel DB:           {already_exists}")
+    log.info(f"   scartati canali auto-generati:  {skipped_auto}")
+    log.info(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
+    log.info(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
+    log.info(f"   NUOVI INSERITI:                 {total_ingested}")
+    log.info(f"      di cui Short:                {ingeriti_per_formato[FORMATO_SHORT]}")
+    log.info(f"      di cui video lunghi:         {ingeriti_per_formato[FORMATO_LONG]}\n")
 
 
 # ==============================================================================
@@ -576,15 +580,15 @@ def get_tiktok_user_baseline(author_handle: str) -> float | None:
 
 def fetch_and_ingest_tiktok_content():
     """Scans TikTok trending videos and ingests outliers into Supabase using TikTok API v2."""
-    print(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning TikTok...")
+    log.info(f"📡 [{datetime.now().strftime('%H:%M:%S')}] Deep scanning TikTok...")
     
     if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET:
-        print("⚠️ TIKTOK_CLIENT_KEY o TIKTOK_CLIENT_SECRET non configurati. Scansione TikTok saltata.")
+        log.warning("⚠️ TIKTOK_CLIENT_KEY o TIKTOK_CLIENT_SECRET non configurati. Scansione TikTok saltata.")
         return
 
     access_token = get_tiktok_access_token()
     if not access_token:
-        print("⚠️ Impossibile generare Access Token TikTok. Scansione TikTok saltata.")
+        log.error("⚠️ Impossibile generare Access Token TikTok. Scansione TikTok saltata.")
         return
 
     selected_countries = random.sample(TARGET_COUNTRIES, k=3)
@@ -614,7 +618,7 @@ def fetch_and_ingest_tiktok_content():
             res = requests.post(url, headers=headers, json=payload, timeout=10)
             
             if res.status_code != 200:
-                print(f"⚠️ Errore API TikTok ({res.status_code}) per paese {country}")
+                log.error(f"⚠️ Errore API TikTok ({res.status_code}) per paese {country}")
                 continue
 
             data = res.json().get("data", {})
@@ -695,15 +699,15 @@ def fetch_and_ingest_tiktok_content():
                 total_ingested += 1
 
         except Exception as e:
-            print(f"⚠️ Eccezione scansione TikTok per paese {country}: {e}")
+            log.error(f"⚠️ Eccezione scansione TikTok per paese {country}: {e}")
             continue
 
-    print("📊 [LOG TIKTOK INGESTION SUMMARY]")
-    print(f"   ├─ Video analizzati in totale: {scanned_total}")
-    print(f"   ├─ Scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
-    print(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
-    print(f"   ├─ Già presenti nel DB: {already_exists}")
-    print(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
+    log.info("📊 [LOG TIKTOK INGESTION SUMMARY]")
+    log.info(f"   ├─ Video analizzati in totale: {scanned_total}")
+    log.info(f"   ├─ Scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
+    log.info(f"   ├─ Scartati per VPI <= 1.0: {skipped_vpi}")
+    log.info(f"   ├─ Già presenti nel DB: {already_exists}")
+    log.info(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
 
 def mark_expired_campaign_data():
     """
@@ -713,7 +717,7 @@ def mark_expired_campaign_data():
     creator rilevato oggi ha 15 giorni pieni per il claim, non i giorni
     residui dalla pubblicazione del video.
     """
-    print("Verifica record fuori finestra (> 15 giorni dal rilevamento)...")
+    log.info("Verifica record fuori finestra (> 15 giorni dal rilevamento)...")
     cutoff_date = (datetime.now(timezone.utc) - timedelta(days=CAMPAIGN_DAYS)).isoformat()
     try:
         res = (
@@ -724,9 +728,9 @@ def mark_expired_campaign_data():
             .execute()
         )
         expired_count = len(res.data) if res.data else 0
-        print(f"{expired_count} record marcati come EXPIRED.")
+        log.info(f"{expired_count} record marcati come EXPIRED.")
     except Exception as e:
-        print(f"Errore durante la chiusura dei vecchi record: {e}")
+        log.error(f"Errore durante la chiusura dei vecchi record: {e}")
 
 
 # ==============================================================================
@@ -735,12 +739,13 @@ def mark_expired_campaign_data():
 
 def dispatch_cautious_outreach():
     """OUTREACH DISABLED: YouTube comments deactivated to prevent platform spam flags."""
-    print("🛑 Outreach via commenti YouTube disattivato permanentemente.")
+    log.warning("🛑 Outreach via commenti YouTube disattivato permanentemente.")
     return
 
 def start_engine():
     """Avvia lo scheduler di ingestion in background."""
-    print(f"Avvio IOSA Background Ingestion Engine (ciclo: {INGEST_INTERVAL_MINUTES} min)...")
+    configura()
+    log.info(f"Avvio IOSA Background Ingestion Engine (ciclo: {INGEST_INTERVAL_MINUTES} min)...")
     scheduler = BackgroundScheduler()
 
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
@@ -754,6 +759,6 @@ def start_engine():
         fetch_and_ingest_tiktok_content()
         mark_expired_campaign_data()
     except Exception as e:
-        print(f"Errore durante l'avvio: {e}")
+        log.error(f"Errore durante l'avvio: {e}")
 
 

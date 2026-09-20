@@ -36,6 +36,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from supabase import create_client
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -112,11 +116,11 @@ def iscritti(channel_ids: list, contatore: dict, scadenza: float) -> dict:
                 timeout=15,
             )
         except Exception as exc:
-            print(f"  rete: {exc} — blocco saltato")
+            log.warning(f"  rete: {exc} — blocco saltato")
             continue
         contatore["quota"] += 1
         if r.status_code != 200:
-            print(f"  HTTP {r.status_code} — blocco saltato")
+            log.warning(f"  HTTP {r.status_code} — blocco saltato")
             continue
         for item in r.json().get("items", []):
             s = item.get("statistics", {})
@@ -138,7 +142,7 @@ def main():
     sb = _client(serve_scrittura=not args.stato)
     righe = da_sistemare(sb)
     canali = sorted({r["channel_id"] for r in righe})
-    print(f"Record da sistemare: {len(righe)} su {len(canali)} canali distinti "
+    log.info(f"Record da sistemare: {len(righe)} su {len(canali)} canali distinti "
           f"(~{-(-len(canali) // BLOCCO)} unita' di quota)")
     if args.stato or not righe:
         return
@@ -153,16 +157,16 @@ def main():
     mappa = {}
     if os.path.exists(cache_path):
         mappa = json.load(io.open(cache_path, encoding="utf-8"))
-        print(f"Mappa gia' in cache: {len(mappa)} canali (0 unita' di quota)")
+        log.warning(f"Mappa gia' in cache: {len(mappa)} canali (0 unita' di quota)")
     mancanti = [c for c in canali if c not in mappa]
     if mancanti:
         mappa.update(iscritti(mancanti, contatore, scadenza - 20))
         json.dump(mappa, io.open(cache_path, "w", encoding="utf-8"))
     noti = {k: v for k, v in mappa.items() if v is not None}
-    print(f"Canali risolti: {len(mappa)} — con iscritti pubblici: {len(noti)}")
+    log.info(f"Canali risolti: {len(mappa)} — con iscritti pubblici: {len(noti)}")
 
     aggiornabili = [r for r in righe if r["channel_id"] in noti]
-    print(f"Record aggiornabili adesso: {len(aggiornabili)}")
+    log.info(f"Record aggiornabili adesso: {len(aggiornabili)}")
 
     esito = {"ok": 0, "ko": 0}
 
@@ -177,15 +181,16 @@ def main():
         except Exception as exc:
             esito["ko"] += 1
             if esito["ko"] < 4:
-                print(f"  update fallito: {exc}")
+                log.error(f"  update fallito: {exc}")
 
     with ThreadPoolExecutor(max_workers=args.parallelo) as pool:
         list(pool.map(scrivi, aggiornabili))
 
-    print(f"Quota usata: {contatore['quota']} — scritti: {esito['ok']} — errori: {esito['ko']}")
+    log.warning(f"Quota usata: {contatore['quota']} — scritti: {esito['ok']} — errori: {esito['ko']}")
     if esito["ok"] < len(aggiornabili) or len(mappa) < len(canali):
-        print("Rilancia lo stesso comando per completare.")
+        log.info("Rilancia lo stesso comando per completare.")
 
 
 if __name__ == "__main__":
+    configura()
     main()

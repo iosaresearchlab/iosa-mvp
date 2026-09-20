@@ -46,6 +46,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from supabase import create_client
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 load_dotenv()
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -123,11 +127,11 @@ def canali_dei_video(video_ids: list, contatore: dict) -> dict:
         try:
             r = requests.get(url, timeout=15)
         except Exception as exc:
-            print(f"  [videos] rete: {exc} — blocco saltato")
+            log.warning(f"  [videos] rete: {exc} — blocco saltato")
             continue
         contatore["quota"] += 1
         if r.status_code != 200:
-            print(f"  [videos] HTTP {r.status_code} — blocco saltato")
+            log.warning(f"  [videos] HTTP {r.status_code} — blocco saltato")
             continue
         for item in r.json().get("items", []):
             ch = item.get("snippet", {}).get("channelId")
@@ -150,11 +154,11 @@ def handle_dei_canali(channel_ids: list, contatore: dict) -> dict:
         try:
             r = requests.get(url, timeout=15)
         except Exception as exc:
-            print(f"  [channels] rete: {exc} — blocco saltato")
+            log.warning(f"  [channels] rete: {exc} — blocco saltato")
             continue
         contatore["quota"] += 1
         if r.status_code != 200:
-            print(f"  [channels] HTTP {r.status_code} — blocco saltato")
+            log.warning(f"  [channels] HTTP {r.status_code} — blocco saltato")
             continue
         for item in r.json().get("items", []):
             h = (item.get("snippet", {}).get("customUrl") or "").strip()
@@ -203,7 +207,7 @@ def applica(sb, st: dict, riscrivi_handle: bool, secondi: int, parallelo: int) -
     """Scrive gli identificatori risolti. Ripartibile: lo stato ricorda cosa e' gia' andato."""
     fatti = set(st.setdefault("applicati", []))
     da_scrivere = [(v, d) for v, d in st["risolti"].items() if v not in fatti]
-    print(f"Da scrivere: {len(da_scrivere)} (gia' scritti: {len(fatti)})")
+    log.info(f"Da scrivere: {len(da_scrivere)} (gia' scritti: {len(fatti)})")
     if not da_scrivere:
         return
 
@@ -222,7 +226,7 @@ def applica(sb, st: dict, riscrivi_handle: bool, secondi: int, parallelo: int) -
         except Exception as exc:
             esito["ko"] += 1
             if esito["ko"] < 4:
-                print(f"  update fallito su {vid}: {exc}")
+                log.error(f"  update fallito su {vid}: {exc}")
             return None
         esito["ok"] += 1
         if handle and riscrivi_handle:
@@ -236,10 +240,10 @@ def applica(sb, st: dict, riscrivi_handle: bool, secondi: int, parallelo: int) -
 
     st["applicati"] = sorted(fatti)
     salva_stato(st)
-    print(f"Scritti: {esito['ok']} — handle corretti: {esito['handle']} — errori: {esito['ko']}")
+    log.info(f"Scritti: {esito['ok']} — handle corretti: {esito['handle']} — errori: {esito['ko']}")
     rimasti = len(st["risolti"]) - len(fatti)
     if rimasti:
-        print(f"Ne restano {rimasti}: rilancia --applica.")
+        log.info(f"Ne restano {rimasti}: rilancia --applica.")
 
 
 def main():
@@ -259,7 +263,7 @@ def main():
 
     if args.azzera and os.path.exists(STATO):
         os.remove(STATO)
-        print("Stato azzerato.")
+        log.info("Stato azzerato.")
 
     st = carica_stato()
 
@@ -268,7 +272,7 @@ def main():
             sys.exit("Niente da scrivere: lo stato e' vuoto.")
         with io.open(args.sql, "w", encoding="utf-8") as f:
             f.write(sql_update(st["risolti"], not args.non_riscrivere_handle))
-        print(f"{len(st['risolti'])} record -> {args.sql}")
+        log.info(f"{len(st['risolti'])} record -> {args.sql}")
         return
 
     sb = _client(serve_scrittura=args.applica)
@@ -282,7 +286,7 @@ def main():
     da_fare = [r for r in righe
                if r.get("external_post_id") and r["external_post_id"] not in st["risolti"]]
 
-    print(f"Senza channel_id: {len(righe)} — gia' risolti in locale: {len(st['risolti'])} "
+    log.info(f"Senza channel_id: {len(righe)} — gia' risolti in locale: {len(st['risolti'])} "
           f"— ancora da risolvere: {len(da_fare)}")
     if args.stato or not da_fare:
         return
@@ -305,11 +309,12 @@ def main():
 
     st["quota"] += contatore["quota"]
     salva_stato(st)
-    print(f"Quota di questa esecuzione: {contatore['quota']} — totale: {st['quota']}")
-    print(f"Risolti finora: {len(st['risolti'])} / {len(righe)}")
+    log.warning(f"Quota di questa esecuzione: {contatore['quota']} — totale: {st['quota']}")
+    log.info(f"Risolti finora: {len(st['risolti'])} / {len(righe)}")
     if len(st["risolti"]) < len(righe):
-        print("Rilancia lo stesso comando per continuare, poi --sql per generare l'UPDATE.")
+        log.info("Rilancia lo stesso comando per continuare, poi --sql per generare l'UPDATE.")
 
 
 if __name__ == "__main__":
+    configura()
     main()

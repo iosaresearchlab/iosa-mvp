@@ -23,6 +23,10 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
+from log_iosa import configura, prendi
+
+log = prendi(__name__)
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 PRINTIFY_API_TOKEN = os.getenv("PRINTIFY_API_TOKEN")
@@ -59,7 +63,7 @@ def elenca_prodotti():
         url = f"{BASE_URL}/shops/{PRINTIFY_SHOP_ID}/products.json?page={pagina}&limit=50"
         risposta = requests.get(url, headers=HEADERS, timeout=20)
         if not risposta.ok:
-            print(f"Errore nel leggere la pagina {pagina}: {risposta.status_code} {risposta.text[:200]}")
+            log.error(f"Errore nel leggere la pagina {pagina}: {risposta.status_code} {risposta.text[:200]}")
             break
         dati = risposta.json()
         lotto = dati.get("data", [])
@@ -76,7 +80,7 @@ def cancella_prodotto(product_id: str) -> bool:
     risposta = requests.delete(url, headers=HEADERS, timeout=20)
     if risposta.ok:
         return True
-    print(f"   non cancellato ({risposta.status_code}): {risposta.text[:160]}")
+    log.info(f"   non cancellato ({risposta.status_code}): {risposta.text[:160]}")
     return False
 
 
@@ -89,11 +93,11 @@ def main():
     args = parser.parse_args()
 
     if not PRINTIFY_API_TOKEN or not PRINTIFY_SHOP_ID:
-        print("PRINTIFY_API_TOKEN o PRINTIFY_SHOP_ID mancanti nel .env")
+        log.info("PRINTIFY_API_TOKEN o PRINTIFY_SHOP_ID mancanti nel .env")
         sys.exit(1)
 
     prodotti = elenca_prodotti()
-    print(f"Prodotti in catalogo: {len(prodotti)}")
+    log.info(f"Prodotti in catalogo: {len(prodotti)}")
 
     da_cancellare = []
     senza_data = 0
@@ -106,31 +110,32 @@ def main():
             da_cancellare.append((p["id"], p.get("title", "(senza titolo)"), eta))
 
     if senza_data:
-        print(f"Saltati {senza_data} prodotti senza data leggibile.")
+        log.warning(f"Saltati {senza_data} prodotti senza data leggibile.")
 
     if not da_cancellare:
-        print(f"Nessun prodotto piu' vecchio di {args.giorni} giorni. Niente da fare.")
+        log.info(f"Nessun prodotto piu' vecchio di {args.giorni} giorni. Niente da fare.")
         return
 
-    print(f"\nPiu' vecchi di {args.giorni} giorni: {len(da_cancellare)}")
+    log.info(f"\nPiu' vecchi di {args.giorni} giorni: {len(da_cancellare)}")
     for pid, titolo, eta in da_cancellare[:20]:
-        print(f"   {pid}  {eta:>4} giorni  {titolo[:60]}")
+        log.info(f"   {pid}  {eta:>4} giorni  {titolo[:60]}")
     if len(da_cancellare) > 20:
-        print(f"   ... e altri {len(da_cancellare) - 20}")
+        log.info(f"   ... e altri {len(da_cancellare) - 20}")
 
     if not args.applica:
-        print("\nSIMULAZIONE: non e' stato cancellato nulla.")
-        print("Rilancia con --applica per procedere davvero.")
+        log.info("\nSIMULAZIONE: non e' stato cancellato nulla.")
+        log.info("Rilancia con --applica per procedere davvero.")
         return
 
-    print("\nCancellazione in corso...")
+    log.info("\nCancellazione in corso...")
     cancellati = 0
     for pid, titolo, _ in da_cancellare:
         if cancella_prodotto(pid):
             cancellati += 1
         time.sleep(0.3)
-    print(f"\nCancellati {cancellati} prodotti su {len(da_cancellare)}.")
+    log.info(f"\nCancellati {cancellati} prodotti su {len(da_cancellare)}.")
 
 
 if __name__ == "__main__":
+    configura()
     main()
