@@ -742,10 +742,53 @@ def dispatch_cautious_outreach():
     log.warning("🛑 Outreach via commenti YouTube disattivato permanentemente.")
     return
 
+def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
+    """Un giro completo di ingestione. E\' l\'unita\' di lavoro del motore.
+
+    Esiste separata dallo scheduler perche\' il motore deve poter girare in tre
+    modi diversi: dentro il servizio web, come processo a se\', o chiamata da un
+    cron esterno. Prima esisteva solo il primo, e il primo muore quando il
+    servizio web va in sospensione.
+
+    Ogni pezzo e\' isolato: se YouTube fallisce, TikTok e le scadenze vengono
+    comunque eseguiti, e l\'esito di ciascuno finisce nel riepilogo.
+    """
+    esiti = {}
+    passi = [("youtube", fetch_and_ingest_real_youtube_content),
+             ("tiktok", fetch_and_ingest_tiktok_content)]
+    if con_scadenze:
+        passi.append(("scadenze", mark_expired_campaign_data))
+
+    for nome, funzione in passi:
+        try:
+            funzione()
+            esiti[nome] = "ok"
+        except Exception as e:
+            # Un passo che salta non deve impedire gli altri: se la quota
+            # YouTube e\' finita, le scadenze vanno comunque marcate.
+            log.error("passo '%s' non riuscito: %s", nome, e)
+            esiti[nome] = f"errore: {e}"
+    return esiti
+
+
 def start_engine():
-    """Avvia lo scheduler di ingestion in background."""
+    """Avvia lo scheduler dentro il processo chiamante.
+
+    IOSA_ENGINE_MODE decide chi fa girare il motore:
+      inline (default) - lo scheduler parte qui dentro, com\'e\' sempre stato
+      off              - non parte niente: lo fa un worker o un cron esterno
+
+    Il default resta 'inline' apposta: cambiare modalita\' e\' una scelta di
+    dispiegamento, non deve succedere da sola al primo deploy.
+    """
+    modalita = (os.getenv("IOSA_ENGINE_MODE") or "inline").strip().lower()
+    if modalita == "off":
+        log.info("IOSA_ENGINE_MODE=off: lo scheduler non parte in questo processo.")
+        return None
+
     configura()
-    log.info(f"Avvio IOSA Background Ingestion Engine (ciclo: {INGEST_INTERVAL_MINUTES} min)...")
+    log.info("Avvio IOSA Background Ingestion Engine (ciclo: %d min)...",
+             INGEST_INTERVAL_MINUTES)
     scheduler = BackgroundScheduler()
 
     scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
@@ -753,12 +796,7 @@ def start_engine():
     scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
 
     scheduler.start()
-
-    try:
-        fetch_and_ingest_real_youtube_content()
-        fetch_and_ingest_tiktok_content()
-        mark_expired_campaign_data()
-    except Exception as e:
-        log.error(f"Errore durante l'avvio: {e}")
+    esegui_un_ciclo()
+    return scheduler
 
 

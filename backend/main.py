@@ -12,9 +12,10 @@ if sys.platform == "win32":
 
 import os
 import re
+import secrets
 import stripe
 import traceback
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
@@ -23,7 +24,7 @@ from supabase import create_client
 
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import generate_trophy_png, generate_mug_preview_png
-from vpi_engine import start_engine
+from vpi_engine import esegui_un_ciclo, start_engine
 
 from log_iosa import configura, prendi
 
@@ -151,6 +152,54 @@ app = FastAPI(title="IOSA Trophy API")
 @app.on_event("startup")
 def startup_event():
     start_engine()
+
+
+# --- Ingestione su richiesta, per un cron esterno -----------------------------
+# Il servizio web su piano gratuito va in sospensione dopo un quarto d'ora
+# senza traffico, e con lui moriva lo scheduler interno. Questo endpoint
+# permette a un cron di fuori (Render Cron Job, GitHub Actions, cron-job.org)
+# di far partire un giro senza dipendere dal fatto che qualcuno visiti il sito.
+INGEST_TRIGGER_TOKEN = (os.getenv("INGEST_TRIGGER_TOKEN") or "").strip()
+
+# Un giro dura minuti. Due giri sovrapposti raddoppierebbero il consumo di
+# quota YouTube per gli stessi video, quindi il secondo viene rifiutato.
+_ingestione_in_corso = False
+
+
+def _giro_di_ingestione():
+    global _ingestione_in_corso
+    try:
+        esiti = esegui_un_ciclo()
+        log.info("ingestione su richiesta conclusa: %s", esiti)
+    finally:
+        _ingestione_in_corso = False
+
+
+@app.post("/api/ingest/run")
+def avvia_ingestione(background: BackgroundTasks,
+                     authorization: Optional[str] = Header(default=None)):
+    """Fa partire un giro di ingestione e risponde subito.
+
+    Il giro dura minuti: tenere aperta la richiesta la farebbe scadere a meta'
+    e il cron la segnerebbe come fallita. Quindi 202 e lavoro in background.
+    """
+    global _ingestione_in_corso
+
+    if not INGEST_TRIGGER_TOKEN:
+        raise HTTPException(status_code=503,
+                            detail="INGEST_TRIGGER_TOKEN non configurato: endpoint disattivato.")
+
+    atteso = f"Bearer {INGEST_TRIGGER_TOKEN}"
+    if not authorization or not secrets.compare_digest(authorization.strip(), atteso):
+        raise HTTPException(status_code=401, detail="Token non valido.")
+
+    if _ingestione_in_corso:
+        return {"stato": "gia_in_corso",
+                "dettaglio": "Un giro e' gia' in esecuzione: questa chiamata non ne avvia un altro."}
+
+    _ingestione_in_corso = True
+    background.add_task(_giro_di_ingestione)
+    return {"stato": "avviato"}
 
 ALLOWED_ORIGINS = [o for o in [
     FRONTEND_URL,
