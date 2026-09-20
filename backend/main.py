@@ -14,6 +14,7 @@ if sys.platform == "win32":
 import os
 import re
 import secrets
+import hashlib
 import stripe
 import traceback
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header
@@ -618,7 +619,18 @@ async def get_trophy_preview(
         if not resolved_title:
             resolved_title = "Viral Content Title"
 
-        cache_key = _safe_record_id(resolved_record_id or "preview")
+        if resolved_record_id:
+            cache_key = _safe_record_id(resolved_record_id)
+        else:
+            # Senza claim_token la targa e' un esempio: la chiave nasce dai
+            # parametri, altrimenti due esempi diversi finirebbero sullo stesso
+            # file in archivio e il secondo riceverebbe l'immagine del primo.
+            impronta = hashlib.sha1("|".join([
+                str(author), str(vpi), str(resolved_title), str(e_act),
+                str(e_base), str(gamma), str(resolved_level_name),
+                str(req_date), str(req_misura),
+            ]).encode("utf-8")).hexdigest()[:12]
+            cache_key = _safe_record_id(f"preview_{impronta}")
         nome_archivio = f"{cache_key}.png"
 
         # 1. Archivio su Storage: sopravvive ai riavvii ed e' servito dal CDN,
