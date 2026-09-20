@@ -559,6 +559,7 @@ async def api_generate_trophy(data: TrophyRequest, x_iosa_admin_key: str = Heade
 async def get_trophy_preview(
     claim_token: str = None,
     recorded_date: str = None,
+    measured_date: str = None,
     author: str = "@TEARDOWNMAYHEM", 
     vpi: str = "+8.7x",
     title: str = None,
@@ -573,6 +574,7 @@ async def get_trophy_preview(
         resolved_level_name = level_name
         req_date = recorded_date
         misura_date = None
+        req_misura = measured_date
 
         if supabase and claim_token:
             try:
@@ -646,7 +648,7 @@ async def get_trophy_preview(
                     e_base=e_base,
                     gamma=gamma,
                     recorded_date=req_date or "2026-08-20",
-                    measured_date=misura_date or req_date or "2026-08-20",
+                    measured_date=misura_date or req_misura or req_date or "2026-08-20",
                     level_name=resolved_level_name
                 )
 

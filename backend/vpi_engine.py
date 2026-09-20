@@ -91,18 +91,12 @@ CATEGORY_MAP = {
     '29': 'Nonprofits & Activism'
 }
 
-VPI_TEMPLATES = {
-    1: "Hey @{creator}, our algorithms at IOSA Research Lab recorded your latest upload hitting Level 1 - Standard baseline. Make this moment memorable and view your certified VPI report here: {reward_link} (Autonomous metric tracking, not spam. To opt out, email {optout_email}.) 📊",
-    2: "Congrats @{creator}! IOSA Research Lab flagged this video reaching Level 2 - Moderate growth. Make this moment memorable by claiming your accredited performance report and award options at {reward_link} (Independent research index. Email {optout_email} to opt out.) 📈",
-    3: "Nice work @{creator}! Our automated trackers logged a Level 3 - Rising performance on this upload. Make this moment memorable and check your certified VPI report and award options here: {reward_link} (Data tracking, zero spam. Contact {optout_email} to opt out.) 🚀",
-    4: "Hey @{creator}, IOSA Research Lab detected a major spike—your video achieved Level 4 - Trending status! Make this moment memorable and claim your official physical trophy at {reward_link} (Automated research audit. Opt-out anytime via {optout_email}.) 🔥",
-    5: "Incredible momentum @{creator}! Our systems flagged this upload hitting Level 5 - Breakout status in performance. Make this moment memorable and claim your physical award at {reward_link} (Independent analytics bot. Email {optout_email} to stop alerts.) ✨",
-    6: "Boom! @{creator}, IOSA Research Lab registered an official viral event—Level 6 - Viral unlocked! Make this moment memorable and access your accredited trophy at {reward_link} (Pure data, zero spam. Opt-out via {optout_email}.) 💥",
-    7: "Massive performance @{creator}! IOSA Research Lab audited your video and confirmed a Level 7 - Super Viral rank. Make this moment memorable and claim your certified milestone award here: {reward_link} (Autonomous research lab. To opt-out, contact {optout_email}.) ⚡",
-    8: "Outstanding result @{creator}! Our indexing nodes marked this upload as a Level 8 - Outlier performance. Make this moment memorable and claim your official physical trophy at {reward_link} (Not spam, just data. Opt-out: {optout_email}.) 🏆",
-    9: "Legendary numbers @{creator}! IOSA Research Lab recorded a Level 9 - Mega Outlier event on this video. Make this moment memorable and claim your accredited award at {reward_link} (Autonomous tracking node. Opt-out via {optout_email}.) 👑",
-    10: "Historical peak @{creator}! IOSA Research Lab logged a Level 10 - Hyper Outlier anomaly on your channel. Make this moment memorable and access your top-tier accredited trophy at {reward_link} (Independent research lab. To stop receiving alerts, email {optout_email}.) 🌟"
-}
+# I template di commento automatico su YouTube sono stati rimossi il 20/09/2026.
+# Promettevano 'certified report', 'accredited award' e 'official physical trophy':
+# linguaggio falso (non accreditiamo nessuno, non esiste nessun premio fisico) e
+# commento automatico sotto i video altrui, cioe' spam secondo le regole di YouTube.
+# Il contatto con i creator passa solo dall'outreach via email, dove il testo e' scritto
+# a mano, porta la data di rilevazione e dice che non c'e' niente da pagare.
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("❌ Missing Supabase credentials in environment variables.")
