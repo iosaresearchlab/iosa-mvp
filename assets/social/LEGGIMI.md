@@ -7,7 +7,7 @@ Sorgente unica delle immagini pubblicate su Instagram e X.
   `backend/vpi_core.py`: una card che mostra un record dichiara il proprio
   livello con `style="--lvl:#RRGGBB"` sulla `<section>`, e cifra, badge e riga
   evidenziata lo seguono. Il ciano del marchio resta solo sulla cornice.
-- `render_cards.mjs` — rende le quattro PNG a 1080x1080 (formato quadrato: la
+- `render_cards.mjs` — rende le cinque PNG a 1080x1080 (formato quadrato: la
   griglia del profilo Instagram ritaglia sempre a 1:1).
 
 Rigenerare:
@@ -15,4 +15,6 @@ Rigenerare:
     npm i playwright
     node render_cards.mjs
 
-Le PNG finiscono in `cards/` e vanno copiate in `frontend/public/social/`.
+La card 5 incorpora la targa vera resa da `backend/generate_trophy.py`:
+il segnaposto `TARGA_SRC` va sostituito con un data URI della PNG della targa
+prima di rendere (vedi la nota nel file). Le PNG finiscono in `cards/` e vanno copiate in `frontend/public/social/`.

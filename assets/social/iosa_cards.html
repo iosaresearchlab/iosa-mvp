@@ -20,7 +20,7 @@
     -webkit-font-smoothing: antialiased;
   }
   .card { display: none; height: 100%; box-sizing: border-box; padding: clamp(28px, 5vmin, 64px); }
-  body[data-c="1"] #c1, body[data-c="2"] #c2, body[data-c="3"] #c3, body[data-c="4"] #c4 { display: flex; }
+  body[data-c="1"] #c1, body[data-c="2"] #c2, body[data-c="3"] #c3, body[data-c="4"] #c4, body[data-c="5"] #c5 { display: flex; }
   .card { flex-direction: column; justify-content: space-between; align-items: center; }
   .card > * { width: 100%; max-width: 1180px; }
   /* Formato quadrato 1080x1080: la griglia del profilo Instagram ritaglia
@@ -159,6 +159,13 @@
     border-top: 1px solid var(--line);
     padding-top: clamp(10px, 1.8vmin, 20px);
   }
+  .targa { width: 100%; }
+  .targa img {
+    width: 100%; height: auto; display: block;
+    border-radius: clamp(6px, 1.1vmin, 12px);
+    box-shadow: 0 clamp(10px, 2.2vmin, 26px) clamp(24px, 5vmin, 60px) rgba(0,0,0,.65);
+  }
+
   footer .mark { color: var(--ink); font-weight: 700; letter-spacing: .04em; }
   footer .sub { display: block; color: var(--muted); font-weight: 400; letter-spacing: .1em; font-size: .82em; }
 </style>
@@ -233,6 +240,23 @@
       <div class="lvl" style="color:#888888"><span class="chip">L1</span><span class="nome">Standard</span><span class="sogl">< 1.5×</span></div>
     </div>
     <p>The level is just a band on the ratio. Same rule for a channel with ten thousand subscribers and one with ten million.</p>
+  </div>
+  <footer>
+    <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
+    <div>iosa-mvp-psi.vercel.app</div>
+  </footer>
+</section>
+
+<!-- Card 5: la targa vera, resa da backend/generate_trophy.py sul record reale
+     di @LastRank. Nessuna persona e nessuna scrivania: sarebbe una foto di un
+     creator che non esiste, cioe' una testimonianza inventata. Qui si vede
+     l'oggetto e basta. --lvl = Lvl 10, lo stesso livello della targa. -->
+<section class="card" id="c5" style="--lvl:#FF0055">
+  <div class="eyebrow"><b>Plaque</b> <span>what a measured creator gets</span></div>
+  <div class="mid">
+    <h1>Free, and it stays free.</h1>
+    <div class="targa"><img src="TARGA_SRC" alt="Targa IOSA"></div>
+    <p>Every measured video has one. The QR opens the record: <strong>the numbers, the formula, the date</strong>. Nothing to buy, nothing to sign up for.</p>
   </div>
   <footer>
     <div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div>
