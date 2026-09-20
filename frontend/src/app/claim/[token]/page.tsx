@@ -69,6 +69,21 @@ export default function ClaimPage({
     }
   }, [token]);
 
+  // Chi sta guardando non e' sempre una persona: Googlebot & c. eseguono il
+  // JavaScript della pagina esattamente come un browser, quindi facevano
+  // scattare il conteggio. Non li escludiamo, li marchiamo: sapere quanto i
+  // motori ci passano sopra e' un'informazione, ma non e' interesse di un
+  // creator per la sua misurazione.
+  const passaggioAutomatico = useCallback(() => {
+    try {
+      if ((navigator as Navigator & { webdriver?: boolean }).webdriver) return true;
+      return /bot|crawl|spider|slurp|mediapartners|bingpreview|headless|facebookexternalhit|embedly|preview/i
+        .test(navigator.userAgent || '');
+    } catch {
+      return false;
+    }
+  }, []);
+
   // Registra il passaggio sulla pagina.
   //
   // Serve a sapere se i creator che contattiamo aprono davvero la loro
@@ -107,9 +122,10 @@ export default function ClaimPage({
         post_id: post.id,
         provenienza,
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
+        automatico: passaggioAutomatico(),
       })
       .then(() => {}, () => {});   // una visita non registrata non rompe la pagina
-  }, [token, post?.id]);
+  }, [token, post?.id, passaggioAutomatico]);
 
   // Registra un gesto compiuto sulla pagina (per ora: lo scarico della targa).
   //
@@ -145,9 +161,10 @@ export default function ClaimPage({
         azione,
         provenienza,
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
+        automatico: passaggioAutomatico(),
       })
       .then(() => {}, () => {});
-  }, [token, post?.id]);
+  }, [token, post?.id, passaggioAutomatico]);
 
   useEffect(() => {
     // La finestra parte dal rilevamento, non dalla pubblicazione: altrimenti
