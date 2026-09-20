@@ -1,5 +1,6 @@
 import base64
 import concurrent.futures
+import hashlib
 import os
 import re
 import uuid
@@ -128,10 +129,10 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+Devanagari:wght@400;700;900&family=Noto+Sans+Arabic:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+Devanagari:wght@400;700;900&family=Noto+Sans+Arabic:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
   <style>
-    .font-mono-tech {{ font-family: 'JetBrains Mono', monospace; }}
-    .font-sans-tech {{ font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans JP', 'Noto Sans SC', sans-serif; }}
+    .font-mono-tech {{ font-family: 'JetBrains Mono', 'Noto Color Emoji', monospace; }}
+    .font-sans-tech {{ font-family: 'Inter', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans JP', 'Noto Sans SC', 'Noto Color Emoji', sans-serif; }}
     .font-signature {{ font-family: 'Caveat', cursive; }}
     .bg-grid {{
       background-image: radial-gradient(rgba(0, 229, 255, 0.12) 1.5px, transparent 1.5px);
@@ -429,13 +430,30 @@ async def generate_trophy_png(
 # ------------------------------------------------------------------------------
 # MUG SAMPLE PREVIEW RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
-def _get_mug_sample_element() -> str:
-    possible_paths = [
+def _percorsi_campione_tazza():
+    return [
         (Path(__file__).resolve().parent / "mock_mug_sample.jpg", "image/jpeg"),
         (Path(__file__).resolve().parent / "mock_mug_sample.png", "image/png"),
         (Path.cwd() / "mock_mug_sample.jpg", "image/jpeg"),
         (Path.cwd() / "mock_mug_sample.png", "image/png"),
     ]
+
+
+def impronta_campione_tazza() -> str:
+    """Otto caratteri che cambiano solo se cambia l'immagine del campione.
+
+    Serve a dare un nome all'anteprima della tazza in archivio: finche' il
+    campione e' quello, l'immagine gia' resa va bene per tutti; il giorno che
+    si cambia campione cambia il nome e l'archivio si rinnova da solo.
+    """
+    for p, _ in _percorsi_campione_tazza():
+        if p.exists():
+            return hashlib.sha1(p.read_bytes()).hexdigest()[:8]
+    return "assente"
+
+
+def _get_mug_sample_element() -> str:
+    possible_paths = _percorsi_campione_tazza()
     for p, mime_type in possible_paths:
         if p.exists():
             img_bytes = p.read_bytes()

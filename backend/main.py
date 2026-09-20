@@ -25,7 +25,8 @@ from supabase import create_client
 
 import archivio_targhe
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
-from generate_trophy import generate_trophy_png, generate_mug_preview_png
+from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
+                             impronta_campione_tazza)
 from vpi_engine import esegui_un_ciclo, start_engine
 
 from log_iosa import configura, prendi
@@ -657,12 +658,27 @@ async def get_trophy_mug_preview(
     record_id: str = "PREVIEW_MUG_REC"
 ):
     try:
+        # L'anteprima della tazza e' un campione uguale per tutti: il nome del
+        # creator e il VPI non finiscono nell'immagine, come dice la didascalia
+        # sotto di essa. Quindi in archivio ne basta una sola, e da li' la
+        # prendono tutti dal CDN invece di aspettare venti secondi di
+        # impaginazione. Il nome dipende dall'immagine di partenza: se si
+        # cambia campione, cambia il nome e l'archivio si rinnova da solo.
+        nome_archivio = f"mug_{impronta_campione_tazza()}.png"
+        if archivio_targhe.esiste(nome_archivio):
+            return RedirectResponse(archivio_targhe.url_pubblico(nome_archivio),
+                                    status_code=307)
+
         async with RENDER_SEMAPHORE:
             image_path = await generate_mug_preview_png(
                 record_id=_safe_record_id(record_id),
                 vpi_score=vpi,
                 user_handle=author
             )
+
+        url = archivio_targhe.carica(nome_archivio, Path(image_path))
+        if url:
+            return RedirectResponse(url, status_code=307)
         return FileResponse(image_path, media_type="image/png")
     except Exception as e:
         traceback.print_exc()

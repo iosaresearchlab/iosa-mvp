@@ -25,13 +25,21 @@ from log_iosa import prendi
 log = prendi(__name__)
 
 BUCKET = "targhe"
-# Gli stessi nomi che usa main.py: su Render l'indirizzo del database e'
-# arrivato dal frontend e si chiama NEXT_PUBLIC_SUPABASE_URL. Leggere solo
-# SUPABASE_URL lasciava l'archivio spento senza dirlo a nessuno.
-SUPABASE_URL = (os.getenv("NEXT_PUBLIC_SUPABASE_URL")
-                or os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
-SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY")
-               or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+
+
+# Le chiavi si leggono al momento dell'uso, non all'importazione: questo file
+# viene importato prima che main.py carichi il .env, e leggendole subito
+# l'archivio risultava spento in locale senza dirlo a nessuno. I nomi sono gli
+# stessi che usa main.py, perche' su Render l'indirizzo del database e'
+# arrivato dal frontend e si chiama NEXT_PUBLIC_SUPABASE_URL.
+def _indirizzo() -> str:
+    return (os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+            or os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
+
+
+def _chiave() -> str:
+    return (os.getenv("SUPABASE_SERVICE_KEY")
+            or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
 
 # Il backend non deve restare appeso al CDN: se Storage non risponde in fretta
 # si rende la targa come prima, che e' lento ma funziona.
@@ -39,11 +47,11 @@ TIMEOUT = 8
 
 
 def attivo() -> bool:
-    return bool(SUPABASE_URL and SERVICE_KEY)
+    return bool(_indirizzo() and _chiave())
 
 
 def url_pubblico(nome: str) -> str:
-    return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{nome}"
+    return f"{_indirizzo()}/storage/v1/object/public/{BUCKET}/{nome}"
 
 
 def esiste(nome: str) -> bool:
@@ -69,10 +77,11 @@ def carica(nome: str, percorso: Path) -> Optional[str]:
         return None
     try:
         with open(percorso, "rb") as f:
+            chiave = _chiave()
             r = requests.post(
-                f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{nome}?upsert=true",
-                headers={"apikey": SERVICE_KEY,
-                         "Authorization": f"Bearer {SERVICE_KEY}",
+                f"{_indirizzo()}/storage/v1/object/{BUCKET}/{nome}?upsert=true",
+                headers={"apikey": chiave,
+                         "Authorization": f"Bearer {chiave}",
                          "Content-Type": "image/png"},
                 data=f.read(), timeout=30,
             )
