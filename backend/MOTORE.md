@@ -1,6 +1,6 @@
 # Il motore di ingestione: dove gira
 
-## Il problema che questo risolve
+## Il problema
 
 `main.py` chiamava `start_engine()` all'avvio, quindi lo scheduler viveva dentro
 il servizio web. Il piano gratuito di Render spegne un web service dopo circa un
@@ -11,71 +11,105 @@ la notte** (21:00 → 06:00 UTC) e altre ore vuote in pieno giorno. Il buco
 notturno attraversa il reset della quota YouTube delle 08:00 UTC, quindi non era
 la quota: era il servizio che dormiva.
 
-## Le tre modalita'
+## La soluzione, a costo zero
 
-`IOSA_ENGINE_MODE` decide chi fa girare il motore.
+**Lo scheduler sta nel database.** `pg_cron` e `pg_net` sono compresi in
+Supabase e non costano niente. Ogni venti minuti il database chiama
+`POST /api/ingest/run` sul backend. La chiamata in arrivo **sveglia anche il
+servizio** se era in sospensione, che e' esattamente il problema da risolvere.
+
+Niente worker a pagamento, niente minuti di GitHub Actions, nessun servizio
+terzo.
+
+```
+pg_cron (ogni 20 min)
+   -> chiedi_un_giro_di_ingestione()
+        -> legge il token dal Vault
+        -> net.http_post verso il backend
+             -> il backend si sveglia, risponde 202, e fa il giro
+```
+
+### Cosa e' gia' configurato sul database
+
+| Oggetto | Cosa fa |
+| --- | --- |
+| estensioni `pg_cron`, `pg_net` | attive |
+| segreto `INGEST_TRIGGER_TOKEN` nel Vault | generato, 48 caratteri casuali |
+| funzione `chiedi_un_giro_di_ingestione()` | legge il token e chiama il backend |
+| job `ingestione-iosa` | `*/20 * * * *`, attivo |
+
+### Cosa manca, e va fatto a mano una volta sola
+
+1. Copiare il token dal Vault di Supabase (Project Settings → Vault, segreto
+   `INGEST_TRIGGER_TOKEN`) e metterlo su Render come variabile d'ambiente con
+   lo stesso nome.
+2. Mettere `IOSA_ENGINE_MODE=off` su Render. Senza, lo scheduler interno
+   continua a girare quando il servizio e' sveglio e si ingerisce due volte:
+   quota YouTube pagata doppia per gli stessi video.
+
+Fino a quel momento il job gira e riceve 401 (token mancante sul backend) o 404
+(endpoint non ancora deployato). Non rompe niente: si vede nei log.
+
+## Controllare che stia girando
+
+Le ultime chiamate partite dal database:
+
+```sql
+select r.id, r.status_code, left(r.content, 120) as risposta, r.created
+from net._http_response r order by r.id desc limit 10;
+```
+
+Lo storico del job:
+
+```sql
+select status, return_message, start_time
+from cron.job_run_details
+where jobid = (select jobid from cron.job where jobname = 'ingestione-iosa')
+order by start_time desc limit 10;
+```
+
+E se l'indice si sta aggiornando davvero:
+
+```sql
+select max(detected_at), now() - max(detected_at) as fa from posts;
+```
+
+Se `fa` supera i quaranta minuti, qualcosa non va.
+
+Sul backend:
+
+```
+tail -f backend/logs/iosa.log
+```
+
+## Le modalita' del motore
+
+`IOSA_ENGINE_MODE` decide chi lo fa girare.
 
 | Valore | Cosa succede |
 | --- | --- |
 | `inline` (default) | lo scheduler parte dentro il processo che chiama `start_engine()`, com'e' sempre stato |
-| `off` | non parte niente: se ne occupa un worker o un cron esterno |
+| `off` | non parte niente: ci pensa pg_cron |
 
 Il default resta `inline` apposta: cambiare modalita' e' una scelta di
 dispiegamento e non deve succedere da sola al primo deploy.
 
-## Opzione A — worker dedicato (consigliata)
-
-Un processo sempre acceso, separato dal web service. `render.yaml` nella radice
-del repo lo descrive gia': servizio web con `IOSA_ENGINE_MODE=off` piu' un
-worker che esegue `python run_engine.py`.
-
-Costo: circa 7 $/mese per il worker su Render. In cambio l'indice non si ferma.
-
-Funziona uguale su qualsiasi macchina sempre accesa:
-
-    IOSA_ENGINE_MODE=worker python run_engine.py
-
-## Opzione B — cron esterno (gratis)
-
-Il web service resta l'unico servizio, con `IOSA_ENGINE_MODE=off`, e un cron di
-fuori chiama `POST /api/ingest/run` ogni 20 minuti. L'endpoint risponde subito
-con 202 e lavora in background, perche' un giro dura minuti e la richiesta
-scadrebbe.
-
-Serve `INGEST_TRIGGER_TOKEN` fra le variabili d'ambiente del backend. Senza,
-l'endpoint risponde 503 e non fa niente: una porta aperta sull'ingestione senza
-autenticazione sarebbe un modo semplice per farci bruciare la quota.
-
-    curl -X POST https://iosa-mvp-backend.onrender.com/api/ingest/run \
-      -H "Authorization: Bearer $INGEST_TRIGGER_TOKEN"
-
-`.github/workflows/ingestione.yml` fa esattamente questo: basta mettere il
-segreto omonimo nel repository. GitHub non garantisce la puntualita' dei cron,
-quindi i giri possono slittare.
-
-Due giri sovrapposti sono rifiutati: il secondo riceve `gia_in_corso` e non
-parte, altrimenti si pagherebbe due volte la quota per gli stessi video.
-
-## Opzione C — tenerlo sveglio a ping
-
-Un cron che chiama `GET /` ogni dieci minuti tiene il servizio acceso e lo
-scheduler interno continua a girare. Gratis e senza modifiche, ma consuma le 750
-ore mensili del piano gratuito e basta un ping saltato per rimettere il servizio
-a dormire. Va bene come tampone, non come assetto.
-
-## Un giro solo, a mano
+## Un giro a mano
 
     python run_engine.py --un-ciclo
 
-Esce con codice diverso da zero se ogni passo del giro e' fallito, cosi' un cron
-esterno se ne accorge invece di segnare verde su un giro andato a vuoto.
+Esce con codice diverso da zero se ogni passo del giro e' fallito.
 
-## Cosa guardare per sapere se sta girando
+`run_engine.py` senza argomenti resta acceso e cicla: serve solo se un giorno
+il motore girera' su una macchina sempre accesa. Oggi non e' il caso.
 
-    tail -f backend/logs/iosa.log
+## Se si volesse cambiare assetto
 
-e sul database:
+Spegnere il cron del database:
 
-    select max(detected_at), now() - max(detected_at) as fa from posts;
+```sql
+select cron.unschedule('ingestione-iosa');
+```
 
-Se `fa` supera il doppio di `INGEST_INTERVAL_MINUTES`, il motore e' fermo.
+e rimettere `IOSA_ENGINE_MODE=inline` su Render, tornando al comportamento di
+prima — con il buco notturno che ne consegue.

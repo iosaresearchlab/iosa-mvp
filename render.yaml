@@ -1,31 +1,25 @@
-# Dispiegamento su Render.
+# Dispiegamento su Render, piano gratuito.
 #
-# Il punto di questo file: separare il servizio web dal motore di ingestione.
-# Finche' il motore girava dentro il web service, il piano gratuito lo spegneva
-# dopo un quarto d'ora senza traffico e l'indice restava fermo per ore ogni
-# notte. Un lavoro ogni 20 minuti non puo' dipendere da chi visita il sito.
+# Un solo servizio: non c'e' budget per un worker dedicato. Lo scheduler del
+# motore sta nel database (pg_cron su Supabase, gia' compreso), che chiama
+# POST /api/ingest/run ogni venti minuti. La chiamata in arrivo sveglia anche
+# il servizio se e' andato in sospensione, che e' proprio il problema che
+# stiamo risolvendo.
 services:
   - type: web
     name: iosa-mvp-backend
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
-      # Il web service NON fa piu' girare lo scheduler: lo fa il worker qui
-      # sotto. Lasciarlo a 'inline' su entrambi significherebbe ingerire due
-      # volte gli stessi video e pagare due volte la quota.
+      # Lo scheduler interno resta spento: ci pensa pg_cron. Lasciarlo acceso
+      # significherebbe ingerire due volte gli stessi video quando il servizio
+      # e' sveglio, e pagare due volte la quota YouTube.
       - key: IOSA_ENGINE_MODE
         value: "off"
-
-  - type: worker
-    name: iosa-mvp-engine
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: python run_engine.py
-    envVars:
-      - key: IOSA_ENGINE_MODE
-        value: worker
-      - key: INGEST_INTERVAL_MINUTES
-        value: "20"
+      # Deve essere identico al segreto omonimo nel Vault di Supabase.
+      # Si copia dal pannello Supabase: Project Settings -> Vault.
+      - key: INGEST_TRIGGER_TOKEN
+        sync: false
