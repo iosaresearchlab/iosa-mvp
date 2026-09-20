@@ -68,19 +68,25 @@ mancanti = sorted(set(rende) - set(importa))
 esiti.append(("ogni pagina che mostra un livello legge vpi-scale", not mancanti, mancanti))
 
 t = leggi("backend/generate_trophy.py")
-# Sulla targa segue la scala SOLO il badge del livello. La cornice del pannello
-# centrale resta il verde fisso del disegno originale: la targa e' dimensionata
-# per l'area di stampa della tazza e quel verde ne fa parte. Decisione di
-# Migert, 20/09; una versione precedente di questo controllo pretendeva il
-# contrario ed era il controllo a essere sbagliato.
+# Sulla targa seguono la scala il badge del livello E la cornice del pannello
+# centrale. Approvato da Migert il 20/09, con il vincolo esplicito: solo la
+# cornice, nessun'altra modifica e nessuna regressione sul resto del disegno.
 centrale = re.search(r'<!-- Center Panel -->\s*<div class="([^"]*)"', t)
 classi_centrali = centrale.group(1) if centrale else ""
-esiti.append(("targa — badge dalla scala, cornice originale intatta",
+esiti.append(("targa — badge e cornice seguono la scala",
               "from vpi_core import VPI_SCALE" in t
               and "level_badge_style" in t
-              and "level_frame_style" not in t
-              and "border-emerald-500" in classi_centrali,
+              and "level_frame_style" in t
+              and "emerald" not in classi_centrali,
               classi_centrali[-60:] or None))
+
+# Il resto del disegno non si tocca: le misure sono quelle dell'area di stampa
+# della tazza. Se cambiano, la tazza esce sbagliata.
+esiti.append(("targa — misure e colonne invariate",
+              'w-[2700px] h-[1120px]' in t
+              and t.count('class="w-[23%]') == 2
+              and 'class="w-[50%]' in t,
+              None))
 
 # Il corpo del popup (le dieci soglie) deve esistere una volta sola.
 corpi = sorted(str(p.relative_to(R)) for p in R.glob("frontend/src/**/*.tsx")

@@ -110,10 +110,14 @@ def resolve_level_and_style(level_name: str, vpi_score: str):
         f"box-shadow:0 0 40px {colore}55;"
     )
 
-    # NON toccare la cornice del pannello centrale: la targa e' disegnata per
-    # le dimensioni di stampa della tazza, e il verde e' parte di quel disegno.
-    # Il colore del livello vale solo per il badge.
-    return finale, stile
+    # La cornice del pannello centrale era verde fissa (emerald-500) su ogni
+    # targa: il verde e' il colore del Lvl 4, quindi una targa Lvl 10 aveva la
+    # cornice di un altro livello. Anche la cornice segue il livello misurato.
+    cornice = (
+        f"border:4px solid {colore};"
+        f"box-shadow:0 0 60px {colore}40, 0 25px 50px -12px rgba(0,0,0,.25);"
+    )
+    return finale, stile, cornice
 
 
 # ------------------------------------------------------------------------------
@@ -190,7 +194,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <!-- Center Panel -->
-    <div class="w-[50%] bg-[#070A10] text-center flex flex-col justify-between h-full py-12 px-10 relative z-10 rounded-3xl border-4 border-emerald-500 shadow-2xl bg-grid">
+    <div class="w-[50%] bg-[#070A10] text-center flex flex-col justify-between h-full py-12 px-10 relative z-10 rounded-3xl bg-grid" style="{level_frame_style}">
       <div class="flex items-center justify-center gap-3">
         <div class="flex items-end gap-1">
           <svg class="h-16 w-12 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
@@ -335,7 +339,7 @@ def _render_png_sync(
     formatted_e_act = format_count_full(e_act)
     formatted_e_base = format_count_full(e_base)
 
-    final_level_name, level_badge_style = resolve_level_and_style(level_name, vpi_score)
+    final_level_name, level_badge_style, level_frame_style = resolve_level_and_style(level_name, vpi_score)
 
     clean_base_url = claim_base_url.rstrip("/")
     domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
@@ -354,6 +358,7 @@ def _render_png_sync(
         gamma=gamma,
         level_name=final_level_name,
         level_badge_style=level_badge_style,
+        level_frame_style=level_frame_style,
         recorded_date=recorded_date,
         record_hash=record_hash,
         encoded_claim_url=encoded_claim_url,
