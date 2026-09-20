@@ -25,8 +25,13 @@ from log_iosa import prendi
 log = prendi(__name__)
 
 BUCKET = "targhe"
-SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
-SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
+# Gli stessi nomi che usa main.py: su Render l'indirizzo del database e'
+# arrivato dal frontend e si chiama NEXT_PUBLIC_SUPABASE_URL. Leggere solo
+# SUPABASE_URL lasciava l'archivio spento senza dirlo a nessuno.
+SUPABASE_URL = (os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+                or os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
+SERVICE_KEY = (os.getenv("SUPABASE_SERVICE_KEY")
+               or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
 
 # Il backend non deve restare appeso al CDN: se Storage non risponde in fretta
 # si rende la targa come prima, che e' lento ma funziona.

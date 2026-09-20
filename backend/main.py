@@ -2,6 +2,7 @@ import sys
 import asyncio
 import json
 import time
+import threading
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -76,6 +77,35 @@ def _cached_render(record_id: str):
     if path.exists() and (time.time() - path.stat().st_mtime) < PREVIEW_CACHE_SECONDS:
         return path
     return None
+
+
+# ---------------------------------------------------------------------------
+# Memoria a breve delle statistiche
+#
+# Le due pagine di analisi leggono ogni volta tutte le righe ATTIVE (oltre
+# undicimila) e le ricontano in Python. Tre richieste in parallelo - che e'
+# esattamente cio' che fa la pagina Insights all'apertura - saturavano il
+# servizio gratuito e tornavano 500 a caso. I dati cambiano ogni venti minuti,
+# quindi tenerli in memoria per cinque e' abbondantemente sicuro.
+_STATISTICHE_CACHE = {}
+_STATISTICHE_LOCK = threading.Lock()
+STATISTICHE_TTL = 300
+
+
+def _statistiche_in_memoria(chiave: str, calcola):
+    adesso = time.time()
+    voce = _STATISTICHE_CACHE.get(chiave)
+    if voce and adesso - voce[0] < STATISTICHE_TTL:
+        return voce[1]
+    # Un solo calcolo alla volta: chi arriva mentre e' in corso aspetta e
+    # trova il risultato gia' pronto, invece di rifare lo stesso lavoro.
+    with _STATISTICHE_LOCK:
+        voce = _STATISTICHE_CACHE.get(chiave)
+        if voce and time.time() - voce[0] < STATISTICHE_TTL:
+            return voce[1]
+        valore = calcola()
+        _STATISTICHE_CACHE[chiave] = (time.time(), valore)
+        return valore
 
 
 def _fetch_all_rows(table: str, columns: str, page_size: int = 1000, **filters):
@@ -269,7 +299,12 @@ STOP_WORDS = {
 @app.head("/")
 @app.get("/")
 def read_root():
-    return {"status": "online", "system": "IOSA Lab Backend"}
+    # "archivio_targhe" dice se le targhe gia' rese vengono conservate su
+    # Storage. Se e' falso mancano le chiavi nell'ambiente e ogni anteprima
+    # viene ricostruita da zero: si vede da fuori, senza guardare i log.
+    return {"status": "online", "system": "IOSA Lab Backend",
+            "motore": (os.getenv("IOSA_ENGINE_MODE") or "inline").strip().lower(),
+            "archivio_targhe": archivio_targhe.attivo()}
 
 # ==============================================================================
 # POSTS & FEED ENDPOINTS
@@ -357,6 +392,10 @@ def get_top10_analytics(
 @app.get("/api/analytics/insights")
 def get_insights_analytics():
     """Aggregates DB metrics by country, category, and macro-regions."""
+    return _statistiche_in_memoria("insights", _calcola_insights)
+
+
+def _calcola_insights():
     try:
         if not supabase:
             return {"by_country": {}, "by_category": {}, "macro_regions": {}}
@@ -431,6 +470,11 @@ def get_insights_analytics():
 @app.get("/api/analytics/keywords")
 def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
     """Tokenizes video titles (VPI >= min_vpi) and computes frequency & viral velocity per word."""
+    return _statistiche_in_memoria(f"keywords:{min_vpi}:{limit}",
+                                   lambda: _calcola_keywords(min_vpi, limit))
+
+
+def _calcola_keywords(min_vpi: float, limit: int):
     try:
         if not supabase:
             return {"keywords": []}
