@@ -23,7 +23,7 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 DEFAULT_CLAIM_BASE_URL = (
     os.getenv("NEXT_PUBLIC_SITE_URL")
     or os.getenv("FRONTEND_URL")
-    or "https://iosa-mvp-psi.vercel.app"
+    or "https://iosaresearch.org"
 )
 
 
@@ -241,7 +241,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="text-sm font-mono-tech text-gray-500 font-semibold">SCAN TO VERIFY</div>
       </div>
 
-      <!-- Verification QR Code pointing directly to https://iosa-mvp-psi.vercel.app/claim/[record_id] -->
+      <!-- Verification QR Code pointing directly to https://iosaresearch.org/claim/[record_id] -->
       <div class="bg-white p-6 rounded-2xl border-2 border-emerald-600 flex flex-col items-center gap-3 shadow-md my-auto">
         <img 
           src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={encoded_claim_url}&color=070A10&bgbw=0" 

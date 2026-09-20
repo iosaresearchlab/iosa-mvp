@@ -104,4 +104,4 @@ export function handleSemplice(handle: string): boolean {
 }
 
 export const SITO =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://iosa-mvp-psi.vercel.app';
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://iosaresearch.org';

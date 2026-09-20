@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://iosa-mvp-psi.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://iosaresearch.org";
 const TITLE = "IOSA — Institute for Open Social Analytics";
 const DESCRIPTION =
   "Independent audit of social media metrics against statistical baselines.";

@@ -9,7 +9,7 @@ import type { Metadata } from 'next';
  * costruzione, e non si possono piu' dimenticare.
  */
 export const SITO =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://iosa-mvp-psi.vercel.app';
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://iosaresearch.org';
 
 export function metadatiPagina({
   titolo,
