@@ -62,10 +62,10 @@
   .formula span { color: var(--accent); }
   .formula em { color: var(--muted); font-style: normal; }
 
-  /* Su una card che mostra un record, il colore portante e' quello del suo
-     livello, non l'accento del marchio: una cifra ciano accanto a un badge
-     Lvl 10 rosa dice due cose diverse sulla stessa misura. --lvl vale
-     l'accento finche' la card non dichiara un livello. */
+  /* --lvl e' il colore del livello dichiarato dalla card e vale SOLO per il
+     badge. La cifra e la riga del rapporto restano ciano: il colore del
+     marchio e' il colore del valore, il rosso e' solo il badge. Decisione di
+     Migert, 20/09. */
   .card { --lvl: var(--accent); }
 
   .figure {
@@ -74,7 +74,7 @@
     font-size: clamp(48px, 14.5vmin, 155px);
     line-height: .95;
     letter-spacing: -.035em;
-    color: var(--lvl);
+    color: var(--accent);
     font-variant-numeric: tabular-nums;
   }
   /* Badge di livello: i colori sono quelli di VPI_SCALE in backend/vpi_core.py,
@@ -135,8 +135,7 @@
   }
   .row .k { color: var(--muted); }
   .row .v { color: var(--ink); font-weight: 600; }
-  .row.hi .v { color: var(--lvl); font-weight: 700; }
-  .row.hi { border-bottom-color: color-mix(in srgb, var(--lvl) 45%, transparent); }
+  .row.hi .v { color: var(--accent); font-weight: 700; }
 
   .status { display: flex; flex-direction: column; gap: clamp(10px, 1.8vmin, 20px); }
   .st {
