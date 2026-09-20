@@ -17,11 +17,12 @@ import stripe
 import traceback
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from supabase import create_client
 
+import archivio_targhe
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import generate_trophy_png, generate_mug_preview_png
 from vpi_engine import esegui_un_ciclo, start_engine
@@ -563,26 +564,44 @@ async def get_trophy_preview(
             resolved_title = "Viral Content Title"
 
         cache_key = _safe_record_id(resolved_record_id or "preview")
+        nome_archivio = f"{cache_key}.png"
+
+        # 1. Archivio su Storage: sopravvive ai riavvii ed e' servito dal CDN,
+        #    quindi il backend esce dal percorso. E' il caso normale.
+        if archivio_targhe.esiste(nome_archivio):
+            return RedirectResponse(archivio_targhe.url_pubblico(nome_archivio),
+                                    status_code=307)
+
+        # 2. File locale: vale solo finche' vive questo processo, ma evita di
+        #    rendere due volte la stessa targa nello stesso minuto.
         cached = _cached_render(cache_key)
         if cached:
+            archivio_targhe.carica(nome_archivio, cached)
             return FileResponse(str(cached), media_type="image/png")
 
+        # 3. Si rende. Dodici-venti secondi, e deve capitare una volta sola
+        #    per targa nella vita del progetto.
         async with RENDER_SEMAPHORE:
             cached = _cached_render(cache_key)
-            if cached:
-                return FileResponse(str(cached), media_type="image/png")
-            image_path = await generate_trophy_png(
-                record_id=cache_key,
-                vpi_score=vpi,
-                user_handle=author,
-                content_title=resolved_title,
-                e_act=e_act,
-                e_base=e_base,
-                gamma=gamma,
-                recorded_date=req_date or "2026-08-20",
-                level_name=resolved_level_name
-            )
-        return FileResponse(image_path, media_type="image/png")
+            if not cached:
+                cached = await generate_trophy_png(
+                    record_id=cache_key,
+                    vpi_score=vpi,
+                    user_handle=author,
+                    content_title=resolved_title,
+                    e_act=e_act,
+                    e_base=e_base,
+                    gamma=gamma,
+                    recorded_date=req_date or "2026-08-20",
+                    level_name=resolved_level_name
+                )
+
+        url = archivio_targhe.carica(nome_archivio, cached)
+        if url:
+            return RedirectResponse(url, status_code=307)
+        # Archiviazione non riuscita: si serve comunque il file appena reso e
+        # si riprovera' alla prossima richiesta.
+        return FileResponse(str(cached), media_type="image/png")
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
