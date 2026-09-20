@@ -69,6 +69,48 @@ export default function ClaimPage({
     }
   }, [token]);
 
+  // Registra il passaggio sulla pagina.
+  //
+  // Serve a sapere se i creator che contattiamo aprono davvero la loro
+  // misurazione: finora si poteva solo contare chi rispondeva, che e' il
+  // segnale piu' debole e piu' raro. Si scrive dal browser con la chiave
+  // anon, non dal backend, perche' il backend va in sospensione e una visita
+  // non deve dipendere dal fatto che sia sveglio.
+  //
+  // Niente IP, niente user agent per esteso: solo il dominio di provenienza e
+  // se lo schermo e' stretto. Basta a capire da quale canale arrivano.
+  useEffect(() => {
+    if (!token || !post?.id) return;
+
+    // Una sola registrazione per sessione del browser: ricaricare la pagina
+    // o cambiare scheda non deve gonfiare il conteggio.
+    const chiave = `iosa_visita_${token}`;
+    try {
+      if (sessionStorage.getItem(chiave)) return;
+      sessionStorage.setItem(chiave, '1');
+    } catch {
+      // Storage negato (navigazione privata, cookie bloccati): si registra
+      // comunque, meglio un conteggio un po' alto che nessun dato.
+    }
+
+    let provenienza: string | null = null;
+    try {
+      provenienza = document.referrer ? new URL(document.referrer).hostname : null;
+    } catch {
+      provenienza = null;
+    }
+
+    supabase
+      .from('claim_visite')
+      .insert({
+        claim_token: token,
+        post_id: post.id,
+        provenienza,
+        schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
+      })
+      .then(() => {}, () => {});   // una visita non registrata non rompe la pagina
+  }, [token, post?.id]);
+
   useEffect(() => {
     // La finestra parte dal rilevamento, non dalla pubblicazione: altrimenti
     // un video trovato al dodicesimo giorno darebbe al creator solo 3 giorni.
