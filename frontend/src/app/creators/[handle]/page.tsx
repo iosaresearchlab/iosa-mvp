@@ -38,16 +38,33 @@ export async function generateMetadata({
   const migliore = posts[0];
   const indicizzabile = posts.length >= MIN_OUTLIER_PER_INDICIZZARE;
 
+  const titolo = `${author} — viral performance measurements | IOSA`;
+  const descrizione = `Independent measurements of ${author}: ${
+    posts.length
+  } short video${posts.length === 1 ? '' : 's'} that outperformed the channel's own recent median. Best result ${formatVPI(
+    migliore.vpi_ratio
+  )} — ${formatCount(migliore.engagement_score)} views against a ${formatCount(
+    migliore.baseline_score
+  )} baseline.`;
+
   return {
-    title: `${author} — viral performance measurements | IOSA`,
-    description: `Independent measurements of ${author}: ${
-      posts.length
-    } short video${posts.length === 1 ? '' : 's'} that outperformed the channel's own recent median. Best result ${formatVPI(
-      migliore.vpi_ratio
-    )} — ${formatCount(migliore.engagement_score)} views against a ${formatCount(
-      migliore.baseline_score
-    )} baseline.`,
+    title: titolo,
+    description: descrizione,
     alternates: { canonical: `${SITO}/creators/${handle}` },
+    openGraph: {
+      type: 'website',
+      siteName: 'IOSA',
+      title: titolo,
+      description: descrizione,
+      url: `${SITO}/creators/${handle}`,
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: titolo }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: titolo,
+      description: descrizione,
+      images: ['/og-image.png'],
+    },
     robots: indicizzabile ? undefined : { index: false, follow: true },
   };
 }

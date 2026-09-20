@@ -24,14 +24,31 @@ export async function generateMetadata({
   const posts = await outlierDi('country', codice, 1);
   const migliore = posts[0];
 
+  const titolo = `Viral Shorts outliers in ${nome} — IOSA`;
+  const descrizione = migliore
+    ? `The short videos outperforming their own channel baseline in ${nome} right now. Top measurement: ${
+        migliore.author_handle ?? 'a channel'
+      } at ${formatVPI(migliore.vpi_ratio)} its usual views.`
+    : `Short videos outperforming their own channel baseline in ${nome}.`;
+
   return {
-    title: `Viral Shorts outliers in ${nome} — IOSA`,
-    description: migliore
-      ? `The short videos outperforming their own channel baseline in ${nome} right now. Top measurement: ${
-          migliore.author_handle ?? 'a channel'
-        } at ${formatVPI(migliore.vpi_ratio)} its usual views.`
-      : `Short videos outperforming their own channel baseline in ${nome}.`,
+    title: titolo,
+    description: descrizione,
     alternates: { canonical: `${SITO}/outliers/${country}` },
+    openGraph: {
+      type: 'website',
+      siteName: 'IOSA',
+      title: titolo,
+      description: descrizione,
+      url: `${SITO}/outliers/${country}`,
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: titolo }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: titolo,
+      description: descrizione,
+      images: ['/og-image.png'],
+    },
   };
 }
 
