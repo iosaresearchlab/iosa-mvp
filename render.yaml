@@ -23,3 +23,10 @@ services:
       # Si copia dal pannello Supabase: Project Settings -> Vault.
       - key: INGEST_TRIGGER_TOKEN
         sync: false
+      # Chiave service_role di Supabase: serve a scrivere le targhe gia' rese
+      # nell'archivio (bucket 'targhe'), cosi' sopravvivono ai riavvii e le
+      # serve il CDN. Senza, ogni anteprima viene ridisegnata da zero e il
+      # creator aspetta quindici secondi ogni volta. La home del servizio
+      # dice se e' presente: "archivio_targhe": true.
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
