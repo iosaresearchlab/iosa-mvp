@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useCallback } from 'react';
 import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
@@ -109,6 +109,44 @@ export default function ClaimPage({
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
       })
       .then(() => {}, () => {});   // una visita non registrata non rompe la pagina
+  }, [token, post?.id]);
+
+  // Registra un gesto compiuto sulla pagina (per ora: lo scarico della targa).
+  //
+  // Vercel sul piano gratuito non offre eventi personalizzati, quindi se li
+  // vogliamo dobbiamo registrarli noi. Stessa prudenza delle visite: si
+  // scrive dal browser con la chiave pubblica, senza IP e senza user agent,
+  // e un errore non deve mai bloccare il gesto dell'utente.
+  const registraAzione = useCallback((azione: string) => {
+    if (!token) return;
+
+    // Un conteggio per sessione del browser: chi clicca due volte sullo
+    // stesso pulsante ha comunque compiuto il gesto una volta sola.
+    const chiave = `iosa_${azione}_${token}`;
+    try {
+      if (sessionStorage.getItem(chiave)) return;
+      sessionStorage.setItem(chiave, '1');
+    } catch {
+      // Storage negato: si registra comunque.
+    }
+
+    let provenienza: string | null = null;
+    try {
+      provenienza = document.referrer ? new URL(document.referrer).hostname : null;
+    } catch {
+      provenienza = null;
+    }
+
+    supabase
+      .from('claim_eventi')
+      .insert({
+        claim_token: token,
+        post_id: post?.id ?? null,
+        azione,
+        provenienza,
+        schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
+      })
+      .then(() => {}, () => {});
   }, [token, post?.id]);
 
   useEffect(() => {
@@ -347,6 +385,7 @@ export default function ClaimPage({
                     target="_blank"
                     rel="noopener noreferrer"
                     download={`${trophyPayload.author}_VPI_Plaque.png`}
+                    onClick={() => registraAzione('download_targa')}
                     className="w-full py-2 px-3 bg-[#00E5FF] hover:bg-[#00B4D8] text-black font-mono font-bold text-xs rounded-lg shadow-xl flex items-center justify-center gap-2 transition-all backdrop-blur-md"
                   >
                     <Download className="w-3.5 h-3.5" /> Download Digital Plaque (.PNG)
