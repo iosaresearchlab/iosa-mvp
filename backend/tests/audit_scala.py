@@ -68,15 +68,19 @@ mancanti = sorted(set(rende) - set(importa))
 esiti.append(("ogni pagina che mostra un livello legge vpi-scale", not mancanti, mancanti))
 
 t = leggi("backend/generate_trophy.py")
-# La cornice del pannello centrale (quello che porta il livello) deve seguire
-# il livello. L'emerald resta solo sui pannelli bianchi laterali, che sono
-# cornice del marchio e non dichiarano nessun livello.
+# Sulla targa segue la scala SOLO il badge del livello. La cornice del pannello
+# centrale resta il verde fisso del disegno originale: la targa e' dimensionata
+# per l'area di stampa della tazza e quel verde ne fa parte. Decisione di
+# Migert, 20/09; una versione precedente di questo controllo pretendeva il
+# contrario ed era il controllo a essere sbagliato.
 centrale = re.search(r'<!-- Center Panel -->\s*<div class="([^"]*)"', t)
-esiti.append(("targa — la cornice centrale segue il livello",
+classi_centrali = centrale.group(1) if centrale else ""
+esiti.append(("targa — badge dalla scala, cornice originale intatta",
               "from vpi_core import VPI_SCALE" in t
-              and "level_frame_style" in t
-              and "emerald" not in (centrale.group(1) if centrale else "emerald"),
-              centrale.group(1)[-60:] if centrale else None))
+              and "level_badge_style" in t
+              and "level_frame_style" not in t
+              and "border-emerald-500" in classi_centrali,
+              classi_centrali[-60:] or None))
 
 # Il corpo del popup (le dieci soglie) deve esistere una volta sola.
 corpi = sorted(str(p.relative_to(R)) for p in R.glob("frontend/src/**/*.tsx")
