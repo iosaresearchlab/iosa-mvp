@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { formatVPI, formatCount } from '@/lib/format';
 import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
+import { PAESI } from '@/lib/segments';
 
 // Soglia di ingresso nella tabella pubblica.
 //
@@ -190,6 +191,45 @@ export default function Home() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Le voci dei filtri si ricavano dai record caricati, non da un elenco
+  // scritto a mano. Un elenco fisso si scolla dai dati al primo paese nuovo
+  // che il motore trova, e soprattutto offre voci che non restituiscono
+  // niente: bastava scrivere "People" al posto di "People & Blogs" perche'
+  // quel filtro svuotasse la tabella. Il conteggio accanto al nome dice
+  // quante righe ci sono dietro, cosi' una voce vuota non puo' esistere.
+  const opzioniFiltri = useMemo(() => {
+    const conta = (chiave: 'platform' | 'country' | 'category') => {
+      const mappa = new Map<string, number>();
+      for (const post of posts) {
+        if (post.status && post.status !== 'ACTIVE') continue;
+        if (!post.vpi_ratio || Number(post.vpi_ratio) < MIN_VPI_DISPLAY) continue;
+        const valore = post[chiave];
+        if (typeof valore !== 'string' || !valore.trim()) continue;
+        mappa.set(valore, (mappa.get(valore) ?? 0) + 1);
+      }
+      return Array.from(mappa.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([valore, quanti]) => ({ valore, quanti }));
+    };
+    return {
+      piattaforme: conta('platform'),
+      paesi: conta('country'),
+      categorie: conta('category'),
+    };
+  }, [posts]);
+
+  // Se un valore selezionato sparisce dai dati (un paese che esce dalla
+  // finestra di 15 giorni) si torna a TUTTI, altrimenti la tabella resta
+  // vuota senza che si capisca perche'.
+  useEffect(() => {
+    if (!posts.length) return;
+    const presente = (elenco: { valore: string }[], scelto: string) =>
+      scelto === 'ALL' || elenco.some((o) => o.valore.toLowerCase() === scelto.toLowerCase());
+    if (!presente(opzioniFiltri.piattaforme, selectedPlatform)) setSelectedPlatform('ALL');
+    if (!presente(opzioniFiltri.paesi, selectedCountry)) setSelectedCountry('ALL');
+    if (!presente(opzioniFiltri.categorie, selectedCategory)) setSelectedCategory('ALL');
+  }, [opzioniFiltri, posts.length, selectedPlatform, selectedCountry, selectedCategory]);
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
@@ -500,10 +540,11 @@ export default function Home() {
                 className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
               >
                 <option value="ALL" className="bg-gray-900">ALL</option>
-                <option value="youtube" className="bg-gray-900">YOUTUBE</option>
-                <option value="tiktok" className="bg-gray-900">TIKTOK</option>
-                <option value="instagram" className="bg-gray-900">INSTAGRAM</option>
-                <option value="x" className="bg-gray-900">X / TWITTER</option>
+                {opzioniFiltri.piattaforme.map(({ valore, quanti }) => (
+                  <option key={valore} value={valore} className="bg-gray-900">
+                    {valore.toUpperCase()} ({quanti})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -516,12 +557,12 @@ export default function Home() {
                 className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
               >
                 <option value="ALL" className="bg-gray-900">GLOBAL</option>
-                <option value="US" className="bg-gray-900">US</option>
-                <option value="IT" className="bg-gray-900">IT</option>
-                <option value="GB" className="bg-gray-900">UK</option>
-                <option value="DE" className="bg-gray-900">DE</option>
-                <option value="JP" className="bg-gray-900">JP</option>
-                <option value="IN" className="bg-gray-900">IN</option>
+                {opzioniFiltri.paesi.map(({ valore, quanti }) => (
+                  <option key={valore} value={valore} className="bg-gray-900">
+                    {valore.toUpperCase()}
+                    {PAESI[valore.toUpperCase()] ? ` \u2014 ${PAESI[valore.toUpperCase()]}` : ''} ({quanti})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -533,12 +574,11 @@ export default function Home() {
                 className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
               >
                 <option value="ALL" className="bg-gray-900">ALL</option>
-                <option value="Tech" className="bg-gray-900">TECH</option>
-                <option value="Gaming" className="bg-gray-900">GAMING</option>
-                <option value="Music" className="bg-gray-900">MUSIC</option>
-                <option value="Sports" className="bg-gray-900">SPORTS</option>
-                <option value="Entertainment" className="bg-gray-900">ENTERTAINMENT</option>
-                <option value="People" className="bg-gray-900">PEOPLE</option>
+                {opzioniFiltri.categorie.map(({ valore, quanti }) => (
+                  <option key={valore} value={valore} className="bg-gray-900">
+                    {valore.toUpperCase()} ({quanti})
+                  </option>
+                ))}
               </select>
             </div>
           </div>

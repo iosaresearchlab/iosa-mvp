@@ -237,8 +237,8 @@ def avvia_ingestione(background: BackgroundTasks,
 ALLOWED_ORIGINS = [o for o in [
     FRONTEND_URL,
     "http://localhost:3000",
-    "https://iosaresearch.com",
-    "https://www.iosaresearch.com",
+    "https://iosaresearch.org",
+    "https://www.iosaresearch.org",
 ] if o]
 
 app.add_middleware(
