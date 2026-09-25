@@ -111,15 +111,16 @@ def test_posts_filters(api):
     assert q.has("eq", "status", "CLOSED") and q.has("eq", "format", "LONG")
 
 
-def test_posts_never_selects_the_claim_token(api):
-    """claim_token is a credential: never in a public response (task-log blocker)."""
+def test_posts_selects_the_claim_token_but_no_internal_column(api):
+    """claim_token is the plaque's public identifier (25/09/2026); the two
+    Printify/outreach bookkeeping columns stay out."""
     client, db = api
     client.get("/api/posts")
     (cols,) = [a[0] for n, a, _ in db.last("posts").calls if n == "select"]
     assert cols != "*"
     selected = set(cols.split(","))
-    assert not selected & set(main.PRIVATE_POST_COLUMNS)
-    assert "claim_token" not in cols
+    assert "claim_token" in selected
+    assert not selected & {"printify_product_id", "comment_sent"}
 
 
 def test_the_lock_uses_the_reading_day(api, monkeypatch):

@@ -27,7 +27,8 @@ commit hash and the evidence — the command that passed, not an adjective.
 | T-13 dry run on 3 countries | CLOSED | this commit (subject `T-13: ...`) | Closing check as changed at GATE-2: the kill-proof call log equals the counter, to the unit, for every completed call of the re-run (127, 191, 199, 183, 136, 138, 126); the one call cut by an 85 s shell limit is fully in the log (1/111/87 = the same batch re-run). Cost measured after the inventory: **cold 3.82, warm 2.67 units per channel** (`playlistItems` 2.15 -> 1.00; `videos.list` 1.65 both). Warm vs cold on the real API: 188/188 same sample ids and rules. `docs/t13-dry-run.md`, `docs/t13-dry-run.json`, `docs/t13-dry-run-2.json`, `tests/dry_run_t13.py` |
 | SEC-1 `claims` private | CLOSED | this commit (subject `SEC-1: ...`) | Decision by Migert, 25/09. Policy `Allow public read on claims` (PUBLIC) dropped and all privileges revoked from `anon`/`authenticated`; migration `20260925195429_v2_claims_private`. Measured after: 0 policies, `anon`/`authenticated` SELECT false, `service_role` true. Table empty when applied: nothing exposed. Nothing in `backend/` or `frontend/src` reads `claims` (the only reference is the archived v1 Stripe route). `tests/test_claims_private.py` 3 passed; `pytest -q` 492 passed; `CHK-REG` green |
 | SEC-2 v1 records archived | CLOSED | this commit (subject `SEC-2: ...`) | Decision by Migert, 25/09. Migration `20260925195747_v2_archive_v1_records`: 28,917 v1 rows moved from `posts` to `posts_v1`, nothing deleted or recomputed. Checksum (md5 of rows as jsonb, ordered by id): `78c8c5fd858a42734838743fba72044d` before in `posts`, identical after in `posts_v1` (asserted inside the migration too). `posts` now 0 rows. Original post ids kept: `posts_v1.id`, plus `posts_v1_links` for the rows the FK blanked (outreach 226, claim_visite 5, claim_eventi 0). Archive unreadable by `anon`/`authenticated`; v1 claim tokens resolve through `claim_record_v1(token)` (backend `_claim_lookup`, claim page fallback), as 08 T-20 requires. `tests/test_archive_v1.py` 6 passed (2 negative controls: cascade guard, checksum guard); `pytest -q` 500 passed |
-| T-14 scheduling and reactivation | BLOCKED | prep: this commit (subject `T-14: prep ...`) | Prep only, nothing deployed or applied: `reading_day()`, `/api/posts` without `claim_token`, schedule SQL in `supabase/pending/v2_t14_schedule.sql`. `pytest -q` 485 passed. Closing check not run: needs Render deployed from this branch (Migert's dashboard) and the `claim_token` blocker lifted |
+| SEC-3 `claim_token` blocker withdrawn | CLOSED | this commit (subject `SEC-3: ...`) | Not a defect (decision by Migert, 25/09, reasoning under Blockers). `claim_token` back in `PUBLIC_POST_COLUMNS`; `printify_product_id`, `comment_sent` stay out, nothing reads them outside the backend webhook. `pytest -q` green; `CHK-REG` green |
+| T-14 scheduling and reactivation | BLOCKED | prep: this commit (subject `T-14: prep ...`) | Prep only, nothing deployed or applied: `reading_day()`, `/api/posts` without `claim_token`, schedule SQL in `supabase/pending/v2_t14_schedule.sql`. `pytest -q` 485 passed. Closing check not run: needs Render deployed from this branch (Migert's dashboard). The `claim_token` blocker is withdrawn (SEC-3) |
 | T-15 day 0: snapshot only | OPEN | | |
 | T-16 day 1: first real records | OPEN | | |
 | T-17 day 1 audit | OPEN | | |
@@ -47,21 +48,17 @@ States: `OPEN`, `IN PROGRESS`, `CLOSED`, `BLOCKED — <why>`.
 
 ## Blockers
 
-- **No public deployment while `claim_token` is publicly readable** (found at
-  T-12, 25/09). `/api/posts` returns `select(*)` and `posts` has a public
-  SELECT policy, so anyone who can read a token can claim someone else's
-  plaque. Fix: `claim_token` must not appear in any publicly readable select
-  or policy. Already true in v1; nothing is deployed from this branch.
-  - T-14 prep: `/api/posts` now selects an explicit column list without
-    `claim_token`, `printify_product_id`, `comment_sent`
-    (`PUBLIC_POST_COLUMNS`, pinned against the schema by
-    `tests/test_schedule.py`).
-  - Still open, and a product decision, not code: the anon SELECT policy on
-    `posts` still exposes the column, and the live frontend renders each
-    record's claim link on public pages (home, leaderboard, list). Closing
-    it means revoking anon SELECT on `claim_token` (column privilege or a
-    view) **and** delivering the claim link to the creator by another
-    route. Migert decides the route; until then, no public deployment.
+- ~~No public deployment while `claim_token` is publicly readable~~ —
+  **withdrawn 25/09, not a defect** (decision by Migert). The premise was
+  wrong: the claim page is the public entry point to the merchandising and
+  reaching it is intended. The plaque is exclusive because it carries the
+  creator's name, their video title and their performance, not because only
+  one person can open the link. Anyone may look at a plaque; only the creator
+  can earn one. `claim_token` is an identifier, not a secret: it stays
+  public, the claim link stays on the public pages, and `/api/posts` returns
+  it again (`printify_product_id` and `comment_sent` stay out; nothing in the
+  frontend reads them, and the frontend does not call `/api/posts`).
+- The privacy hole that was real is `claims` (buyers' data): closed in SEC-1.
 
 ## Notes
 

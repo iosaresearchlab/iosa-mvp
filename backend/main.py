@@ -367,21 +367,20 @@ def _claim_lookup(token):
     return supabase.rpc("claim_record_v1", {"p_token": token}).execute()
 
 
-# What /api/posts returns. An explicit list, never "*": claim_token is the
-# creator's claim credential and must not appear in any public response
-# (task-log, blocker on public deployment). printify_product_id and
-# comment_sent are internal bookkeeping.
+# What /api/posts returns. An explicit list, never "*". claim_token is in it:
+# it is the public identifier of a plaque, not a secret (decision 25/09/2026,
+# task-log). printify_product_id and comment_sent are internal bookkeeping.
 PUBLIC_POST_COLUMNS = (
     "id,window_id,platform,external_post_id,author_handle,author_name,post_url,"
     "content_text,category,engagement_score,baseline_score,vpi_ratio,vpi_level,"
-    "vpi_level_name,vpi_color,created_at,country,subscribers,status,detected_at,"
+    "vpi_level_name,vpi_color,claim_token,created_at,country,subscribers,status,detected_at,"
     "channel_id,channel_handle,format,entered_on,left_on,days_charting,countries,"
     "categories,baseline_computed_at,baseline_samples,baseline_rule,"
     "baseline_span_days,baseline_video_ids,auto_generated_channel,scale_version,"
     "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
     "vpi_max_on,views_max,views_final"
 )
-PRIVATE_POST_COLUMNS = ("claim_token", "printify_product_id", "comment_sent")
+PRIVATE_POST_COLUMNS = ("printify_product_id", "comment_sent")
 
 
 @app.get("/api/posts")
