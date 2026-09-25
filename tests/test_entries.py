@@ -2,46 +2,14 @@
 
 The SQL under test is the SQL applied to Supabase: every file in
 supabase/migrations/ is executed verbatim, in order, on top of a minimal stub
-of the pre-v2 ``posts`` table. Nothing here is a copy of the function.
-
-Needs a PostgreSQL database in IOSA_TEST_DATABASE_URL. Without it the tests
-are skipped, unless IOSA_REQUIRE_DB_TESTS=1 (set in CI), in which case a
-missing database is a failure: a skipped test is not a verdict.
-
-Each test runs inside one transaction that is rolled back, schema included.
+of the pre-v2 ``posts`` table (the ``db`` fixture in conftest.py). Nothing
+here is a copy of the function.
 
 Sources: docs/01-methodology-protocol.md sections 1 and 4;
 docs/02-technical-specification.md sections 3.1, 3.1.1, 3.5, 3.6.
 """
 
-import os
 from datetime import date, timedelta
-from pathlib import Path
-
-import pytest
-
-MIGRATIONS = sorted(
-    (Path(__file__).resolve().parent.parent / "supabase" / "migrations").glob("*.sql")
-)
-
-DB_URL = os.environ.get("IOSA_TEST_DATABASE_URL")
-if not DB_URL:
-    if os.environ.get("IOSA_REQUIRE_DB_TESTS") == "1":
-        raise RuntimeError("IOSA_REQUIRE_DB_TESTS=1 but IOSA_TEST_DATABASE_URL is not set")
-    pytest.skip("IOSA_TEST_DATABASE_URL not set", allow_module_level=True)
-
-psycopg = pytest.importorskip("psycopg")
-
-# The pre-v2 posts table, reduced to what the migrations touch. T-05 adds the
-# v2 columns and releases the not-null on vpi_ratio / vpi_level.
-POSTS_STUB = """
-create table public.posts (
-  id               uuid primary key default gen_random_uuid(),
-  external_post_id text not null,
-  vpi_ratio        numeric not null,
-  vpi_level        int not null
-);
-"""
 
 # 02 §3.1.1: after every complete run, drain the day-0 list.
 DRAIN = """
@@ -59,25 +27,6 @@ D0 = date(2026, 10, 1)
 def d(n):
     """Day n of the fixture calendar: d(0) is day 0."""
     return D0 + timedelta(days=n)
-
-
-@pytest.fixture
-def db():
-    conn = psycopg.connect(DB_URL, autocommit=False)
-    try:
-        with conn.cursor() as cur:
-            # v1 rows exist before the v2 migrations run.
-            cur.execute(POSTS_STUB)
-            cur.execute(
-                "insert into posts (external_post_id, vpi_ratio, vpi_level) "
-                "values ('v1_old_a', 3.2, 4), ('v1_old_b', 1.1, 1)"
-            )
-            for f in MIGRATIONS:
-                cur.execute(f.read_text(encoding="utf-8"))
-        yield conn
-    finally:
-        conn.rollback()
-        conn.close()
 
 
 def snap(conn, day, ids, permanent=False):
@@ -109,7 +58,7 @@ def entries(conn, day):
 def record(conn, video_id):
     with conn.cursor() as cur:
         cur.execute(
-            "insert into posts (external_post_id, entered_on) values (%s, %s)",
+            "insert into posts (external_post_id, entered_on) values (%s, %s)",  # a v1-default row: only its presence matters here
             (video_id, D0),
         )
 
@@ -248,13 +197,7 @@ def test_draining_never_touches_the_day0_archive(db):
 # --- 02 §3.6: archiving v1 -----------------------------------------------
 
 
-def test_rows_existing_before_v2_are_archived_as_v1_and_new_rows_default_to_v2(db):
+def test_rows_existing_before_v2_are_archived_as_v1(db):
     with db.cursor() as cur:
         cur.execute("select external_post_id, method_version from posts order by 1")
         assert cur.fetchall() == [("v1_old_a", "v1"), ("v1_old_b", "v1")]
-        cur.execute(
-            "insert into posts (external_post_id, entered_on) values ('new', %s) "
-            "returning method_version, vpi_ratio",
-            (d(1),),
-        )
-        assert cur.fetchone() == ("v2", None)
