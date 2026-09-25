@@ -10,8 +10,8 @@ commit hash and the evidence — the command that passed, not an adjective.
 | Task | State | Commit | Evidence |
 |---|---|---|---|
 | T-01 test and CI scaffolding | CLOSED | `5f50446`, `530dd37` | `CHK-CI`: workflow green on `530dd37` (backend tests, frontend build) — https://github.com/iosaresearchlab/iosa-mvp/actions/runs/36092416638. Local, clean `git archive` + `env -i`: `pytest -q` 24 passed |
-| T-02 regression harness | CLOSED | this commit (subject `T-02: regression harness`) | on untouched code, clean `git archive` + `env -i`: `pytest -q tests/test_regressione.py` 4 passed; full `CHK-REG` exit 0 (frontend build included). Negative control on a throwaway copy: renaming the Stripe webhook route -> 1 failed (`routes no longer registered: POST /api/webhooks/stripe`); renaming `send_printify_order` -> 3 failed |
-| T-03 pin current core behaviour | OPEN | | |
+| T-02 regression harness | CLOSED | `577d61f` | on untouched code, clean `git archive` + `env -i`: `pytest -q tests/test_regressione.py` 4 passed; full `CHK-REG` exit 0 (frontend build included). Negative control on a throwaway copy: renaming the Stripe webhook route -> 1 failed (`routes no longer registered: POST /api/webhooks/stripe`); renaming `send_printify_order` -> 3 failed |
+| T-03 pin current core behaviour | CLOSED | this commit (subject `T-03: pin current vpi_core behaviour`) | clean `git archive` + `env -i`: `pytest -q tests/test_vpi_core_baseline_attuale.py` 20 passed on untouched `vpi_core.py`; the file's own rule test (every `assert` carries a `PINS:` message, AST scan) fails on an unlabelled probe assert -> 1 failed; `CHK-REG` exit 0; `pytest -q` 48 passed |
 | **GATE-0 database** | | | |
 | T-04 migration: new tables | OPEN | | |
 | T-05 migration: new columns on posts | OPEN | | |
@@ -58,3 +58,4 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25: a commit cannot contain its own hash. Where the Commit column says "this commit", the hash is the commit whose subject carries that task ID.
 - 2026-09-25: `CHK-REG` as listed in T-02 covers Printify, the plaque modules and the routes. It does **not** assert that an existing v1 claim token still resolves, which T-20 says `CHK-REG` covers: that needs a database fixture, and must be added before T-20 at the latest.
 - 2026-09-25: `main.py` uses the deprecated `@app.on_event("startup")`; FastAPI warns, it still works. Not touched.
+- 2026-09-25: T-03 pins v1 behaviour that v2 replaces (14-day floor, fallback to all recent videos when < 5 mature, no 20-sample cap, window from now, 2-tuple return). Those tests say "v2 changes this" and are expected to fail at T-08, to be rewritten in that commit.
