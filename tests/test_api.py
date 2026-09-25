@@ -5,7 +5,7 @@ The fake records every query-builder call, so the filters are asserted
 docs/02-technical-specification.md section 4.5; docs/01 section 4.2.
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -99,6 +99,27 @@ def test_posts_filters(api):
     assert q.has("gte", "vpi_ratio", 2.0)
     assert q.has("contains", "countries", ["IT"]) and q.has("contains", "categories", ["Comedy"])
     assert q.has("eq", "status", "CLOSED") and q.has("eq", "format", "LONG")
+
+
+def test_posts_never_selects_the_claim_token(api):
+    """claim_token is a credential: never in a public response (task-log blocker)."""
+    client, db = api
+    client.get("/api/posts")
+    (cols,) = [a[0] for n, a, _ in db.last("posts").calls if n == "select"]
+    assert cols != "*"
+    selected = set(cols.split(","))
+    assert not selected & set(main.PRIVATE_POST_COLUMNS)
+    assert "claim_token" not in cols
+
+
+def test_the_lock_uses_the_reading_day(api, monkeypatch):
+    """A second attempt at 00:30 UTC finds the row of the day just closed."""
+    client, db = api
+    db.data["ingest_run"] = [{"day": "2026-10-01", "outcome": "ok"}]
+    monkeypatch.setattr(main, "reading_day", lambda: date(2026, 10, 1))
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("must not run"))
+    r = client.post("/api/ingest/run", headers=AUTH)
+    assert r.status_code == 409 and r.json()["detail"]["day"] == "2026-10-01"
 
 
 # --- /api/analytics/top10 -----------------------------------------------------
@@ -208,7 +229,7 @@ def test_ingest_run_requires_the_token(api):
 
 def test_a_second_run_for_the_same_day_is_409(api, monkeypatch):
     client, db = api
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = main.reading_day().isoformat()
     ran = []
 
     def fake_reading():
@@ -226,7 +247,7 @@ def test_a_second_run_for_the_same_day_is_409(api, monkeypatch):
 @pytest.mark.parametrize("outcome", ["partial", "failed", None])
 def test_any_existing_row_for_today_is_409(api, monkeypatch, outcome):
     client, db = api
-    db.data["ingest_run"] = [{"day": datetime.now(timezone.utc).date().isoformat(), "outcome": outcome}]
+    db.data["ingest_run"] = [{"day": main.reading_day().isoformat(), "outcome": outcome}]
     monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("must not run"))
     assert client.post("/api/ingest/run", headers=AUTH).status_code == 409
 

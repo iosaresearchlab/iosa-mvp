@@ -29,7 +29,7 @@ import archivio_targhe
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
-from vpi_engine import RunAlreadyExists, esegui_un_ciclo, start_engine
+from vpi_engine import RunAlreadyExists, esegui_un_ciclo, reading_day, start_engine
 
 from log_iosa import configura, prendi
 
@@ -255,7 +255,7 @@ def avvia_ingestione(background: BackgroundTasks,
     if not supabase_service:
         raise HTTPException(status_code=503,
                             detail="SUPABASE_SERVICE_KEY non configurata: il lock giornaliero non e' verificabile.")
-    oggi = datetime.now(timezone.utc).date()
+    oggi = reading_day()
     esistente = _ingest_run_for(oggi)
     if esistente:
         raise HTTPException(status_code=409,
@@ -354,6 +354,23 @@ def read_root():
 # POSTS & FEED ENDPOINTS
 # ==============================================================================
 
+# What /api/posts returns. An explicit list, never "*": claim_token is the
+# creator's claim credential and must not appear in any public response
+# (task-log, blocker on public deployment). printify_product_id and
+# comment_sent are internal bookkeeping.
+PUBLIC_POST_COLUMNS = (
+    "id,window_id,platform,external_post_id,author_handle,author_name,post_url,"
+    "content_text,category,engagement_score,baseline_score,vpi_ratio,vpi_level,"
+    "vpi_level_name,vpi_color,created_at,country,subscribers,status,detected_at,"
+    "channel_id,channel_handle,format,entered_on,left_on,days_charting,countries,"
+    "categories,baseline_computed_at,baseline_samples,baseline_rule,"
+    "baseline_span_days,baseline_video_ids,auto_generated_channel,scale_version,"
+    "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
+    "vpi_max_on,views_max,views_final"
+)
+PRIVATE_POST_COLUMNS = ("claim_token", "printify_product_id", "comment_sent")
+
+
 @app.get("/api/posts")
 def get_posts(
     min_vpi: float = 0,
@@ -371,7 +388,7 @@ def get_posts(
     try:
         if not supabase:
             return {"posts": [], "total": 0}
-        query = (supabase.table("posts").select("*", count="exact")
+        query = (supabase.table("posts").select(PUBLIC_POST_COLUMNS, count="exact")
                  .eq("method_version", "v2"))
         if min_vpi and min_vpi > 0:
             query = query.gte("vpi_ratio", min_vpi)

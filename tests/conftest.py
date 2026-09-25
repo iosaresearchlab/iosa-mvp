@@ -40,6 +40,7 @@ MIGRATIONS = (sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
 POSTS_STUB = """
 create table public.posts (
   id               uuid primary key default gen_random_uuid(),
+  window_id        uuid,
   external_post_id text not null,
   platform         varchar not null default 'YOUTUBE',
   author_handle    varchar not null,
@@ -52,6 +53,8 @@ create table public.posts (
   vpi_level_name   varchar not null,
   vpi_color        varchar not null,
   claim_token      varchar not null default gen_random_uuid()::text unique,
+  printify_product_id text,
+  comment_sent     boolean,
   channel_id       text,
   channel_handle   text,
   subscribers      integer,
@@ -73,13 +76,24 @@ do $r$ begin
   create role anon; create role authenticated; create role service_role;
 exception when duplicate_object then null; end $r$;
 create schema cron;
-create table cron.job (jobid bigint primary key, jobname text, active boolean);
-insert into cron.job values (1, 'ingestione-iosa', true);
+create table cron.job (jobid bigint primary key, jobname text unique,
+  schedule text, command text, active boolean);
+insert into cron.job values (1, 'ingestione-iosa', '*/20 * * * *',
+  'select public.chiedi_un_giro_di_ingestione()', true);
 create function cron.alter_job(job_id bigint, schedule text default null,
   command text default null, database text default null,
   username text default null, active boolean default null)
 returns void language sql as
-  'update cron.job set active = coalesce($6, active) where jobid = $1';
+  'update cron.job set active = coalesce($6, active),
+     schedule = coalesce($2, schedule), command = coalesce($3, command)
+   where jobid = $1';
+create function cron.schedule(job_name text, schedule text, command text)
+returns bigint language sql as
+  'insert into cron.job values ((select coalesce(max(jobid), 0) + 1 from cron.job),
+     $1, $2, $3, true)
+   on conflict (jobname) do update set schedule = excluded.schedule,
+     command = excluded.command, active = true
+   returning jobid';
 """
 
 

@@ -109,9 +109,14 @@ def test_v1_archive_rows_are_exempt(db):
 
 
 def test_the_v1_cron_trigger_is_switched_off(db):
+    """GATE-0 switched the */20 v1 trigger off; T-14 (pending) re-enables the
+    job only with the daily v2 schedule. The v1 cadence never runs again."""
     with db.cursor() as cur:
-        cur.execute("select active from cron.job where jobname = 'ingestione-iosa'")
-        assert cur.fetchone() == (False,)
+        cur.execute("select schedule, active from cron.job where jobname = 'ingestione-iosa'")
+        schedule, active = cur.fetchone()
+        assert not active or schedule == "59 23 * * *"
+        cur.execute("select count(*) from cron.job where active and schedule = '*/20 * * * *'")
+        assert cur.fetchone() == (0,)
 
 
 def test_a_quota_stop_record_without_baseline_or_vpi_is_accepted(db):

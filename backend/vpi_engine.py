@@ -463,8 +463,25 @@ def _env_flag(name):
     return (os.getenv(name) or "").strip().lower() in ("1", "true", "yes")
 
 
+READING_DAY_OFFSET = timedelta(hours=1)
+
+
+def reading_day(now: datetime | None = None):
+    """The day a reading belongs to (02 section 5).
+
+    The reading is triggered at 23:59 UTC and the second attempt at 00:30 UTC
+    the next morning: both belong to the day just closed. One hour back from
+    the trigger time covers both and leaves any daytime manual run on its own
+    date.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("reading_day wants an aware datetime")
+    return (now.astimezone(timezone.utc) - READING_DAY_OFFSET).date()
+
+
 def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
-    """One daily reading for today (UTC), configured from the environment.
+    """One daily reading for the reading day (UTC), configured from the environment.
 
     SNAPSHOT_ONLY=true -> day 0. IOSA_COUNTRIES=IT,US,DE limits the countries
     (dry run, T-13/T-14). QUOTA_MAX_DAILY lowers the brake, never raises it.
@@ -476,7 +493,7 @@ def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
     client = create_client(SUPABASE_URL, key)
     raw = (os.getenv("IOSA_COUNTRIES") or "").strip()
     countries = [c.strip().upper() for c in raw.split(",") if c.strip()] or None
-    day = datetime.now(timezone.utc).date()
+    day = reading_day()
     return run_daily(client, day, api_key=YOUTUBE_API_KEY, countries=countries,
                      snapshot_only=_env_flag("SNAPSHOT_ONLY"))
 

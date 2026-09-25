@@ -25,7 +25,7 @@ commit hash and the evidence — the command that passed, not an adjective.
 | T-12 endpoints | CLOSED | this commit (subject `T-12: ...`) | `tests/test_api.py` 16 passed, the database replaced by a fake that records every query-builder call: `/api/posts` v2 only, no VPI floor by default; `top10` reads `post_daily` at `day_index = 1`, v2, `entry_certain = true`, timeframe on `entered_on`, ranks by day-1 VPI, returns `n` and the age range, no `claim_token`; unknown timeframe 400; insights and keywords: a walker asserts every statistic sits under a baseline band **and** a format, no `avg_vpi` anywhere, and the cross-format median of a band appears in no cell; 409 on a second run for the same day (and for any existing row, whatever its outcome); no service key -> 503; `/api/ingest/status` returns the latest run. 7 negative controls, each fails a test. Trophy / checkout / Stripe untouched (`CHK-REG` routes). `pytest -q` 155 passed; `CHK-REG` exit 0. 0 units |
 | **GATE-2 dry run** | PASSED | `260199c`, `33dad8c` | Decision by Migert on 25/09: no country reduction, no preliminary run; channel inventory and per-run dedup (method-neutral, proved); T-13 closes on the call log; brake kept, `quota_stop` records |
 | T-13 dry run on 3 countries | CLOSED | this commit (subject `T-13: ...`) | Closing check as changed at GATE-2: the kill-proof call log equals the counter, to the unit, for every completed call of the re-run (127, 191, 199, 183, 136, 138, 126); the one call cut by an 85 s shell limit is fully in the log (1/111/87 = the same batch re-run). Cost measured after the inventory: **cold 3.82, warm 2.67 units per channel** (`playlistItems` 2.15 -> 1.00; `videos.list` 1.65 both). Warm vs cold on the real API: 188/188 same sample ids and rules. `docs/t13-dry-run.md`, `docs/t13-dry-run.json`, `docs/t13-dry-run-2.json`, `tests/dry_run_t13.py` |
-| T-14 scheduling and reactivation | OPEN | | |
+| T-14 scheduling and reactivation | BLOCKED | prep: this commit (subject `T-14: prep ...`) | Prep only, nothing deployed or applied: `reading_day()`, `/api/posts` without `claim_token`, schedule SQL in `supabase/pending/v2_t14_schedule.sql`. `pytest -q` 485 passed. Closing check not run: needs Render deployed from this branch (Migert's dashboard) and the `claim_token` blocker lifted |
 | T-15 day 0: snapshot only | OPEN | | |
 | T-16 day 1: first real records | OPEN | | |
 | T-17 day 1 audit | OPEN | | |
@@ -50,6 +50,16 @@ States: `OPEN`, `IN PROGRESS`, `CLOSED`, `BLOCKED — <why>`.
   SELECT policy, so anyone who can read a token can claim someone else's
   plaque. Fix: `claim_token` must not appear in any publicly readable select
   or policy. Already true in v1; nothing is deployed from this branch.
+  - T-14 prep: `/api/posts` now selects an explicit column list without
+    `claim_token`, `printify_product_id`, `comment_sent`
+    (`PUBLIC_POST_COLUMNS`, pinned against the schema by
+    `tests/test_schedule.py`).
+  - Still open, and a product decision, not code: the anon SELECT policy on
+    `posts` still exposes the column, and the live frontend renders each
+    record's claim link on public pages (home, leaderboard, list). Closing
+    it means revoking anon SELECT on `claim_token` (column privilege or a
+    view) **and** delivering the claim link to the creator by another
+    route. Migert decides the route; until then, no public deployment.
 
 ## Notes
 
@@ -110,3 +120,6 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25 (GATE-2): **declared exception** of the forward refresh: an old video that becomes public again below the first page holding a known upload is not seen until the channel's next full read. Pinned by a dedicated test. `02` §4.4.
 - 2026-09-25 (GATE-2): `videos.list` now asks `status` too (same unit): a video made unlisted is still returned by id but not listed by the uploads playlist, so a fresh read would not see it.
 - 2026-09-25 (T-13): YouTube units spent on 25/09 by the two dry runs, from the logs where they exist: first run 1,099 recorded + one batch lost from the record (141-199); re-run 1,299 logged. The console total for the day is the check on the first figure.
+- 2026-09-25 (T-14 prep): the reading day is `(now - 1 h).date()` in UTC (`vpi_engine.reading_day`), used by `esegui_un_ciclo` and by the 409 lock in `main.py`. The 23:59 trigger, a slow Render wake past midnight, and the 00:30 second attempt all belong to the day just closed; a daytime manual run keeps its own date. This settles the T-12 note. The 00:30 job needs no SQL condition: the lock answers 409 when the day's `ingest_run` row exists.
+- 2026-09-25 (T-14 prep): schedule prepared as `supabase/pending/v2_t14_schedule.sql` (job 1 to `59 23 * * *` and active; new job `ingestione-iosa-retry` at `30 0 * * *` calling the same `chiedi_un_giro_di_ingestione()`, which exists in production). Not applied: it calls the live backend, which still runs v1 code. Apply order at T-14: deploy the branch on Render, check env, then this SQL. The conftest `cron` stub gained `schedule`, `command` and `cron.schedule`; the posts stub gained `window_id`, `printify_product_id`, `comment_sent` (production columns, read from `information_schema` today).
+- 2026-09-25 (T-14 prep): what T-14 needs from Migert on Render: resume `iosa-mvp-backend`, deploy branch `docs/methodology-v2`, check `SUPABASE_SERVICE_KEY`, `YOUTUBE_API_KEY`, `INGEST_TRIGGER_TOKEN` are set and `IOSA_ENGINE_MODE=off`. Merging to `main` instead is excluded (it rebuilds Vercel; the site is frozen).
