@@ -346,11 +346,19 @@ server-side; the plaque carries **peak VPI, views, days in Most Popular**;
 ### T-21 — public methodology text
 `components/MetodologiaModal.tsx` rewritten per `02` §6.5, including verbatim
 the two sentences that carry the estimand and the phrase **"Most Popular"**
-in place of "trending".
+as the name of what we read.
 
-- **Closing check**: `grep -ri "trending" frontend/src` returns nothing;
-  `grep "VPI ≤ 1.0x is excluded"` returns nothing; the two estimand sentences
-  are present.
+- **Closing check**: `tests/test_frontend_methodology.py` green. It bans
+  claims, not a word: no frontend copy states or implies that a video
+  "entered Trending", or treats YouTube's retired Trending page (removed 22
+  July 2025) as the population; "popular" appears only as the proper name
+  "Most Popular", never to describe what VPI means (popularity is absolute
+  views, VPI is performance against the channel's own baseline); "Most
+  Popular" names what we read. Comments are not copy; a level label such as
+  "Lvl 4 - Trending" carries no claim about YouTube's chart. Plus: `grep "VPI
+  ≤ 1.0x is excluded"` returns nothing; the two estimand sentences are
+  present. *(Reformulated 25/09/2026, Migert: the first version banned the
+  string "trending" and forced a level rename, now reverted.)*
 
 ---
 

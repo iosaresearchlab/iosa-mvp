@@ -126,8 +126,10 @@ For a reviewer returning to this dossier, the design changed in five ways:
 ## 3. The population
 
 > Videos — Shorts and long-form — **first observed** in YouTube's "Most Popular"
-> charts, across 34 countries and 12 categories, starting from a declared
+> charts, across 34 countries and 13 categories, starting from a declared
 > start date.
+
+*(Corrected 25/09/2026: 12 → 13, see `01` §1.)*
 
 **a) Entry into the chart is not observable; first observation is.** YouTube
 does not expose entry. Verified on 22/09/2026 by pulling every available API

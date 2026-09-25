@@ -695,7 +695,7 @@ just closed. Covers the case where Render does not wake in time.
 - `status='ACTIVE'` → `method_version='v2'`, with a "charting now / full
   archive" selector
 - **line 750**: "Rotating sample across 34 countries and 15 categories" →
-  full census, 12 categories
+  full census, 13 categories *(was "12": corrected 25/09/2026, `01` §1)*
 - **line 759**: "Each cycle scans the Most Popular Shorts of three countries and
   one category, rotating across 34 countries and 15 categories" → false
   twice, rewrite
@@ -747,7 +747,7 @@ The public methodology text. **Rewrite entirely:**
 - "15-Day Rolling Audit Window" → replace with the definition of the
   population (observed entry into Most Popular)
 - add: baseline frozen at entry and the 7-90 day window, comparison within
-  format, 34 countries and 12 categories, one reading per day at 23:59 UTC,
+  format, 34 countries and 13 categories *(was 12, `01` §1)*, one reading per day at 23:59 UTC,
   scale version and calibration date
 - add: **the index start date** (`01` §1), and that everything in the charts
   before it is outside the measurement

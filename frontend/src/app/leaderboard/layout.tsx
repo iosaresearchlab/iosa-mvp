@@ -4,9 +4,9 @@ import { metadatiPagina } from '@/lib/seo';
 // serve questo layout. Prima ereditava titolo e descrizione dalla home, e per
 // un motore di ricerca erano due pagine uguali.
 export const metadata = metadatiPagina({
-  titolo: 'Top creators by viral spikes — IOSA leaderboard',
+  titolo: 'Top VPI, first day observed — IOSA',
   descrizione:
-    'Creators ranked by how often their short videos outrun their own channel baseline, not by subscriber count. Global and per-country, updated continuously.',
+    'Videos ranked by VPI on the first day we observed them in YouTube Most Popular: views against the median of the same channel and format. Not age-adjusted.',
   percorso: '/leaderboard',
 });
 
