@@ -1,8 +1,8 @@
 -- T-14 (docs/08-implementation-plan.md; docs/02 section 5): the daily
 -- reading at 23:59 UTC, and the second attempt at 00:30 UTC.
--- PREPARED, NOT APPLIED. It is applied at T-14 once the backend is deployed
--- from this branch: the job calls the live service, and the v1 code still
--- deployed there would write v1 rows into the new population (GATE-0).
+-- Applied to project jodgdhkfkgvbyirvfcds on 2026-09-25 as migration
+-- 20260925210300 "v2_t14_schedule", after Render was deployed from this
+-- branch. The SQL below the comments is the exact SQL applied.
 --
 -- The second attempt needs no condition here. The backend computes the
 -- reading day as (now - 1 h) in UTC, so a call at 00:30 belongs to the day
