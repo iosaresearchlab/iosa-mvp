@@ -9,7 +9,7 @@ commit hash and the evidence — the command that passed, not an adjective.
 
 | Task | State | Commit | Evidence |
 |---|---|---|---|
-| T-01 test and CI scaffolding | IN PROGRESS — CI pending | | local: `pytest -q` 24 passed, exit 0 (Python 3.12.14); `npm ci && npm run build` exit 0 on a clean `git archive` of `frontend/` with the CI env. `CHK-CI` not yet run |
+| T-01 test and CI scaffolding | CLOSED | `5f50446`, `530dd37` | `CHK-CI`: workflow green on `530dd37` (backend tests, frontend build) — https://github.com/iosaresearchlab/iosa-mvp/actions/runs/36092416638. Local, clean `git archive` + `env -i`: `pytest -q` 24 passed |
 | T-02 regression harness | OPEN | | |
 | T-03 pin current core behaviour | OPEN | | |
 | **GATE-0 database** | | | |
