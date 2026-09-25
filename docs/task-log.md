@@ -9,7 +9,7 @@ commit hash and the evidence — the command that passed, not an adjective.
 
 | Task | State | Commit | Evidence |
 |---|---|---|---|
-| T-01 test and CI scaffolding | OPEN | | |
+| T-01 test and CI scaffolding | IN PROGRESS — CI pending | | local: `pytest -q` 24 passed, exit 0 (Python 3.12.14); `npm ci && npm run build` exit 0 on a clean `git archive` of `frontend/` with the CI env. `CHK-CI` not yet run |
 | T-02 regression harness | OPEN | | |
 | T-03 pin current core behaviour | OPEN | | |
 | **GATE-0 database** | | | |
@@ -49,3 +49,8 @@ Anything learned during a task that the next session needs: a surprise in the
 existing code, a check that had to be rewritten, a figure that came out
 different from the plan. One line each, dated. Do not use this file for
 decisions — those belong in `01` or in the correction log.
+
+- 2026-09-25: `backend/tests/` already exists (24 tests: `test_vpi_core.py`, `test_formati_motore.py`; `audit_scala.py` is a script). `pytest -q` from the root collects them together with `tests/`.
+- 2026-09-25: the frontend build fails with an empty `NEXT_PUBLIC_SUPABASE_URL` (`supabaseUrl is required`, on `/sitemap.xml`). CI sets public placeholders (`http://127.0.0.1:54321`), no secrets.
+- 2026-09-25: the shell on Migert's PC has no GitHub credentials: pushes are done by Migert from Windows. Git there needs delete permission on the folder (lock files).
+- 2026-09-25: `frontend/node_modules` is built on Windows; the Linux shell builds from a clean `git archive` copy with its own `npm ci`, like CI.
