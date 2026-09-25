@@ -43,15 +43,15 @@ def test_v2_baseline_constants_and_what_does_not_exist_yet():
     assert (core.BASELINE_SAMPLES_MAX, core.BASELINE_PAGES_MAX) == (20, 3), \
         "PINS: v2 at most 20 samples, uploads read up to 3 pages (docs/01 section 2, T-08)"
     for name in ("SCALE_VERSION", "CLAIM_DAYS"):
-        assert not hasattr(core, name), f"PINS: {name} not defined yet (T-10 / T-24)"
+        assert not hasattr(core, name), f"PINS: {name} not defined yet"
 
 
 def test_scale_thresholds_as_they_are():
     pairs = tuple((t, lvl) for t, lvl, _, _ in core.VPI_SCALE)
     assert pairs == (
-        (50.0, 10), (25.0, 9), (15.0, 8), (10.0, 7), (7.5, 6),
-        (5.0, 5), (3.0, 4), (2.0, 3), (1.5, 2), (0.0, 1),
-    ), "PINS: the inherited v1 thresholds, highest first"
+        (2500.0, 10), (1500.0, 9), (1000.0, 8), (250.0, 7), (100.0, 6),
+        (50.0, 5), (25.0, 4), (10.0, 3), (5.0, 2), (1.5, 1),
+    ), "PINS: the owner's thresholds (25/09/2026), highest first; below 1.5x no level"
 
 
 # ------------------------------------------------ baseline_from_samples: window
@@ -141,14 +141,14 @@ def test_ratio_with_missing_views_is_zero():
         "PINS: views None counts as 0"
 
 
-def test_level_of_an_unreadable_value_is_one():
-    assert core.get_vpi_metadata("n/a") == (1, "Lvl 1 - Standard", "#888888"), \
-        "PINS: unparseable VPI -> level 1"
+def test_level_of_an_unreadable_value_is_none():
+    assert core.get_vpi_metadata("n/a") == (None, None, None), \
+        "PINS: unparseable VPI -> no level (was level 1 before 25/09/2026)"
 
 
-def test_level_of_a_negative_value_is_one():
-    assert core.get_vpi_metadata(-2)[0] == 1, \
-        "PINS: negative VPI falls through to level 1"
+def test_level_of_a_negative_value_is_none():
+    assert core.get_vpi_metadata(-2)[0] is None, \
+        "PINS: below 1.5x no level (was level 1 before 25/09/2026)"
 
 
 def test_round_vpi_one_decimal_and_fallback():

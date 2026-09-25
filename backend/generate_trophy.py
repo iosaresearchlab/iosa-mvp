@@ -97,8 +97,10 @@ def resolve_level_and_style(level_name: str, vpi_score: str):
                     valore = float(ripulito)
             except (ValueError, TypeError):
                 valore = 1.0
-        livello = next(v for v in VPI_SCALE if valore >= v[0])
+        livello = next((v for v in VPI_SCALE if valore >= v[0]), None)
 
+    if livello is None:      # below the lowest threshold: a VPI, no level (01 section 4.3)
+        livello = (None, None, f"VPI < {VPI_SCALE[-1][0]}x - no level", VPI_SCALE[-1][3])
     _, _, nome, colore = livello
     finale = str(level_name) if level_name else nome
 

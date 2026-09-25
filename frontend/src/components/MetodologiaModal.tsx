@@ -1,5 +1,5 @@
 import { Calculator } from 'lucide-react';
-import { LIVELLI, SOGLIE } from '@/lib/vpi-scale';
+import { LIVELLI, SOGLIE, SOGLIA_MINIMA } from '@/lib/vpi-scale';
 
 /**
  * Il corpo del popup "VPI Methodology Standard".
@@ -55,12 +55,13 @@ export default function ContenutoMetodologia() {
                   <strong style={{ color: l.colore }}>{l.nome.replace(' - ', ' — ')}</strong>
                 </span>
                 <span className="font-bold" style={{ color: l.colore }}>
-                  {indice === LIVELLI.length - 1
-                    ? `VPI < ${SOGLIE[indice - 1]}x`
-                    : `VPI ≥ ${SOGLIE[indice]}x`}
+                  {`VPI ≥ ${SOGLIE[indice]}x`}
                 </span>
               </div>
             ))}
+            <p className="text-gray-400 pt-1">
+              {`Below ${SOGLIA_MINIMA}x a video keeps its VPI and has no level.`}
+            </p>
           </div>
         </div>
 

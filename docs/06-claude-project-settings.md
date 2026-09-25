@@ -64,10 +64,10 @@ chart that day.
 The measure is age-INDEXED, never age-ADJUSTED. That wording is not
 negotiable.
 
-The 10-level scale is inherited from v1 and awaits recalibration: on
-historical data level 10 holds 16.8% of records. It must not be cited as
-settled. Thresholds will be set numerically on the first clean data, then
-frozen, with the calibration vintage published.
+The 10-level scale is set by the project owner (25/09/2026): level 1 from
+1.5x, then 5x, 10x, 25x, 50x, 100x, 250x, 1,000x, 1,500x, level 10 from
+2,500x. Below 1.5x a record keeps its VPI and has no level. The owner may
+change the thresholds at any time; that is not a pending task.
 
 ## 4. The population
 
@@ -163,8 +163,8 @@ docs/01-methodology-protocol.md takes precedence over both.
 - **Core philosophy**: outlier detection over vanity metrics. Performance is
   measured against the channel's own baseline median, within format.
 - **VPI**: video views divided by the channel's baseline median, on a 10-tier
-  scale (Lvl 1 Standard to Lvl 10 Hyper Outlier) whose thresholds are
-  inherited from v1 and await recalibration on clean data.
+  scale (Lvl 1 Standard to Lvl 10 Hyper Outlier) whose thresholds are set by
+  the project owner (01 §4.3); below 1.5x no level.
 - **Population**: videos first observed in YouTube's Most Popular charts —
   the 414 category slices across 34 countries, never YouTube's own general
   chart. Both formats: Shorts (<=180s) and long-form (>180s).

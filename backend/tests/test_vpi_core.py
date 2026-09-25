@@ -43,19 +43,25 @@ def test_calculate_vpi_ratio():
 
 
 def test_level_thresholds():
+    """The owner's table (docs/01 section 4.3, 25/09/2026)."""
     attesi = [
-        (120.0, 10), (50.0, 10), (49.9, 9), (25.0, 9), (24.9, 8),
-        (15.0, 8), (14.9, 7), (10.0, 7), (9.9, 6), (7.5, 6),
-        (7.4, 5), (5.0, 5), (4.9, 4), (3.0, 4), (2.9, 3),
-        (2.0, 3), (1.9, 2), (1.5, 2), (1.49, 1), (0.5, 1),
+        (9000.0, 10), (2500.0, 10), (2499.9, 9), (1500.0, 9), (1499.9, 8),
+        (1000.0, 8), (999.9, 7), (250.0, 7), (249.9, 6), (100.0, 6),
+        (99.9, 5), (50.0, 5), (49.9, 4), (25.0, 4), (24.9, 3),
+        (10.0, 3), (9.9, 2), (5.0, 2), (4.9, 1), (1.5, 1),
     ]
     for ratio, livello in attesi:
         assert core.get_vpi_metadata(ratio)[0] == livello, f"VPI {ratio}"
 
 
+def test_below_the_lowest_threshold_there_is_no_level():
+    for ratio in (1.49, 1.0, 0.3, 0.0, -2, "n/a", None, float("nan")):
+        assert core.get_vpi_metadata(ratio) == (None, None, None), f"VPI {ratio}"
+
+
 def test_no_rounding_before_level():
-    """1.45 sta sotto 1.5: col vecchio arrotondamento saliva di livello."""
-    assert core.get_vpi_metadata(1.45)[0] == 1
+    """1.45 sta sotto 1.5: arrotondato saliva a un livello che non ha."""
+    assert core.get_vpi_metadata(1.45)[0] is None
     assert core.round_vpi(1.45) == 1.4 or core.round_vpi(1.45) == 1.5
 
 

@@ -315,6 +315,39 @@ data, under the same rule as the scale: **the bands are never re-cut after
 seeing which split produces a nicer number.** Any revision is published with
 the how, when and why. *(Set 25/09/2026, GATE-1.)*
 
+### 4.3 The level scale
+
+Ten levels on the VPI, **set by the project owner on 25/09/2026**. This is
+the active scale:
+
+| VPI | Level |
+|---|---|
+| ≥ 2,500x | 10 |
+| ≥ 1,500x | 9 |
+| ≥ 1,000x | 8 |
+| ≥ 250x | 7 |
+| ≥ 100x | 6 |
+| ≥ 50x | 5 |
+| ≥ 25x | 4 |
+| ≥ 10x | 3 |
+| ≥ 5x | 2 |
+| ≥ 1.5x | 1 |
+
+- A record whose VPI is **below 1.5x has no level**. It keeps its VPI and
+  stays in the index; `vpi_level`, `vpi_level_name` and `vpi_color` are
+  null. The level is assigned on the full-precision VPI, never on a rounded
+  one.
+- Names and colours of the levels are the design system's
+  (`backend/vpi_core.py` `VPI_SCALE`, `frontend/src/lib/vpi-scale.ts`, kept
+  identical by `tests/test_scale.py`).
+- The owner may change the thresholds at any time, at his sole discretion.
+  That possibility is not a pending task and not a gate.
+
+**Correction, 25/09/2026.** This replaces the thresholds inherited from v1
+(level 10 at ≥50x, level 1 below 1.5x) and the statement that the scale
+awaited recalibration. The v1 code gave level 1 to every VPI below 1.5x; the
+owner's table gives it no level, and the code now follows the table.
+
 ## 5. The budget
 
 ### What we read, and what we deliberately do not
@@ -430,11 +463,9 @@ out of 34 with 1 video. Music (10) caps at 30.
 
 ## 8. Open questions
 
-1. **The scale.** Absolute thresholds need recalibrating: today level 10
-   holds 16.8% of records. Not before ~3 weeks of data. Still to decide:
-   anchor it to percentiles (but then a video's level depends on who else is
-   in the index) or keep declared absolute thresholds. See
-   `04-bias-and-scale-analysis.md`.
+1. ~~**The scale.**~~ Closed 25/09/2026: the thresholds are set by the
+   project owner (§4.3). *(Was: absolute thresholds to recalibrate after ~3
+   weeks of data, level 10 holding 16.8% of v1 records.)*
 2. **The ratio as a functional form.** On historical data the median VPI is
    strongly associated with the size of its own denominator — 6,103× for
    baselines under 100 views, 3.7× above 100,000 — instead of staying flat.
@@ -465,5 +496,4 @@ observe.)*
 
 ---
 
-*Social and outreach activity suspended until the scale is recalibrated.
-Ingestion service on Render suspended since 22 September 2026.*
+*Ingestion resumed on Render on 25 September 2026; the scale is §4.3.*

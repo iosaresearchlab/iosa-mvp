@@ -30,24 +30,22 @@ honestly. A Short at 3× its own baseline is a real outlier whether it did
 
 | VPI | Level | Name |
 | --- | --- | --- |
-| ≥ 50 | 10 | Hyper Outlier |
-| 25 – 49.9 | 9 | Mega Outlier |
-| 15 – 24.9 | 8 | Outlier |
-| 10 – 14.9 | 7 | Super Viral |
-| 7.5 – 9.9 | 6 | Viral |
-| 5 – 7.4 | 5 | Breakout |
-| 3 – 4.9 | 4 | Trending |
-| 2 – 2.9 | 3 | Rising |
-| 1.5 – 1.9 | 2 | Moderate |
-| < 1.5 | 1 | Standard |
+| ≥ 2,500 | 10 | Hyper Outlier |
+| ≥ 1,500 | 9 | Mega Outlier |
+| ≥ 1,000 | 8 | Outlier |
+| ≥ 250 | 7 | Super Viral |
+| ≥ 100 | 6 | Viral |
+| ≥ 50 | 5 | Breakout |
+| ≥ 25 | 4 | Trending |
+| ≥ 10 | 3 | Rising |
+| ≥ 5 | 2 | Moderate |
+| ≥ 1.5 | 1 | Standard |
+| < 1.5 | — | no level (the VPI is still shown) |
 
 The scale is defined once, in `backend/vpi_core.py`, and mirrored for the
-frontend in `frontend/src/lib/vpi-scale.ts`.
-
-**These thresholds are inherited from v1 and await recalibration.** On
-historical data level 10 holds 16.8% of records, which is not a usable top
-band. They must not be cited as settled. See
-`docs/04-bias-and-scale-analysis.md`.
+frontend in `frontend/src/lib/vpi-scale.ts`. **The thresholds are set by the
+project owner** (25/09/2026, `docs/01-methodology-protocol.md` §4.3), who may
+change them at any time.
 
 ## What is measured, and what is not
 
