@@ -206,8 +206,30 @@ INGEST_TRIGGER_TOKEN = (os.getenv("INGEST_TRIGGER_TOKEN") or "").strip()
 _ingestione_in_corso = False
 
 
+# Render's free tier stops a web service after 15 minutes without inbound
+# requests, and a background task is not inbound traffic: a reading longer
+# than that (a day with baselines) would be killed half-way. While a reading
+# runs, the service calls its own public URL (RENDER_EXTERNAL_URL, set by
+# Render) every few minutes. Nothing is read from YouTube: no quota.
+KEEPALIVE_SECONDS = 240
+
+
+def _keepalive(stop, url, interval=KEEPALIVE_SECONDS, get=None):
+    import urllib.request
+    get = get or (lambda u: urllib.request.urlopen(u, timeout=30).read(64))
+    while not stop.wait(interval):
+        try:
+            get(url)
+        except Exception as e:                      # a missed ping is not fatal
+            log.info("keepalive: %s", e)
+
+
 def _giro_di_ingestione():
     global _ingestione_in_corso
+    stop = threading.Event()
+    url = (os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    if url:
+        threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
     try:
         esiti = esegui_un_ciclo()
         log.info("ingestione su richiesta conclusa: %s", esiti)
@@ -216,6 +238,7 @@ def _giro_di_ingestione():
     except Exception as e:
         log.error("reading failed: %s", e)
     finally:
+        stop.set()
         _ingestione_in_corso = False
 
 
