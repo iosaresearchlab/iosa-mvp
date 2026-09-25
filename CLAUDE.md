@@ -35,7 +35,10 @@ standing rules set by Migert, not suggestions. Read `docs/README.md` next.
   raised and declined; the refusal stands and is not to be revisited.
 - **API first.** No scraping, no unauthenticated HTTP requests, no scripted
   access to pages that expect a human. Everything goes through the official
-  APIs.
+  APIs. The reason, kept so it is not rediscovered: v1 validated Shorts with
+  direct `HEAD` requests on their URLs, which took 302 redirects to
+  `consent.youtube.com` and earned IP rate-limit blocks. It produced
+  systematic false negatives.
 - **Do not request a YouTube quota increase from Google.** His reasoning:
   it is likelier to attract a reduction than an increase.
 - **Printify must not break.** The branch is suspended, not dead. It will be
