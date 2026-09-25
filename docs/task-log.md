@@ -11,9 +11,9 @@ commit hash and the evidence — the command that passed, not an adjective.
 |---|---|---|---|
 | T-01 test and CI scaffolding | CLOSED | `5f50446`, `530dd37` | `CHK-CI`: workflow green on `530dd37` (backend tests, frontend build) — https://github.com/iosaresearchlab/iosa-mvp/actions/runs/36092416638. Local, clean `git archive` + `env -i`: `pytest -q` 24 passed |
 | T-02 regression harness | CLOSED | `577d61f` | on untouched code, clean `git archive` + `env -i`: `pytest -q tests/test_regressione.py` 4 passed; full `CHK-REG` exit 0 (frontend build included). Negative control on a throwaway copy: renaming the Stripe webhook route -> 1 failed (`routes no longer registered: POST /api/webhooks/stripe`); renaming `send_printify_order` -> 3 failed |
-| T-03 pin current core behaviour | CLOSED | this commit (subject `T-03: pin current vpi_core behaviour`) | clean `git archive` + `env -i`: `pytest -q tests/test_vpi_core_baseline_attuale.py` 20 passed on untouched `vpi_core.py`; the file's own rule test (every `assert` carries a `PINS:` message, AST scan) fails on an unlabelled probe assert -> 1 failed; `CHK-REG` exit 0; `pytest -q` 48 passed |
+| T-03 pin current core behaviour | CLOSED | `1b7e77f` | clean `git archive` + `env -i`: `pytest -q tests/test_vpi_core_baseline_attuale.py` 20 passed on untouched `vpi_core.py`; the file's own rule test (every `assert` carries a `PINS:` message, AST scan) fails on an unlabelled probe assert -> 1 failed; `CHK-REG` exit 0; `pytest -q` 48 passed |
 | **GATE-0 database** | | | |
-| T-04 migration: new tables | OPEN | | |
+| T-04 migration: new tables | CLOSED | this commit (subject `T-04: migration, new tables`) | Supabase migration `20260925040538 v2_t04_new_tables` (SQL in `supabase/migrations/`). `information_schema`: 35/35 expected columns with expected types, 0 missing, 0 unexpected; `relrowsecurity` true on all three; insert->select round trip true on all three inside `begin ... rollback`, tables empty afterwards; `posts` 28,917 unchanged. `CHK-REG` exit 0 |
 | T-05 migration: new columns on posts | OPEN | | |
 | T-06 entries_of_day() + v1 archiving | OPEN | | |
 | **GATE-1 engine** | | | |
@@ -59,3 +59,6 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25: `CHK-REG` as listed in T-02 covers Printify, the plaque modules and the routes. It does **not** assert that an existing v1 claim token still resolves, which T-20 says `CHK-REG` covers: that needs a database fixture, and must be added before T-20 at the latest.
 - 2026-09-25: `main.py` uses the deprecated `@app.on_event("startup")`; FastAPI warns, it still works. Not touched.
 - 2026-09-25: T-03 pins v1 behaviour that v2 replaces (14-day floor, fallback to all recent videos when < 5 mature, no 20-sample cap, window from now, 2-tuple return). Those tests say "v2 changes this" and are expected to fail at T-08, to be rewritten in that commit.
+- 2026-09-25: pg_cron job 1 is still active at `*/20 * * * *`; its calls get HTTP 503 (Render suspended), 18 in the last 24 h, no `posts` written since 2026-09-21. Harmless while Render is suspended; if Render is woken before T-14 the v1 engine runs again every 20 minutes.
+- 2026-09-25: `posts` has only a public SELECT policy, so the engine writes with the service role. `trend_snapshot` and `ingest_run` have RLS and no policy (advisor: INFO "RLS enabled no policy", intended).
+- 2026-09-25: `evaluation_windows` holds 1 row, not 0 as `02` §3.7 says. Relevant only when it is dropped.
