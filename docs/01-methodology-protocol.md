@@ -30,8 +30,14 @@ publishing mix rather than the video's performance.
 The population:
 
 > **Videos — Shorts (≤180s) and long-form — FIRST OBSERVED in YouTube's
-> Most Popular charts, across 34 countries and 12 categories, starting from our
+> Most Popular charts, across 34 countries and 13 categories, starting from our
 > day 1.**
+
+*(Corrected 25/09/2026: "12 categories" → **13**, the owner's figure, and
+the measured one. The census of 22/09 (§6) finds 13 categories that return
+data: 12 in all 34 countries, Nonprofits & Activism (29) in 6; that is the
+414 category slices of §5, 34 × 12 + 6. "12" counted the categories with
+usable volume, not the ones we read.)*
 
 **The series begins on day 1.** The index starts on `YYYY-MM-DD` (to be fixed
 at the first successful day-1 run — T-16). Everything present in YouTube's
@@ -436,9 +442,10 @@ Every chart holds at most 200 videos. Category charts are not subsets of the
 general chart: the general chart is almost entirely long-form, category
 charts are ~70% Shorts.
 
-**There are 12 usable categories, not 15.** Travel & Events (19) and
-Education (27) return 404 everywhere. Nonprofits (29) responds in 6 countries
-out of 34 with 1 video. Music (10) caps at 30.
+**13 categories return data, not 15; 12 of them with usable volume.**
+Travel & Events (19) and Education (27) return 404 everywhere. Nonprofits (29)
+responds in 6 countries out of 34 with 1 video. Music (10) caps at 30. We read
+all 13 (§1).
 
 ---
 
@@ -489,7 +496,7 @@ observe.)*
 
 ## 9. What must be corrected in published material
 
-- **"15 categories" is false.** There are 12.
+- **"15 categories" is false.** 13 return data, 12 with usable volume (§6).
 - Every **median, percentage and correlation** published so far comes from a
   censored, randomly-sampled population: it does not hold.
 - **Counts** and **individual dated cases** do hold.

@@ -322,3 +322,15 @@ def test_claim_window_endpoint(api):
     body = client.get("/api/claim/tok/window").json()
     assert body["start"] == "2026-09-26" and body["claim_days"] == 15
     assert client.get("/api/claim/none/window").status_code == 404
+
+
+def test_the_trigger_runs_with_the_engine_mode_off(api, monkeypatch):
+    """IOSA_ENGINE_MODE=off (Render) stops only an in-process scheduler, which
+    v2 does not have; the HTTP trigger is the one path and it is not gated."""
+    client, db = api
+    monkeypatch.setenv("IOSA_ENGINE_MODE", "off")
+    ran = []
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda: ran.append(1))
+    r = client.post("/api/ingest/run", headers=AUTH)
+    assert r.status_code == 200 and r.json()["stato"] == "avviato" and ran == [1]
+    main._ingestione_in_corso = False
