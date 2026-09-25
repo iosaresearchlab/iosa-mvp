@@ -26,6 +26,7 @@ from datetime import date
 
 import requests
 
+from quota import QuotaCounter, QuotaExhausted
 from vpi_core import formato_da_durata, parse_iso_duration
 
 API_URL = "https://www.googleapis.com/youtube/v3/videos"
@@ -63,7 +64,7 @@ RPC_PAGE = 1000       # PostgREST returns at most 1,000 rows per request
 
 
 def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
-                session=None, sleep=time.sleep):
+                session=None, sleep=time.sleep, quota=None):
     """Full census of the category charts. Returns (videos, report).
 
     videos: {video_id: {channel_id, format, published_at, views,
@@ -71,7 +72,8 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
 
     One call per page (part=snippet,contentDetails,statistics, maxResults=50),
     following nextPageToken to exhaustion. Every HTTP attempt costs 1 unit
-    and is counted in report['quota_charts'].
+    and is marked on `quota` (a QuotaCounter shared by the whole run) before
+    it is sent; report['quota_charts'] is read from it.
 
     - 404 on a slice's first page: the slice does not exist; skipped, and the
       census can still be complete.
@@ -79,6 +81,7 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
     - 5xx or network error: retried RETRIES times; if it still fails the
       slice is unread, and the census is not complete.
     - any other status: the slice is unread, the census is not complete.
+    - quota brake: like a 403 - nothing more is sent, outcome 'partial'.
 
     Slices are processed in the order given; the caller randomises it (T-10).
     """
@@ -86,6 +89,7 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
     if not api_key:
         raise RuntimeError("YOUTUBE_API_KEY is not set")
     http = session or requests.Session()
+    quota = quota if quota is not None else QuotaCounter()
 
     stop = threading.Event()
     lock = threading.Lock()
@@ -101,8 +105,13 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
         """One counted HTTP attempt. None if stopped before sending."""
         if stop.is_set():
             return None
-        with lock:
-            report["quota_charts"] += 1
+        try:
+            quota.mark("charts")
+        except QuotaExhausted as e:
+            with lock:
+                report["stop_reason"] = report["stop_reason"] or str(e)
+            stop.set()
+            return None
         return http.get(API_URL, params=params, timeout=TIMEOUT_S)
 
     def fetch_page(params):
@@ -169,6 +178,7 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
         for f in [pool.submit(read_slice, c, k) for c in countries for k in categories]:
             f.result()
 
+    report["quota_charts"] = quota.per_endpoint["charts"]
     report["videos_seen"] = len(videos)
     report["channels_seen"] = len({v["channel_id"] for v in videos.values()})
     report["complete"] = (report["slices_error"] == 0

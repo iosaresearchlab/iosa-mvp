@@ -31,6 +31,7 @@ from datetime import timedelta
 import requests
 
 import vpi_core as core
+from quota import QuotaCounter, QuotaExhausted
 
 BASE = "https://www.googleapis.com/youtube/v3"
 BLOCK = 50
@@ -49,7 +50,7 @@ def uploads_playlist(channel_id: str) -> str:
     return "UU" + channel_id[2:]
 
 
-def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sleep):
+def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sleep, quota=None):
     """Baselines for the measured videos. Returns (results, report).
 
     measured: [{video_id, channel_id, format, published_at}]
@@ -61,12 +62,17 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
               failure never produces 'not_computable': those videos have no
               baseline YET, and must not be given one by any other rule.
     report['unresolved'] = the measured video ids left out.
+
+    Every HTTP attempt is marked on `quota` (shared by the run) before it is
+    sent. The quota brake stops everything like a 403: nothing in this call
+    is resolved, so the caller should pass channels in batches.
     channels: report['channels'] = {channel_id: {subscribers, custom_url, title}}
     """
     api_key = api_key or os.environ.get("YOUTUBE_API_KEY")
     if not api_key:
         raise RuntimeError("YOUTUBE_API_KEY is not set")
     http = session or requests.Session()
+    quota = quota if quota is not None else QuotaCounter()
     report = {"quota_channels": 0, "quota_playlist": 0, "quota_videos": 0,
               "channels": {}, "playlist_missing": 0, "errors": 0,
               "stop_reason": None, "outcome": None}
@@ -75,6 +81,10 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
         params = {**params, "key": api_key}
         why = None
         for attempt in range(RETRIES + 1):
+            try:
+                quota.mark(counter.removeprefix("quota_"))
+            except QuotaExhausted as e:
+                raise QuotaStop(str(e))
             report[counter] += 1
             try:
                 res = http.get(f"{BASE}/{endpoint}", params=params, timeout=TIMEOUT_S)
