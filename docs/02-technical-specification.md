@@ -507,8 +507,13 @@ cycle is wasted on a 404.
 ### 4.4 New module `backend/baseline.py`
 
 ```python
-def baselines_for_channels(channel_ids, format_by_channel) -> dict
+def baselines_for_videos(measured) -> tuple[dict, dict]
 ```
+
+**Per video, not per channel.** The window is anchored to each measured
+video's own `publishedAt` (`01` §2), so two new videos of the same channel
+published on different days have different windows and possibly different
+baselines. The channel's uploads are still read once per run.
 
 Three phases:
 
@@ -517,14 +522,27 @@ Three phases:
    playlist is **not requested**: it is `UC…` → `UU…`. *Verified.*
 2. **`playlistItems.list`, one per channel, with pagination** —
    `part=contentDetails`, `maxResults=50`. Not batchable (*verified:
-   HTTP 400*). Paginate until the 7-90 day window is covered or 3 pages are
-   reached. The response carries `videoPublishedAt`: **filter the window
-   here, before spending the next call.**
-3. **`videos.list` in blocks of 50** — only for ids inside the window, at
-   most 20 per channel **chosen evenly across the window**, not the most
-   recent.
+   HTTP 400*). Paginate until the oldest window of that channel's measured
+   videos is covered or 3 pages are reached. The response carries
+   `videoPublishedAt`: **filter the window here, before spending the next
+   call.**
+3. **`videos.list` in blocks of 50** — for the ids inside the window, to
+   read duration and views. Then, per measured video: keep the samples of
+   **the same format**, and if more than 20 remain take 20 **chosen evenly
+   across the window**, not the most recent.
 
-Cost: **~1.6 units per new channel** with pagination. Today it is 3.
+*Corrected 25/09/2026 (T-08).* The first version chose the 20 before
+`videos.list`. That cannot satisfy `01` §2: the format comes from the
+duration, which only `videos.list` returns, so on a channel that publishes
+both formats a pre-selected 20 would leave fewer of the right format — often
+fewer than 5, a false `not_computable`. The date filter still runs before
+`videos.list`; the format filter and the even choice run after it.
+
+Cost: the `~1.6 units per new channel` of the first version assumed 20 ids
+per channel in phase 3. Phase 3 now reads every in-window id, so it costs
+`ceil(in-window ids / 50)` over the run. *Not measured*: the in-window count
+per channel is unknown until the dry run (T-13), which is where it is
+measured.
 
 **No cache table.** The baseline is computed once and frozen: the cache is
 only needed *within a run*, so a channel with two new videos is not paid for
