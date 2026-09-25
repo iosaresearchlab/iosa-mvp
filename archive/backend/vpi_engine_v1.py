@@ -1,17 +1,3 @@
-"""The v2 ingestion engine: one reading a day (docs/01 section 4).
-
-run_daily() is the daily procedure: census of the category charts ->
-snapshot -> entries (baseline computed and frozen) -> today's views for every
-charting record -> exits (complete runs only) -> run report in ingest_run.
-It is triggered only by POST /api/ingest/run (pg_cron, 23:59 UTC): there is
-no background scheduler.
-
-The v1 entry point fetch_and_ingest_real_youtube_content() is kept, unchanged,
-in archive/backend/vpi_engine_v1.py for one release (08 T-10, rollback).
-Kept here for v1 only: get_channel_video_samples() and
-fetch_channels_metadata(), used by refresh_showcase.py on the v1 records; and
-the TikTok branch until T-11 moves it to archive/.
-"""
 import os
 import time
 import secrets
@@ -23,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from vpi_core import (
     BASELINE_MAX_AGE_DAYS,
@@ -48,6 +35,12 @@ from log_iosa import configura, prendi
 
 log = prendi(__name__)
 
+# Cache persistenti: a budget zero la quota API e' la risorsa piu' scarsa.
+_SHORT_CHECK_CACHE = TTLCache("short_checks", 30 * 86400)
+_BASELINE_CACHE = TTLCache("channel_baselines", 7 * 86400)
+
+# Intervallo fra due cicli di ingestion, in minuti.
+INGEST_INTERVAL_MINUTES = int(os.getenv("INGEST_INTERVAL_MINUTES", "60"))
 
 # Load environment variables
 env_path = Path(__file__).resolve().parent / ".env"
@@ -89,8 +82,37 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def is_real_youtube_short(video_id: str):
+    """
+    Verifica se un video e' realmente uno Short interrogando il router HTTP di
+    YouTube (200 = Short, redirect = video normale).
 
-# ------------------------------------------------ v1 only (refresh_showcase.py)
+    L'API ufficiale non espone questo flag, quindi la verifica HTTP resta
+    necessaria. Tre regole la rendono sostenibile:
+      - viene chiamata una sola volta per video, mai dentro i cicli di baseline;
+      - l'esito e' messo in cache per 30 giorni;
+      - se la rete fallisce restituisce None ("non so"), non False, cosi' un
+        timeout non fa scartare in silenzio un video valido.
+    """
+    cached = _SHORT_CHECK_CACHE.get(video_id)
+    if cached is not None:
+        return cached
+
+    url = f"https://www.youtube.com/shorts/{video_id}"
+    try:
+        response = requests.head(url, allow_redirects=False, timeout=5)
+    except requests.RequestException:
+        return None
+
+    if response.status_code == 200:
+        _SHORT_CHECK_CACHE.set(video_id, True)
+        return True
+    if response.status_code in (301, 302, 303, 307, 308):
+        _SHORT_CHECK_CACHE.set(video_id, False)
+        return False
+    # 429 o altri errori: non sappiamo, meglio non decidere.
+    return None
+
 
 def get_channel_video_samples(channel_id: str):
     """Campioni per la baseline, separati per formato.
@@ -168,6 +190,48 @@ def get_channel_video_samples(channel_id: str):
         return None
 
 
+def get_channel_recent_videos_baseline(channel_id: str, formato: str,
+                                       exclude_video_id: str = None):
+    """Baseline del canale per un formato. Vedi le due funzioni sopra."""
+    campioni = get_channel_video_samples(channel_id)
+    if campioni is None:
+        return None, 0
+    return baseline_from_samples(campioni.get(formato, []), exclude_video_id)
+
+
+def _cached_channel_baseline(channel_id: str, formato: str = FORMATO_SHORT,
+                             exclude_video_id: str = None):
+    """Baseline del canale per formato, con cache su file (7 giorni).
+
+    In cache finiscono i campioni grezzi di entrambi i formati, non la mediana:
+    cosi' misurare uno Short e un video lungo dello stesso canale costa una
+    sola lettura, e cambiare le regole della baseline non obbliga a buttare
+    via la cache.
+    """
+    campioni = _BASELINE_CACHE.get(channel_id)
+    if campioni is None:
+        campioni = get_channel_video_samples(channel_id)
+        if campioni is None:
+            return None, 0
+        _BASELINE_CACHE.set(channel_id, campioni)
+    return baseline_from_samples(campioni.get(formato, []), exclude_video_id)
+
+
+def _filter_already_ingested(video_ids: list) -> set:
+    """Restituisce gli id gia' presenti in tabella, in una sola query."""
+    if not video_ids:
+        return set()
+    found = set()
+    for i in range(0, len(video_ids), 100):
+        chunk = video_ids[i:i + 100]
+        try:
+            res = supabase.table("posts").select("external_post_id").in_("external_post_id", chunk).execute()
+            found.update(row["external_post_id"] for row in (res.data or []))
+        except Exception as e:
+            log.error(f"Errore nel controllo duplicati: {e}")
+    return found
+
+
 def fetch_channels_metadata(channel_ids: list) -> dict:
     """Iscritti e handle reale dei canali. Una chiamata ogni 50 id, 1 unita' di quota."""
     if not channel_ids:
@@ -215,6 +279,210 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
             }
 
     return channels_data
+
+def fetch_and_ingest_real_youtube_content():
+    """
+    Scansiona i trending YouTube e registra gli outlier in Supabase.
+
+    Ordine delle operazioni pensato per la quota: prima i filtri che non
+    costano chiamate (durata, eta' di pubblicazione), poi il controllo
+    duplicati in blocco, e solo alla fine le baseline, che sono la voce piu'
+    cara del ciclo.
+    """
+    if not YOUTUBE_API_KEY:
+        log.warning("YOUTUBE_API_KEY mancante in .env. Ingestion saltata.")
+        return
+
+    other_countries = [c for c in TARGET_COUNTRIES if c != 'US']
+    selected_countries = ['US'] + random.sample(other_countries, k=2)
+    selected_category_ids = random.sample(list(CATEGORY_MAP.keys()), k=1)
+
+    log.info(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione YouTube Shorts "
+          f"(paesi: {selected_countries}, categorie: {[CATEGORY_MAP[c] for c in selected_category_ids]})...")
+
+    scanned_total = 0
+    skipped_duration = 0
+    skipped_age = 0
+    skipped_not_short = 0
+    skipped_vpi = 0
+    skipped_auto = 0
+    ingeriti_per_formato = {FORMATO_SHORT: 0, FORMATO_LONG: 0}
+    skipped_baseline = 0
+    already_exists = 0
+    total_ingested = 0
+
+    now_dt = datetime.now(timezone.utc)
+
+    for country in selected_countries:
+        for cat_id in selected_category_ids:
+            cat_name = CATEGORY_MAP[cat_id]
+            items = []
+
+            url_p1 = (
+                "https://www.googleapis.com/youtube/v3/videos?"
+                "part=snippet,contentDetails,statistics&chart=mostPopular&maxResults=50"
+                f"&regionCode={country}&videoCategoryId={cat_id}&key={YOUTUBE_API_KEY}"
+            )
+
+            try:
+                res1 = requests.get(url_p1, timeout=10)
+                if res1.status_code == 403:
+                    log.warning(f"[QUOTA] YouTube ha risposto 403 per {country}/{cat_name}: "
+                          f"quota giornaliera probabilmente esaurita. Ciclo interrotto.")
+                    return
+                if res1.status_code == 404:
+                    log.warning(f"YouTube 404 per {country}/{cat_name}: combinazione non disponibile.")
+                    continue
+                if res1.status_code != 200:
+                    log.info(f"YouTube {res1.status_code} per {country}/{cat_name}: {res1.text[:200]}")
+                    continue
+
+                data1 = res1.json()
+                items.extend(data1.get("items", []))
+                next_page_token = data1.get("nextPageToken")
+
+                if next_page_token:
+                    res2 = requests.get(f"{url_p1}&pageToken={next_page_token}", timeout=10)
+                    if res2.status_code == 200:
+                        items.extend(res2.json().get("items", []))
+            except Exception as e:
+                log.error(f"Errore di rete per {country}/{cat_name}: {e}")
+                continue
+
+            if not items:
+                continue
+
+            # --- filtri a costo zero: durata ed eta' di pubblicazione ---
+            candidates = []
+            for vid_data in items:
+                scanned_total += 1
+                duration = parse_iso_duration(vid_data.get("contentDetails", {}).get("duration", ""))
+                formato = formato_da_durata(duration)
+                if formato is None:
+                    # Durata assente o nulla: dirette, premiere, video rimossi.
+                    skipped_duration += 1
+                    continue
+                vid_data["_formato"] = formato
+
+                published_at = vid_data["snippet"].get("publishedAt")
+                age_days = age_in_days(published_at, now_dt)
+                if age_days is None or age_days > CAMPAIGN_DAYS:
+                    skipped_age += 1
+                    continue
+
+                candidates.append(vid_data)
+
+            if not candidates:
+                continue
+
+            # --- controllo duplicati in una sola query, prima di spendere quota ---
+            existing_ids = _filter_already_ingested([c["id"] for c in candidates])
+            new_candidates = [c for c in candidates if c["id"] not in existing_ids]
+            already_exists += len(candidates) - len(new_candidates)
+            if not new_candidates:
+                continue
+
+            channels_meta = fetch_channels_metadata([c["snippet"]["channelId"] for c in new_candidates])
+
+            for vid_data in new_candidates:
+                vid_id = vid_data["id"]
+                snippet = vid_data["snippet"]
+
+                formato = vid_data["_formato"]
+
+                # La verifica HTTP serve solo a smascherare i video corti che
+                # YouTube non pubblica come Short. Su un video lungo non ha
+                # niente da dire, quindi non si spende una richiesta.
+                # None = non so, accettiamo (la durata e' gia' compatibile)
+                # invece di scartare in silenzio.
+                if formato == FORMATO_SHORT:
+                    short_check = is_real_youtube_short(vid_id)
+                    if short_check is False:
+                        skipped_not_short += 1
+                        continue
+
+                ch_id = snippet["channelId"]
+                views = float(vid_data["statistics"].get("viewCount", 0))
+
+                ch_info = channels_meta.get(ch_id) or {}
+                subscribers = ch_info.get("subscribers")
+                channel_handle = ch_info.get("handle")
+
+                # I canali "X - Topic" sono Art Track generati da YouTube per i
+                # cataloghi musicali: non hanno handle, non c'e' un creator
+                # dietro e la mediana dei loro Shorts non descrive nessuno.
+                # Non sono outlier da misurare ne' persone da contattare.
+                if not channel_handle:
+                    skipped_auto += 1
+                    continue
+
+                baseline, samples = _cached_channel_baseline(
+                    ch_id, formato, exclude_video_id=vid_id
+                )
+                if not baseline or baseline < MIN_BASELINE_VIEWS:
+                    skipped_baseline += 1
+                    continue
+
+                vpi_ratio = calculate_vpi_ratio(views, baseline)
+                if vpi_ratio <= MIN_VPI_FOR_INGESTION:
+                    skipped_vpi += 1
+                    continue
+
+                vpi_level, level_name, vpi_color = get_vpi_metadata(vpi_ratio)
+                claim_token = f"iosa_{secrets.token_urlsafe(12)}"
+                now_utc = datetime.now(timezone.utc).isoformat()
+
+                try:
+                    supabase.table("posts").insert({
+                        "platform": "YOUTUBE",
+                        "format": formato,
+                        "external_post_id": vid_id,
+                        # Se YouTube ci da' l'handle vero lo si usa; il ripiego
+                        # derivato dal titolo resta solo per i canali senza handle.
+                        "author_handle": channel_handle or f"@{snippet['channelTitle'].replace(' ', '')}",
+                        "channel_id": ch_id,
+                        "channel_handle": channel_handle,
+                        "author_name": snippet["channelTitle"],
+                        "subscribers": subscribers,
+                        "post_url": f"https://www.youtube.com/watch?v={vid_id}",
+                        "content_text": snippet["title"],
+                        "category": cat_name,
+                        "country": country,
+                        "engagement_score": views,
+                        "baseline_score": baseline,
+                        "vpi_ratio": round_vpi(vpi_ratio),
+                        "vpi_level": vpi_level,
+                        "vpi_level_name": level_name,
+                        "vpi_color": vpi_color,
+                        "claim_token": claim_token,
+                        "status": "ACTIVE",
+                        "comment_sent": False,
+                        "created_at": snippet["publishedAt"],
+                        "detected_at": now_utc
+                    }).execute()
+                    total_ingested += 1
+                    ingeriti_per_formato[formato] += 1
+                except Exception as e:
+                    log.error(f"Insert fallito per {vid_id}: {e}")
+
+    _SHORT_CHECK_CACHE.purge_expired()
+    _BASELINE_CACHE.purge_expired()
+    _SHORT_CHECK_CACHE.save()
+    _BASELINE_CACHE.save()
+
+    log.info("[INGESTION YOUTUBE]")
+    log.info(f"   video analizzati:               {scanned_total}")
+    log.info(f"   scartati per durata:            {skipped_duration}")
+    log.info(f"   scartati fuori finestra 15gg:   {skipped_age}")
+    log.info(f"   scartati perche' non Short:     {skipped_not_short}")
+    log.info(f"   gia' presenti nel DB:           {already_exists}")
+    log.info(f"   scartati canali auto-generati:  {skipped_auto}")
+    log.info(f"   scartati per baseline assente o < {MIN_BASELINE_VIEWS}: {skipped_baseline}")
+    log.info(f"   scartati per VPI <= {MIN_VPI_FOR_INGESTION}:        {skipped_vpi}")
+    log.info(f"   NUOVI INSERITI:                 {total_ingested}")
+    log.info(f"      di cui Short:                {ingeriti_per_formato[FORMATO_SHORT]}")
+    log.info(f"      di cui video lunghi:         {ingeriti_per_formato[FORMATO_LONG]}\n")
+
 
 # ==============================================================================
 # TIKTOK INGESTION ENGINE (OFFICIAL API v2)
@@ -414,269 +682,94 @@ def fetch_and_ingest_tiktok_content():
     log.info(f"   ├─ Già presenti nel DB: {already_exists}")
     log.info(f"   └─ NUOVI INSERITI NEL DB: {total_ingested}\n")
 
+def mark_expired_campaign_data():
+    """
+    Chiude la finestra di 15 giorni.
+
+    Il conteggio parte da detected_at, non dalla data di pubblicazione: un
+    creator rilevato oggi ha 15 giorni pieni per il claim, non i giorni
+    residui dalla pubblicazione del video.
+    """
+    log.info("Verifica record fuori finestra (> 15 giorni dal rilevamento)...")
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=CAMPAIGN_DAYS)).isoformat()
+    try:
+        res = (
+            supabase.table("posts")
+            .update({"status": "EXPIRED"})
+            .lt("detected_at", cutoff_date)
+            .eq("status", "ACTIVE")
+            .execute()
+        )
+        expired_count = len(res.data) if res.data else 0
+        log.info(f"{expired_count} record marcati come EXPIRED.")
+    except Exception as e:
+        log.error(f"Errore durante la chiusura dei vecchi record: {e}")
 
 
 # ==============================================================================
-# v2 DAILY RUN (docs/01-methodology-protocol.md section 4; 02 section 2)
+# OUTREACH VIA YOUTUBE COMMENTS - DISABLED / COMMENTED OUT TO PREVENT BAN
 # ==============================================================================
 
-import census  # noqa: E402
-import baseline as baseline_mod  # noqa: E402
-from quota import QuotaCounter  # noqa: E402
-
-BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
-WRITE_BATCH = 500
-
-
-class RunAlreadyExists(Exception):
-    """An ingest_run row for this day exists: one reading a day."""
-
-
-def _vpi_fields(views, base):
-    """VPI, level, name, colour; all None without a baseline (01 section 2).
-
-    The ratio is stored at full precision: the level is assigned on the full
-    value and rounding is a display concern.
-    """
-    if base is None or views is None:
-        return {"vpi_ratio": None, "vpi_level": None,
-                "vpi_level_name": None, "vpi_color": None}
-    ratio = float(views) / float(base)
-    level, name, color = get_vpi_metadata(ratio)
-    return {"vpi_ratio": ratio, "vpi_level": level,
-            "vpi_level_name": name, "vpi_color": color}
-
-
-def _handle(meta):
-    h = (meta.get("custom_url") or "").strip()
-    return h if h.startswith("@") else None
-
-
-def _record(vid, v, entry, res, meta, day, now_iso):
-    """One v2 posts row. method_version is written explicitly (default is v1)."""
-    views = v["views"]
-    vf = _vpi_fields(views, res["baseline"])
-    published = v["published_at"]
-    age = (day - census_date(published)).days if published else None
-    country, category = v["first_slice"]
-    handle = _handle(meta)
-    return {
-        "platform": "YOUTUBE",
-        "format": v["format"],
-        "external_post_id": vid,
-        "channel_id": v["channel_id"],
-        "channel_handle": handle,
-        "author_handle": handle,
-        "author_name": v.get("channel_title") or meta.get("title"),
-        "subscribers": meta.get("subscribers"),
-        "post_url": f"https://www.youtube.com/watch?v={vid}",
-        "content_text": v.get("title"),
-        "category": census.CATEGORY_MAP[category],
-        "country": country,
-        "countries": sorted(v["countries"], key=census.TARGET_COUNTRIES.index),
-        "categories": [census.CATEGORY_MAP[k] for k in sorted(v["categories"], key=int)],
-        "engagement_score": views,
-        "baseline_score": res["baseline"],
-        **vf,
-        "claim_token": f"iosa_{secrets.token_urlsafe(12)}",
-        "status": "ACTIVE",
-        "created_at": published,
-        "detected_at": now_iso,
-        "entered_on": day.isoformat(),
-        "baseline_computed_at": now_iso,
-        "baseline_samples": res["samples"],
-        "baseline_rule": res["rule"],
-        "baseline_span_days": res["span_days"],
-        "baseline_video_ids": res["video_ids"],
-        "auto_generated_channel": handle is None,
-        "method_version": "v2",
-        "gap_days": entry["gap_days"],
-        "entry_certain": entry["entry_certain"],
-        "age_at_first_obs_days": age,
-        "vpi_max": vf["vpi_ratio"],
-        "vpi_max_on": day.isoformat() if vf["vpi_ratio"] is not None else None,
-        "views_max": views,
-    }
-
-
-def census_date(published_at):
-    return datetime.fromisoformat(str(published_at).replace("Z", "+00:00")).date()
-
-
-def _rpc_all(client, fn, params, order):
-    out, start = [], 0
-    while True:
-        page = (client.rpc(fn, params).order(order)
-                .range(start, start + census.RPC_PAGE - 1).execute().data) or []
-        out.extend(page)
-        if len(page) < census.RPC_PAGE:
-            return out
-        start += census.RPC_PAGE
-
-
-def _is_unique_violation(exc):
-    text = f"{getattr(exc, 'code', '')} {exc}"
-    return "23505" in text or "duplicate key" in text
-
-
-def run_daily(client, day, *, api_key, countries=None, categories=None,
-              snapshot_only=False, quota=None, session=None, rng=None,
-              sleep=time.sleep, now=None) -> dict:
-    """One daily reading. Returns the ingest_run row written for the day.
-
-    snapshot_only=True is day 0: snapshot written as permanent, day0_pending
-    seeded from it only if the census was complete, nothing else (01 §4).
-    A partial run (census incomplete, 403, quota brake, unresolved baselines)
-    records the entries it observed and today's views, but never exits and
-    never drains the day-0 list: absence is not observable (01 §4).
-    """
-    countries = list(countries or census.TARGET_COUNTRIES)
-    categories = list(categories or census.CATEGORY_MAP)
-    quota = quota if quota is not None else QuotaCounter()
-    started = now or datetime.now(timezone.utc)
-    now_iso = started.isoformat()
-    if rng is None:
-        seed = secrets.randbits(32)
-        rng = random.Random(seed)
-    else:
-        seed = None
-    try:
-        client.table("ingest_run").insert(
-            {"day": day.isoformat(), "started_at": now_iso}).execute()
-    except Exception as e:
-        if _is_unique_violation(e):
-            raise RunAlreadyExists(f"ingest_run for {day} already exists") from e
-        raise
-
-    row = {"day": day.isoformat(), "started_at": now_iso, "outcome": "failed",
-           "entries": 0, "new_channels": 0, "updated": 0, "exits": 0,
-           "discards": {}, "notes": None}
-    notes = [f"slice order seed {seed}" if seed is not None else "slice order: caller rng",
-             f"countries {len(countries)}, categories {len(categories)}",
-             f"quota limit {quota.limit}"]
-    try:
-        videos, cen = census.read_charts(countries, categories, api_key, session=session,
-                                         sleep=sleep, quota=quota, rng=rng)
-        row.update({k: cen[k] for k in ("slices_ok", "slices_404", "slices_error",
-                                        "videos_seen", "channels_seen")})
-        discards = dict(cen["discards"])
-        if cen["stop_reason"]:
-            notes.append(f"census stopped: {cen['stop_reason']}")
-        census.save_snapshot(client, day, videos, permanent=snapshot_only)
-
-        if snapshot_only:
-            if cen["complete"]:
-                ids = sorted(videos)
-                for i in range(0, len(ids), WRITE_BATCH):
-                    client.table("day0_pending").upsert(
-                        [{"video_id": v} for v in ids[i:i + WRITE_BATCH]]).execute()
-            else:
-                notes.append("day 0 incomplete: delete this day's snapshot and re-run day 0")
-            row["outcome"] = "ok" if cen["complete"] else "partial"
-            row["discards"] = discards
-            return row
-
-        # 3. entries: baseline computed now and frozen
-        found = census.entries(client, day)
-        measured, entry_of = [], {}
-        for e in found:
-            v = videos.get(e["video_id"])
-            if v is None:
-                continue
-            if v["views"] is None:
-                discards["no_views"] = discards.get("no_views", 0) + 1
-                continue
-            entry_of[e["video_id"]] = e
-            measured.append({"video_id": e["video_id"], "channel_id": v["channel_id"],
-                             "format": v["format"], "published_at": v["published_at"]})
-        by_channel = {}
-        for m in measured:
-            by_channel.setdefault(m["channel_id"], []).append(m)
-        channels = sorted(by_channel)
-        results, meta, unresolved, stopped = {}, {}, [], None
-        for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
-            batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
-            if stopped:
-                unresolved.extend(m["video_id"] for m in batch)
-                continue
-            res, brep = baseline_mod.baselines_for_videos(batch, api_key, session=session,
-                                                          sleep=sleep, quota=quota)
-            results.update(res)
-            meta.update(brep["channels"])
-            unresolved.extend(brep.get("unresolved", []))
-            if brep["stop_reason"]:
-                stopped = brep["stop_reason"]
-                notes.append(f"baselines stopped: {stopped}")
-        if unresolved:
-            notes.append(f"{len(unresolved)} entries left without a baseline, not written")
-
-        records = [_record(vid, videos[vid], entry_of[vid], res, meta.get(videos[vid]["channel_id"], {}),
-                           day, now_iso) for vid, res in sorted(results.items())]
-        for i in range(0, len(records), WRITE_BATCH):
-            client.table("posts").insert(records[i:i + WRITE_BATCH]).execute()
-        row["entries"] = len(records)
-        row["new_channels"] = len({r["channel_id"] for r in records})
-
-        # 4. today's views for every charting v2 record, the new ones included
-        tracked = _rpc_all(client, "tracked_of_day", {"d": day.isoformat()}, "post_id")
-        payload = []
-        for t in tracked:
-            if t["views"] is None:
-                continue
-            base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
-            payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
-                            **_vpi_fields(float(t["views"]), base)})
-        updated = 0
-        for i in range(0, len(payload), WRITE_BATCH):
-            updated += client.rpc("apply_daily_views",
-                                  {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
-        row["updated"] = updated
-
-        # 5. exits and the day-0 list: complete readings only
-        run_complete = cen["complete"] and not stopped and not unresolved
-        row["exits"] = census.close_exits(client, day, run_complete)
-        if run_complete:
-            drained = client.rpc("drain_day0_pending", {"d": day.isoformat()}).execute().data or 0
-            notes.append(f"day0_pending drained {drained}")
-        row["outcome"] = "ok" if run_complete else "partial"
-        row["discards"] = discards
-        return row
-    except Exception as e:
-        row["outcome"] = "failed"
-        notes.append(f"failed: {type(e).__name__}: {str(e)[:300]}")
-        raise
-    finally:
-        row.update(quota.as_ingest_run())
-        row["finished_at"] = datetime.now(timezone.utc).isoformat()
-        row["notes"] = "; ".join(notes)
-        client.table("ingest_run").upsert(row, on_conflict="day").execute()
-
-
-def _env_flag(name):
-    return (os.getenv(name) or "").strip().lower() in ("1", "true", "yes")
-
+def dispatch_cautious_outreach():
+    """OUTREACH DISABLED: YouTube comments deactivated to prevent platform spam flags."""
+    log.warning("🛑 Outreach via commenti YouTube disattivato permanentemente.")
+    return
 
 def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
-    """One daily reading for today (UTC), configured from the environment.
+    """Un giro completo di ingestione. E\' l\'unita\' di lavoro del motore.
 
-    SNAPSHOT_ONLY=true -> day 0. IOSA_COUNTRIES=IT,US,DE limits the countries
-    (dry run, T-13/T-14). QUOTA_MAX_DAILY lowers the brake, never raises it.
-    Writes with the service role (SUPABASE_SERVICE_KEY): posts, trend_snapshot
-    and ingest_run are not writable with the public key. con_scadenze is
-    ignored: v2 records do not expire (01 section 3).
+    Esiste separata dallo scheduler perche\' il motore deve poter girare in tre
+    modi diversi: dentro il servizio web, come processo a se\', o chiamata da un
+    cron esterno. Prima esisteva solo il primo, e il primo muore quando il
+    servizio web va in sospensione.
+
+    Ogni pezzo e\' isolato: se YouTube fallisce, TikTok e le scadenze vengono
+    comunque eseguiti, e l\'esito di ciascuno finisce nel riepilogo.
     """
-    key = os.getenv("SUPABASE_SERVICE_KEY") or SUPABASE_KEY
-    client = create_client(SUPABASE_URL, key)
-    raw = (os.getenv("IOSA_COUNTRIES") or "").strip()
-    countries = [c.strip().upper() for c in raw.split(",") if c.strip()] or None
-    day = datetime.now(timezone.utc).date()
-    return run_daily(client, day, api_key=YOUTUBE_API_KEY, countries=countries,
-                     snapshot_only=_env_flag("SNAPSHOT_ONLY"))
+    esiti = {}
+    passi = [("youtube", fetch_and_ingest_real_youtube_content),
+             ("tiktok", fetch_and_ingest_tiktok_content)]
+    if con_scadenze:
+        passi.append(("scadenze", mark_expired_campaign_data))
+
+    for nome, funzione in passi:
+        try:
+            funzione()
+            esiti[nome] = "ok"
+        except Exception as e:
+            # Un passo che salta non deve impedire gli altri: se la quota
+            # YouTube e\' finita, le scadenze vanno comunque marcate.
+            log.error("passo '%s' non riuscito: %s", nome, e)
+            esiti[nome] = f"errore: {e}"
+    return esiti
 
 
 def start_engine():
-    """No background scheduler in v2: the only trigger is pg_cron calling
-    POST /api/ingest/run at 23:59 UTC (02 section 5). Kept so main.py's
-    startup hook still has something to call."""
-    log.info("v2: no in-process scheduler; ingestion runs only on POST /api/ingest/run.")
-    return None
+    """Avvia lo scheduler dentro il processo chiamante.
+
+    IOSA_ENGINE_MODE decide chi fa girare il motore:
+      inline (default) - lo scheduler parte qui dentro, com\'e\' sempre stato
+      off              - non parte niente: lo fa un worker o un cron esterno
+
+    Il default resta 'inline' apposta: cambiare modalita\' e\' una scelta di
+    dispiegamento, non deve succedere da sola al primo deploy.
+    """
+    modalita = (os.getenv("IOSA_ENGINE_MODE") or "inline").strip().lower()
+    if modalita == "off":
+        log.info("IOSA_ENGINE_MODE=off: lo scheduler non parte in questo processo.")
+        return None
+
+    configura()
+    log.info("Avvio IOSA Background Ingestion Engine (ciclo: %d min)...",
+             INGEST_INTERVAL_MINUTES)
+    scheduler = BackgroundScheduler()
+
+    scheduler.add_job(fetch_and_ingest_real_youtube_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
+    scheduler.add_job(fetch_and_ingest_tiktok_content, 'interval', minutes=INGEST_INTERVAL_MINUTES)
+    scheduler.add_job(mark_expired_campaign_data, 'interval', hours=12)
+
+    scheduler.start()
+    esegui_un_ciclo()
+    return scheduler
+
+

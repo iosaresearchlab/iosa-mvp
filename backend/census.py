@@ -64,11 +64,14 @@ RPC_PAGE = 1000       # PostgREST returns at most 1,000 rows per request
 
 
 def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
-                session=None, sleep=time.sleep, quota=None):
+                session=None, sleep=time.sleep, quota=None, rng=None):
     """Full census of the category charts. Returns (videos, report).
 
     videos: {video_id: {channel_id, format, published_at, views,
-                        countries: set, categories: set}}
+                        countries: set, categories: set,
+                        title, channel_title, first_slice}}
+    first_slice = (country, category) of the first slice, in processing
+    order, that returned the video: the record's primary country/category.
 
     One call per page (part=snippet,contentDetails,statistics, maxResults=50),
     following nextPageToken to exhaustion. Every HTTP attempt costs 1 unit
@@ -83,7 +86,9 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
     - any other status: the slice is unread, the census is not complete.
     - quota brake: like a 403 - nothing more is sent, outcome 'partial'.
 
-    Slices are processed in the order given; the caller randomises it (T-10).
+    Slices are processed in the order given, or shuffled with `rng` (a
+    random.Random) so that a partial run does not systematically drop the
+    same slices (T-10).
     """
     api_key = api_key or os.environ.get("YOUTUBE_API_KEY")
     if not api_key:
@@ -175,8 +180,14 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
                 _merge(videos, item, country, category, report["discards"])
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for f in [pool.submit(read_slice, c, k) for c in countries for k in categories]:
+        slices = [(c, k) for c in countries for k in categories]
+        if rng is not None:
+            rng.shuffle(slices)
+        order = {sl: i for i, sl in enumerate(slices)}
+        for f in [pool.submit(read_slice, c, k) for c, k in slices]:
             f.result()
+    for v in videos.values():
+        v["first_slice"] = min(v.pop("_slices"), key=order.__getitem__)
 
     report["quota_charts"] = quota.per_endpoint["charts"]
     report["videos_seen"] = len(videos)
@@ -219,10 +230,14 @@ def _merge(videos, item, country, category, discards):
             "views": views,
             "countries": {country},
             "categories": {category},
+            "title": snippet.get("title"),
+            "channel_title": snippet.get("channelTitle"),
+            "_slices": {(country, category)},
         }
         return
     v["countries"].add(country)
     v["categories"].add(category)
+    v["_slices"].add((country, category))
     # The same call window; if two slices disagree, keep the higher count
     # rather than whichever thread happened to answer first.
     if views is not None and (v["views"] is None or views > v["views"]):

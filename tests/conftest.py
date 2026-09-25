@@ -27,14 +27,36 @@ BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-MIGRATIONS = sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
+# Applied migrations first, then the SQL waiting for a decision in
+# supabase/pending/: the code is tested against the schema it will need.
+MIGRATIONS = (sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
+              + sorted((ROOT / "supabase" / "pending").glob("*.sql")))
 
-# The pre-v2 posts table, reduced to what the migrations and the tests touch.
-# T-05 adds the v2 columns and releases the not-null on vpi_ratio / vpi_level.
+# The pre-v2 posts table: its production columns and NOT NULLs (read from
+# information_schema on 25/09), with defaults only so that tests can insert
+# partial rows. The engine test writes every column itself. T-05 adds the v2
+# columns; the pending T-10 file relaxes three NOT NULLs.
 POSTS_STUB = """
 create table public.posts (
   id               uuid primary key default gen_random_uuid(),
   external_post_id text not null,
+  platform         varchar not null default 'YOUTUBE',
+  author_handle    varchar not null default '@stub',
+  author_name      varchar,
+  post_url         text not null default 'https://example.invalid/',
+  content_text     text,
+  category         varchar default 'General',
+  country          text,
+  engagement_score numeric not null default 0,
+  vpi_level_name   varchar not null default 'stub',
+  vpi_color        varchar not null default '#000000',
+  claim_token      varchar not null default gen_random_uuid()::text unique,
+  channel_id       text,
+  channel_handle   text,
+  subscribers      integer,
+  format           text not null default 'SHORT',
+  created_at       timestamptz default now(),
+  detected_at      timestamptz default now(),
   status           text default 'ACTIVE',
   baseline_score   numeric not null,
   vpi_ratio        numeric not null,
