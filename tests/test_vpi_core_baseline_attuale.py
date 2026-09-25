@@ -8,6 +8,11 @@ visible diff. When T-08 changes the baseline rule, the tests below marked
 docs/01-methodology-protocol.md.
 
 Each assertion message starts with PINS: and names the behaviour it fixes.
+
+T-08 (25/09/2026): the v2 rule is vpi_core.baseline_v2() (tests/test_baseline.py).
+baseline_from_samples() is kept unchanged for the v1 records, on its own frozen
+floor V1_BASELINE_MIN_AGE_DAYS = 14, so the pins on it below still hold. The two
+constant pins that v2 changed were rewritten, citing docs/01 section 2.
 """
 
 import vpi_core as core
@@ -23,7 +28,8 @@ def test_constants_as_they_are():
     current = {
         "SHORT_MAX_SECONDS": 180,
         "CAMPAIGN_DAYS": 15,            # v2 changes this: renamed CLAIM_DAYS
-        "BASELINE_MIN_AGE_DAYS": 14,    # v2 changes this: 7
+        "BASELINE_MIN_AGE_DAYS": 7,     # v2, docs/01 section 2 (was 14 in v1)
+        "V1_BASELINE_MIN_AGE_DAYS": 14, # the v1 floor, kept for v1 records
         "BASELINE_MAX_AGE_DAYS": 90,
         "MIN_BASELINE_SAMPLES": 5,
         "MIN_BASELINE_VIEWS": 500,
@@ -33,10 +39,11 @@ def test_constants_as_they_are():
         assert getattr(core, name) == value, f"PINS: {name} == {value}"
 
 
-def test_v2_constants_do_not_exist_yet():
-    for name in ("BASELINE_SAMPLES_MAX", "BASELINE_PAGES_MAX",
-                 "SCALE_VERSION", "CLAIM_DAYS"):
-        assert not hasattr(core, name), f"PINS: {name} not defined in v1 core"
+def test_v2_baseline_constants_and_what_does_not_exist_yet():
+    assert (core.BASELINE_SAMPLES_MAX, core.BASELINE_PAGES_MAX) == (20, 3), \
+        "PINS: v2 at most 20 samples, uploads read up to 3 pages (docs/01 section 2, T-08)"
+    for name in ("SCALE_VERSION", "CLAIM_DAYS"):
+        assert not hasattr(core, name), f"PINS: {name} not defined yet (T-10 / T-24)"
 
 
 def test_scale_thresholds_as_they_are():
