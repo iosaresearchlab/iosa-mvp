@@ -1,16 +1,42 @@
--- T-10 (docs/08-implementation-plan.md): what the v2 daily run needs from
--- the database. NOT YET APPLIED to production: it writes beyond what T-10
--- specifies (it relaxes three NOT NULL columns of posts), so it waits for
--- Migert's decision at GATE-1. tests/conftest.py runs it after the applied
--- migrations, so the engine is tested against the schema it will need.
+-- T-10 + GATE-1 decisions (docs/08-implementation-plan.md; Migert, 25/09):
+-- what the v2 daily run needs from the database.
 -- Sources: docs/01-methodology-protocol.md sections 2, 4, 7;
--- docs/02-technical-specification.md sections 3.1.1, 3.2, 3.3, 4.3.
+-- docs/02-technical-specification.md sections 3.1.1, 3.2, 3.3, 3.5, 4.3.
+-- Applied to project jodgdhkfkgvbyirvfcds on 2026-09-25 as migration
+-- 20260925144956 "v2_t10_engine". Below this header, the exact SQL applied.
+-- posts before = after: 28,917 rows, md5 of every column
+-- b0335510f2e7f258563b7119e60edd64.
 -- Rollback:
 --   drop function public.tracked_of_day(date);
 --   drop function public.apply_daily_views(date, jsonb);
---   drop function public.drain_day0_pending(date);
---   re-apply 20260925133027 for close_exits_of_day();
+--   re-apply 20260925133027 for close_exits_of_day() and entries_of_day(),
+--     after re-creating day0_pending (empty: it never held data);
+--   restore the previous posts_baseline_state (20260925132338);
 --   the three NOT NULL are restored only if no row has a null in them.
+
+-- 02 §3.1.1: the day-0 exclusion list excluded nothing once the reference
+-- became the last complete reading. entries_of_day() without it, then drop.
+create or replace function public.entries_of_day(d date)
+returns table (video_id text, gap_days int, entry_certain boolean)
+language sql stable
+set search_path = public
+as $$
+  with previous as (
+    select max(r.day) as pd from ingest_run r
+    where r.day < d and r.outcome = 'ok'
+  )
+  select s.video_id,
+         case when previous.pd = d - 1 then 0 else d - previous.pd end,
+         previous.pd = d - 1
+  from trend_snapshot s, previous
+  where s.day = d
+    and previous.pd is not null
+    and not exists (select 1 from trend_snapshot p
+                    where p.day = previous.pd and p.video_id = s.video_id)
+    and not exists (select 1 from posts po
+                    where po.external_post_id = s.video_id);
+$$;
+drop table public.day0_pending;
 
 -- 01 §2: a not_computable record has no VPI, so no level name and no colour.
 -- 01 §7: channels without a handle (the "- Topic" Art Tracks) stay in the
@@ -18,6 +44,20 @@
 alter table public.posts alter column vpi_level_name drop not null;
 alter table public.posts alter column vpi_color      drop not null;
 alter table public.posts alter column author_handle  drop not null;
+
+-- 02 §3.2: the level, its name and its colour exist exactly when the VPI does.
+alter table public.posts drop constraint posts_baseline_state;
+alter table public.posts add constraint posts_baseline_state check (
+  coalesce(method_version = 'v1', false)
+  or coalesce(baseline_rule = 'standard'
+              and baseline_score is not null and vpi_ratio is not null
+              and vpi_level is not null and vpi_level_name is not null
+              and vpi_color is not null, false)
+  or coalesce(baseline_rule = 'not_computable'
+              and baseline_score is null and vpi_ratio is null
+              and vpi_level is null and vpi_level_name is null
+              and vpi_color is null, false)
+);
 
 -- The v2 records charting today: present in today's snapshot.
 create or replace function public.tracked_of_day(d date)
@@ -79,26 +119,6 @@ begin
 end
 $$;
 
--- 02 §3.1.1: after a complete run, a day-0 id leaves the list the first
--- day it is observed absent. The caller runs it only after a complete run.
-create or replace function public.drain_day0_pending(d date)
-returns int
-language plpgsql
-set search_path = public
-as $$
-declare
-  n int;
-begin
-  if not exists (select 1 from trend_snapshot where day = d) then
-    return 0;
-  end if;
-  delete from day0_pending
-  where video_id not in (select video_id from trend_snapshot where day = d);
-  get diagnostics n = row_count;
-  return n;
-end
-$$;
-
 -- 4.3, as applied in 20260925133027, plus views_final: the last views
 -- actually observed.
 create or replace function public.close_exits_of_day(d date)
@@ -137,7 +157,5 @@ $$;
 -- Written by the backend with the service role only.
 revoke execute on function public.tracked_of_day(date)           from public, anon, authenticated;
 revoke execute on function public.apply_daily_views(date, jsonb) from public, anon, authenticated;
-revoke execute on function public.drain_day0_pending(date)       from public, anon, authenticated;
 grant  execute on function public.tracked_of_day(date)           to service_role;
 grant  execute on function public.apply_daily_views(date, jsonb) to service_role;
-grant  execute on function public.drain_day0_pending(date)       to service_role;

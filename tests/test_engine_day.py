@@ -3,7 +3,7 @@
 Four simulated days run through vpi_engine.run_daily() against PostgreSQL
 (every migration plus supabase/pending/, via the db fixture) and a fake
 YouTube API. The assertions are on the rows actually written in posts,
-post_daily, trend_snapshot, day0_pending and ingest_run.
+post_daily, trend_snapshot and ingest_run.
 
 docs/01-methodology-protocol.md section 4; docs/02 section 2; 08 T-10.
 """
@@ -138,11 +138,10 @@ def ingest(db, n):
 def test_four_days(world):
     fake, client, db = world
 
-    # --- day 0: snapshot only, permanent, day-0 list seeded, no records
+    # --- day 0: snapshot only, permanent, no records
     fake.charts = {("IT", "24"): [("a", 900), ("b", 800)], ("US", "10"): [("c", 700)]}
     run(client, fake, 0, snapshot_only=True)
     assert one(db, "select count(*), bool_and(permanent) from trend_snapshot where day = %s", day(0)) == [(3, True)]
-    assert sorted(r[0] for r in one(db, "select video_id from day0_pending")) == ["a", "b", "c"]
     assert posts(db) == {}
     r0 = ingest(db, 0)
     assert r0["outcome"] == "ok" and r0["quota_total"] == len(fake.calls) == 4
@@ -160,7 +159,6 @@ def test_four_days(world):
     r1 = ingest(db, 1)
     assert r1["outcome"] == "ok" and r1["entries"] == 2 and r1["exits"] == 0
     assert r1["quota_total"] == len(fake.calls)
-    assert sorted(r[0] for r in one(db, "select video_id from day0_pending")) == ["a", "c"]
     row = one(db, """select platform, author_handle, auto_generated_channel, post_url, category,
                             country, countries, categories, age_at_first_obs_days, baseline_samples,
                             array_length(baseline_video_ids, 1), vpi_level_name, claim_token like 'iosa_%%'
@@ -171,7 +169,7 @@ def test_four_days(world):
                    "from posts where external_post_id = 'n2'") == [(None, True, None, None)]
 
     # --- day 2: partial (US/10 unread: 503 after the retries): views where we
-    # read, no exits, no drain. (A 403 stops the whole run, so with parallel
+    # read, no exits. (A 403 stops the whole run, so with parallel
     # reads which slices got read first is not deterministic; the 403 path is
     # covered in test_census.py and test_quota.py.)
     fake.charts = {("IT", "24"): [("a", 990), ("n1", 8000)], ("US", "10"): 503}
@@ -181,7 +179,6 @@ def test_four_days(world):
     assert posts(db)["n2"][0] == "ACTIVE"            # unread is not absent
     assert daily(db, "n1")[-1] == (day(2), 2, 8000, 8.0)
     assert posts(db)["n1"][11:13] == (8.0, day(2))   # peak observed
-    assert sorted(r[0] for r in one(db, "select video_id from day0_pending")) == ["a", "c"]
 
     # --- day 3: complete; reference is day 1 (day 2 was partial)
     fake.charts = {("IT", "24"): [("a", 1000)], ("US", "10"): [("c", 730), ("x", 4000)]}
@@ -205,13 +202,16 @@ def test_one_reading_a_day(world):
     assert fake.calls == []                          # refused before any API call
 
 
-def test_an_incomplete_day0_seeds_nothing(world):
+def test_an_incomplete_day0_is_no_reference_and_says_to_rerun(world):
     fake, client, db = world
     fake.charts = {("IT", "24"): [("a", 1)], ("US", "10"): 403}
     run(client, fake, 0, snapshot_only=True)
     assert ingest(db, 0)["outcome"] == "partial"
-    assert one(db, "select count(*) from day0_pending") == [(0,)]
     assert "re-run day 0" in ingest(db, 0)["notes"]
+    # had day 1 run anyway: no reference, so no entry is manufactured
+    fake.charts = {("IT", "24"): [("a", 2), ("n1", 5000)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 1)
+    assert posts(db) == {}
 
 
 def test_the_brake_during_baselines_writes_no_record_and_no_exit(world):

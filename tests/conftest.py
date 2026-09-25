@@ -33,23 +33,24 @@ MIGRATIONS = (sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
               + sorted((ROOT / "supabase" / "pending").glob("*.sql")))
 
 # The pre-v2 posts table: its production columns and NOT NULLs (read from
-# information_schema on 25/09), with defaults only so that tests can insert
-# partial rows. The engine test writes every column itself. T-05 adds the v2
+# information_schema on 25/09). A few columns carry defaults only so that
+# tests can insert partial rows; the level fields and author_handle do not,
+# as in production. The engine test writes every column itself. T-05 adds the v2
 # columns; the pending T-10 file relaxes three NOT NULLs.
 POSTS_STUB = """
 create table public.posts (
   id               uuid primary key default gen_random_uuid(),
   external_post_id text not null,
   platform         varchar not null default 'YOUTUBE',
-  author_handle    varchar not null default '@stub',
+  author_handle    varchar not null,
   author_name      varchar,
   post_url         text not null default 'https://example.invalid/',
   content_text     text,
   category         varchar default 'General',
   country          text,
   engagement_score numeric not null default 0,
-  vpi_level_name   varchar not null default 'stub',
-  vpi_color        varchar not null default '#000000',
+  vpi_level_name   varchar not null,
+  vpi_color        varchar not null,
   claim_token      varchar not null default gen_random_uuid()::text unique,
   channel_id       text,
   channel_handle   text,
@@ -111,8 +112,10 @@ def db():
             cur.execute(SUPABASE_STUB)
             cur.execute(POSTS_STUB)
             cur.execute(
-                "insert into posts (external_post_id, baseline_score, vpi_ratio, vpi_level) "
-                "values ('v1_old_a', 900, 3.2, 4), ('v1_old_b', 400, 1.1, 1)"
+                "insert into posts (external_post_id, author_handle, baseline_score, vpi_ratio, "
+                "vpi_level, vpi_level_name, vpi_color) values "
+                "('v1_old_a', '@a', 900, 3.2, 4, 'Lvl 4 - Trending', '#00CC88'), "
+                "('v1_old_b', '@b', 400, 1.1, 1, 'Lvl 1 - Standard', '#888888')"
             )
             for f in MIGRATIONS:
                 cur.execute(f.read_text(encoding="utf-8"))

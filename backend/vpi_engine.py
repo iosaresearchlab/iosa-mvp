@@ -321,11 +321,11 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
               sleep=time.sleep, now=None) -> dict:
     """One daily reading. Returns the ingest_run row written for the day.
 
-    snapshot_only=True is day 0: snapshot written as permanent, day0_pending
-    seeded from it only if the census was complete, nothing else (01 §4).
+    snapshot_only=True is day 0: the snapshot is written as permanent, the
+    archive of the population at the start, and nothing else (01 §4).
     A partial run (census incomplete, 403, quota brake, unresolved baselines)
-    records the entries it observed and today's views, but never exits and
-    never drains the day-0 list: absence is not observable (01 §4).
+    records the entries it observed and today's views, but never exits:
+    absence is not observable, and the day is no reference (01 §4).
     """
     countries = list(countries or census.TARGET_COUNTRIES)
     categories = list(categories or census.CATEGORY_MAP)
@@ -362,12 +362,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         census.save_snapshot(client, day, videos, permanent=snapshot_only)
 
         if snapshot_only:
-            if cen["complete"]:
-                ids = sorted(videos)
-                for i in range(0, len(ids), WRITE_BATCH):
-                    client.table("day0_pending").upsert(
-                        [{"video_id": v} for v in ids[i:i + WRITE_BATCH]]).execute()
-            else:
+            if not cen["complete"]:
                 notes.append("day 0 incomplete: delete this day's snapshot and re-run day 0")
             row["outcome"] = "ok" if cen["complete"] else "partial"
             row["discards"] = discards
@@ -429,12 +424,9 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
                                   {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
         row["updated"] = updated
 
-        # 5. exits and the day-0 list: complete readings only
+        # 5. exits: complete readings only
         run_complete = cen["complete"] and not stopped and not unresolved
         row["exits"] = census.close_exits(client, day, run_complete)
-        if run_complete:
-            drained = client.rpc("drain_day0_pending", {"d": day.isoformat()}).execute().data or 0
-            notes.append(f"day0_pending drained {drained}")
         row["outcome"] = "ok" if run_complete else "partial"
         row["discards"] = discards
         return row

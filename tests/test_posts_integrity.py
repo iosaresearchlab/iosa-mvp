@@ -36,14 +36,35 @@ def test_a_legacy_writer_gets_v1_by_default(db):
     assert insert(db, baseline_score=900, vpi_ratio=2.0, vpi_level=3) == "v1"
 
 
+LEVEL = dict(vpi_level=3, vpi_level_name="Lvl 3 - Rising", vpi_color="#0099FF")
+NO_LEVEL = dict(vpi_level=None, vpi_level_name=None, vpi_color=None)
+
+
 def test_v2_standard_record_is_accepted(db):
     assert not rejected(db, method_version="v2", baseline_rule="standard",
-                        baseline_score=900, vpi_ratio=2.0)
+                        baseline_score=900, vpi_ratio=2.0, **LEVEL)
 
 
 def test_v2_not_computable_record_without_baseline_or_vpi_is_accepted(db):
     assert not rejected(db, method_version="v2", baseline_rule="not_computable",
-                        baseline_score=None, vpi_ratio=None)
+                        baseline_score=None, vpi_ratio=None, **NO_LEVEL)
+
+
+@pytest.mark.parametrize("missing", ["vpi_level", "vpi_level_name", "vpi_color"])
+def test_v2_standard_without_its_level_fields_is_rejected(db, missing):
+    assert rejected(db, method_version="v2", baseline_rule="standard",
+                    baseline_score=900, vpi_ratio=2.0, **{**LEVEL, missing: None})
+
+
+@pytest.mark.parametrize("present", ["vpi_level", "vpi_level_name", "vpi_color"])
+def test_v2_not_computable_with_any_level_field_is_rejected(db, present):
+    assert rejected(db, method_version="v2", baseline_rule="not_computable",
+                    baseline_score=None, vpi_ratio=None, **{**NO_LEVEL, present: LEVEL[present]})
+
+
+def test_a_channel_without_a_handle_can_be_recorded(db):
+    assert not rejected(db, method_version="v2", baseline_rule="not_computable",
+                        baseline_score=None, vpi_ratio=None, author_handle=None, **NO_LEVEL)
 
 
 def test_v2_record_with_no_rule_is_rejected(db):

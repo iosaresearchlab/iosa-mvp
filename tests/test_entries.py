@@ -1,4 +1,4 @@
-"""T-06 / T-07: entries_of_day(), close_exits_of_day(), the day-0 list,
+"""T-06 / T-07 / GATE-1: entries_of_day(), close_exits_of_day(), day 0,
 the v1 archiving, and the partial-reading rule.
 
 The SQL under test is the SQL applied to Supabase: every file in
@@ -16,12 +16,6 @@ docs/02-technical-specification.md sections 3.1, 3.1.1, 3.5, 3.6, 4.3.
 """
 
 from datetime import date, timedelta
-
-# 02 §3.1.1: after every complete run, drain the day-0 list.
-DRAIN = """
-delete from day0_pending
-where video_id not in (select video_id from trend_snapshot where day = %s)
-"""
 
 # 02 §3.1: retention, day 0 excluded. The cutoff is a parameter here so the
 # test does not depend on today's date.
@@ -52,13 +46,8 @@ def snap(conn, day, ids, permanent=False, run="ok"):
 
 
 def day0(conn, ids):
-    """What the day-0 run does: permanent snapshot, list seeded from it."""
+    """What the day-0 run does: a permanent snapshot, a complete run."""
     snap(conn, d(0), ids, permanent=True)
-    with conn.cursor() as cur:
-        cur.execute(
-            "insert into day0_pending select video_id from trend_snapshot where day = %s",
-            (d(0),),
-        )
 
 
 def entries(conn, day):
@@ -73,11 +62,6 @@ def record(conn, video_id):
             "insert into posts (external_post_id, entered_on) values (%s, %s)",  # a v1-default row: only its presence matters here
             (video_id, D0),
         )
-
-
-def drain(conn, day):
-    with conn.cursor() as cur:
-        cur.execute(DRAIN, (day,))
 
 
 # --- the cases named in 08 T-06 ------------------------------------------
@@ -132,7 +116,7 @@ def test_every_record_after_a_gap_is_uncertain(db):
     assert all(certain is False and gap == 4 for gap, certain in got.values())
 
 
-# --- the day-0 cases decided on 25/09 ------------------------------------
+# --- day 0: excluded by the ordinary test, no list (02 §3.1.1) -----------
 
 
 def test_day0_video_still_present_never_produces_a_record(db):
@@ -140,7 +124,6 @@ def test_day0_video_still_present_never_produces_a_record(db):
     for n in range(1, 10):
         snap(db, d(n), ["a"])
         assert entries(db, d(n)) == {}, f"day {n}"
-        drain(db, d(n))
     # past the 7-day buffer, and after retention ran
     with db.cursor() as cur:
         cur.execute(RETENTION, (d(9) - timedelta(days=7),))
@@ -159,28 +142,17 @@ def test_day0_video_observed_absent_then_returning_produces_a_record(db):
     day0(db, ["a", "b"])
     snap(db, d(1), ["a"])  # b observed absent
     assert entries(db, d(1)) == {}
-    drain(db, d(1))
     snap(db, d(2), ["a", "b"])  # b returns: an entry we observed
     assert entries(db, d(2)) == {"b": (0, True)}
 
 
 def test_day0_video_left_unread_by_a_partial_run_is_not_an_entry(db):
-    # The case the list exists for (02 §3.1.1): a partial run did not read
-    # b's slice, so b is missing from the previous snapshot. A partial run
-    # does not drain, so b is still pending and must not enter.
+    # A partial run did not read b's slice. It is not the reference, so on
+    # d(2) b is compared with day 0, where it is present: not an entry.
     day0(db, ["a", "b"])
-    snap(db, d(1), ["a"], run="partial")  # b unread, no drain
+    snap(db, d(1), ["a"], run="partial")  # b unread
     snap(db, d(2), ["a", "b"])
     assert entries(db, d(2)) == {}
-
-
-def test_drain_removes_only_ids_absent_today(db):
-    day0(db, ["a", "b", "c"])
-    snap(db, d(1), ["a", "c", "x"])
-    drain(db, d(1))
-    with db.cursor() as cur:
-        cur.execute("select video_id from day0_pending order by 1")
-        assert [r[0] for r in cur.fetchall()] == ["a", "c"]
 
 
 def test_retention_keeps_day0_and_drops_old_working_rows(db):
@@ -193,17 +165,6 @@ def test_retention_keeps_day0_and_drops_old_working_rows(db):
         rows = cur.fetchall()
     assert rows[0] == (d(0), True)
     assert [r[0] for r in rows[1:]] == [d(n) for n in range(3, 11)]
-
-
-def test_draining_never_touches_the_day0_archive(db):
-    day0(db, ["a", "b"])
-    snap(db, d(1), [])
-    drain(db, d(1))
-    with db.cursor() as cur:
-        cur.execute("select count(*) from day0_pending")
-        assert cur.fetchone()[0] == 0
-        cur.execute("select count(*) from trend_snapshot where day = %s and permanent", (d(0),))
-        assert cur.fetchone()[0] == 2
 
 
 # --- T-07: the partial-reading rule ---------------------------------------
@@ -250,8 +211,9 @@ def v2_record(conn, video_id, entered, days_observed):
     with conn.cursor() as cur:
         cur.execute(
             "insert into posts (external_post_id, method_version, status, entered_on, "
-            "baseline_rule, baseline_score, vpi_ratio) "
-            "values (%s, 'v2', 'ACTIVE', %s, 'standard', 500, 2.0) returning id",
+            "baseline_rule, baseline_score, vpi_ratio, vpi_level, vpi_level_name, vpi_color) "
+            "values (%s, 'v2', 'ACTIVE', %s, 'standard', 500, 2.0, 3, 'Lvl 3 - Rising', '#0099FF') "
+            "returning id",
             (video_id, entered),
         )
         pid = cur.fetchone()[0]
@@ -319,3 +281,9 @@ def test_rows_existing_before_v2_are_archived_as_v1(db):
     with db.cursor() as cur:
         cur.execute("select external_post_id, method_version from posts order by 1")
         assert cur.fetchall() == [("v1_old_a", "v1"), ("v1_old_b", "v1")]
+
+
+def test_the_day0_list_no_longer_exists(db):
+    with db.cursor() as cur:
+        cur.execute("select to_regclass('public.day0_pending')")
+        assert cur.fetchone() == (None,)
