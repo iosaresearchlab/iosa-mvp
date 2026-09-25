@@ -125,3 +125,56 @@ specification (`02` §3.2, §3.3, §4.5, §6.2, §6.3, §6.5):
 Language rule, permanent: the measure is **age-indexed, never
 age-adjusted**. The two public sentences carrying the estimand are quoted
 verbatim in `02` §6.5.
+
+### 25 September 2026 — decisions closed after the three reviews
+
+The review is finished: three reviewers, all rounds complete, no follow-up
+pending. None of them still regards the method as unpublishable.
+
+**Corrections of fact**
+
+| | |
+|---|---|
+| Slice count | **544 = 34 x 16** (general chart + 15 categories), of which 96 return 404 and 448 carry data. The earlier "476 (34 x 14)" was never measured |
+| YouTube's general chart | **not** a subset of the category charts: 58.8% of its videos appear in no category chart. Its ordering is not by views (Italy: #2 had 14,655 views, #20 had 6,881,481) — it is a curated showcase |
+| Naming | the Trending page was retired on 22 July 2025. The population is **YouTube's Most Popular charts**, never "trending" |
+| Monotonicity | withdrawn — YouTube removes views on audit, so a daily series can fall |
+
+**Decisions of method**
+
+1. **Baseline anchored to the measured video's own `publishedAt`**, not to the
+   measurement date. Without this the denominator absorbed videos published
+   during the event it was meant to precede (27% of charting Shorts are 7+
+   days old when first seen). Zero cost.
+2. **The general chart is not read.** 414 category slices, 1,350 units/day.
+   Our own overall ranking is built from the union of the category charts,
+   ordered by views, with each video's VPI beside it.
+3. **Declared limitation**: Music (~29 items per country), People & Blogs
+   (~22), Gaming (~121) are capped well below 200, so for those categories the
+   observable window is only the head of the chart.
+4. **Exit** = absent from **all** charts, across countries too.
+5. **The plaque carries the peak VPI observed**, with views and days in Most
+   Popular. Not the exit value: a downward view revision by YouTube after the
+   peak is not a demerit of the video.
+6. **Cross-video comparisons at day 1 only.** Every record has a day-1
+   reading by construction; from day 2 a ranking would silently restrict
+   itself to videos that stayed long enough to have that reading. No
+   post-exit reading of views.
+7. **No segment figure pooled across baseline bands or formats.** Entering a
+   200-slot chart needs absolute views, so a large-baseline channel enters at
+   1.5x while a small one can only enter at 6,000x; a pooled median moves with
+   who happened to chart that day.
+8. **The scale**: numeric thresholds set on the first data, then frozen, with
+   the calibration vintage printed on the plaque. Any future revision
+   published with the how, when and why.
+
+**Dropped, and not to be revived before v1 ships**: category-level averages;
+the control analysis on ordinary channel uploads (VPI 1.0x already *is* the
+normal video, by construction — only its dispersion survives, as an input to
+threshold calibration); a subscriber-count baseline (the API returns only the
+current count, rounded to three significant figures, with no history and no
+value at publication date, so it cannot be a pre-event denominator).
+
+**Still to measure when collection resumes**: the 14→7 maturity-floor
+sensitivity ran on 167 of 220 channels, excluding by construction the ones
+where the floor mattered most. ~660 units.

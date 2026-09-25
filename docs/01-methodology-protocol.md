@@ -4,7 +4,14 @@
 (fixed-age measurement at T=7 days: abandoned).
 
 Every figure here was measured against the official YouTube Data API v3.
-Sources in `03-trending-population-measurements.md`.
+Sources in `03-Most Popular-population-measurements.md`.
+
+> **Naming.** YouTube retired the *Trending* page on 22 July 2025. The
+> endpoint we read is `videos.list?chart=mostPopular`, so throughout this
+> documentation and in public material the population is called **YouTube's
+> Most Popular charts**, never "trending". The word survives only in the
+> filename `03-trending-population-measurements.md` and in quotations from
+> earlier material.
 
 ---
 
@@ -23,7 +30,7 @@ publishing mix rather than the video's performance.
 The population:
 
 > **Videos — Shorts (≤180s) and long-form — FIRST OBSERVED in YouTube's
-> trending charts, across 34 countries and 12 categories, starting from our
+> Most Popular charts, across 34 countries and 12 categories, starting from our
 > day 1.**
 
 **First observed, not "entered".** YouTube exposes no entry timestamp:
@@ -48,8 +55,17 @@ after external review.)*
 ## 2. The baseline — one rule
 
 > **Median view count of videos from the same channel and the same format,
-> published between 7 and 90 days before the measurement, at least 5 of
-> them, at most 20 spread evenly across the window.**
+> published between 7 and 90 days before the measured video was published,
+> at least 5 of them, at most 20 spread evenly across the window.**
+
+**Before the measured video's own publication — not before the measurement.**
+This was corrected on 25/09/2026 after external review. Anchoring the window
+to the measurement date meant that a video first observed at, say, 10 days of
+age had baseline videos published *after it*, during its own breakout: the
+denominator absorbed part of the event it was supposed to precede. 27% of
+charting Shorts are 7 days old or more when we first see them, so this was
+not a corner case. Anchoring to `publishedAt` makes the baseline genuinely
+**pre-event**, and costs nothing.
 
 **One rule for every record.** There are no fallback rules that widen the
 window when data is scarce: two records computed over different windows
@@ -179,33 +195,29 @@ trajectory with a declared closing rule.
 
 | Phase | What happens | What the public sees |
 |---|---|---|
-| Day 1 in chart | baseline computed and frozen, first VPI | "In trending, day 1 — currently 3.2× the channel median. Measurement in progress." |
+| Day 1 in chart | baseline computed and frozen, first VPI | "In Most Popular, day 1 — currently 3.2x the channel median. Measurement in progress." |
 | Days 2..n | views updated, VPI recomputed, no baseline change | the current value and the day count; **no award is issued** |
-| Exit | record closed, `left_on` and `days_charting` written | "In trending for 4 days, VPI at exit 3.5×. The plaque is now available." |
+| Exit | record closed, `left_on` and `days_charting` written | "In Most Popular for 4 days, peak VPI 3.5x, 1.4M views. The plaque is now available." |
 
-**The published value is the VPI at exit.** Because the denominator is
-frozen and cumulative views never decrease, VPI is monotonically
-non-decreasing over the record's life: the value at exit is therefore also
-the maximum by construction. We publish it as the exit value, not as a
-"maximum", because calling it a maximum would suggest a selection that never
-takes place.
+**The published value is the highest VPI observed during the record's life**,
+alongside the view count and the number of days in Most Popular. The three
+always travel together, on the plaque and in the API.
+
+The earlier claim that "the exit value is the maximum by construction" is
+**withdrawn**: it assumed view counts never decrease, and YouTube removes
+views on audit, so a daily series can fall. That is also why the maximum,
+not the exit value, is the published figure — a downward revision by YouTube
+after the peak is not a demerit of the video. `vpi_max` and `vpi_max_on` are
+**stored as observed**, never inferred.
 
 **What that number claims, stated exactly:**
 
-> For the whole period in which we observed this video in the trending
-> charts, it reached N times the median view count of the same channel's
-> videos in the same format published between 7 and 90 days before it was
-> first observed.
+> During the period in which we observed this video in YouTube's Most
+> Popular charts, it reached at its peak N times the median view count of
+> the same channel's videos in the same format published between 7 and 90
+> days before **this video was published**.
 
-It does **not** claim to be independent of the video's age, and it is not
-comparable across videos observed for different lengths of time without
-reporting `days_charting` alongside it. Both figures therefore always travel
-together, on the plaque and in the API.
-
-This is the answer to the objection that "current VPI" is not a well-defined
-estimand: there is no floating current value in the published material. There
-is a trajectory while the measurement is open, and one declared value once it
-is closed.
+It does **not** claim to be independent of the video's age.
 
 The days available to claim the plaque (`CLAIM_DAYS`) are an outreach
 parameter counted from first observation. They do not touch the measurement.
@@ -213,59 +225,92 @@ parameter counted from first observation. They do not touch the measurement.
 ### 4.2 Comparability between records
 
 A single record's value is well defined. **Two records are not automatically
-comparable.** Two things differ between them, and only one is under our
-control:
-
-| Source of non-comparability | Controllable? | What we do |
-|---|---|---|
-| **Days observed in the chart.** The numerator is cumulative and the denominator is frozen, so a video observed for 12 days has had six times the accumulation opportunity of one observed for 2 days. | **Yes** | every comparison is made at the **same day index** |
-| **Age at first observation.** A video may be 3 days old or 10 days old when it first appears in the charts, carrying very different amounts of views into the comparison. | **No** | recorded on every record, published alongside every aggregate, and tested for residual effect |
+comparable**, because the numerator is cumulative while the denominator is
+frozen: a video observed for 12 days has had six times the accumulation
+opportunity of one observed for 2 days.
 
 **The comparison rule:**
 
-> Two VPI values may be compared only if both were observed at the same
-> number of days since first observation in the chart, and only among
-> records for which that day was actually observed.
+> Cross-video comparisons are made at **day 1** — the first day the video was
+> observed in a chart.
+
+Day 1 is the only index that needs no correction and costs nothing: **every
+record has a day-1 reading by construction**, since we read the video the day
+we first see it. From day 2 onward a comparison would silently restrict
+itself to the videos that stayed in the charts long enough to have that
+reading, which is selection on an outcome correlated with VPI. We therefore
+do not publish day-2-or-later comparisons, and we do not keep reading videos
+after they leave the charts.
+
+What remains uncontrollable, and is disclosed rather than corrected: **age at
+first observation**. A video may be 3 days old or 10 days old when it first
+appears, carrying different amounts of accumulated views into the comparison.
+It is stored on every record (`age_at_first_obs_days`) and published
+alongside any ranking. Once data exists, regress `log(VPI at day 1)` on it
+with controls for format, baseline size, category and country; if the
+coefficient is materially non-zero, the ranking must be stratified by
+age-at-entry band rather than pooled.
 
 **What this permits and forbids:**
 
 | Construction | Status |
 |---|---|
-| A single record's trajectory and exit value | **permitted** — a descriptive statement about one video, always shown with `days_charting` |
-| A leaderboard at a fixed day index ("Top VPI — day 3") | **permitted** — stated as "VPI at N days after first observation", not as age-independent performance |
-| Aggregates (country, category, format) at a fixed day index, active and closed records together, with `n` reported | **permitted** |
-| A single all-time leaderboard ranked by exit VPI, presented as "best-performing videos" | **forbidden** — the ordering is confounded by observation duration |
-| Aggregates computed on exit VPI | **forbidden as the primary statistic** — a segment with longer average chart persistence would look different from one with shorter persistence even with identical trajectories |
+| A single record's trajectory, peak VPI, views and days | **permitted** — a descriptive statement about one video |
+| A ranking at day 1, with `age_at_first_obs_days` disclosed | **permitted**, stated as "VPI on the first day observed" |
+| Our own overall chart: the union of the category charts ordered by **views**, with each video's VPI shown beside it | **permitted** — the quantitative figure is YouTube's, the qualitative one is ours, and neither is averaged away |
+| A single all-time ranking by peak VPI presented as "best-performing videos" | **forbidden** — the ordering is confounded by observation duration |
+| Any segment average that mixes baseline bands, or Shorts with long-form | **forbidden** — see below |
 | Any of the above described as "age-adjusted" | **forbidden** — the measure is age-**indexed**, never age-adjusted |
 
-A table of exit VPI may still be published as a **historical record of the
-highest values observed**. That is a different claim from a performance
-ranking and must be labelled as such.
-
-**Selection at day N.** Conditioning on being observable at day N is itself
-a selection: day-7 statistics describe *videos still in the chart on day 7*,
-not all videos in the index. Acceptable, and stated every time.
-
-**Restricting aggregates to closed records is wrong** as the primary
-statistic: it conditions on future information (how long the video would
-ultimately stay) and drops every record currently charting. A day-3 figure
-uses every video with a valid day-3 observation, whether it left on day 4,
-on day 10, or is still charting. An exit analysis on closed records is a
-**secondary**, separately labelled statistic.
-
-**Validation to run once data exists.** At each day index, regress
-`log(VPI)` on age at first observation with controls for format, baseline
-size, category and country. If the age coefficient stays materially
-non-zero, the fixed-day ranking still carries systematic age dependence and
-must be qualified further.
-
----
+**Why segment averages must not mix baseline bands.** Entering a 200-slot
+chart requires absolute views. A channel with a baseline of 2M enters with a
+small relative jump; a channel with a baseline of 500 can only enter by doing
+something enormous relative to itself. Both appear in the chart, at 1.5x and
+at 6,000x, and the difference is the entry threshold, not the merit. A pooled
+median therefore moves with how many small-baseline channels happened to
+chart that day. If a segment figure is ever published, it is published **by
+baseline band and by format**, with `n` shown.
 
 ## 5. The budget
 
+### What we read, and what we deliberately do not
+
+We read the **414 category slices** (34 countries x 13 categories that
+return data) and **not** YouTube's own general chart.
+
+The general chart is a different population. Measured on 25/09/2026, Italy:
+58.8% of its videos appear in no category chart at all, and its ordering is
+not by views — the #2 video in Italy had 14,655 views while the #20 had
+6,881,481. It is a curated showcase carrying trailers and promoted releases,
+consistent with YouTube's own description of Charts after the Trending page
+was retired. The category charts, by contrast, are recognisably ordered by
+view count.
+
+Our own overall ranking is therefore **built by us**, from the union of the
+category charts, ordered by views, with each video's VPI shown beside it. We
+do not inherit YouTube's editorial selection.
+
+**Declared consequence.** Some category charts are capped far below 200, so
+for those categories our observable window is only the head of the ranking:
+
+| Category | Mean items per country |
+|---|---|
+| 29 — Nonprofits | 1.0 |
+| 22 — People & Blogs | 22.1 |
+| 10 — Music | 29.4 |
+| 20 — Gaming | 120.6 |
+| 25 — News & Politics | 144.9 |
+| 28 — Tech | 147.5 |
+| the other seven | 195-200 |
+
+The general chart used to recover a few of these — a music video with
+millions of views sitting outside Music's top 30 — but it recovered them
+**unsystematically**, mixed with promotional content. An irregular patch is
+worth less in a measurement protocol than a stated boundary.
+
 | Item | Units |
 |---|---|
-| Reading the 448 charts | 1,486 |
+| Reading the 414 category charts | 1,350 |
 | View counts for every video | 0 (included above) |
 | `channels.list` batched in 50s | ~96 |
 | `playlistItems` per new channel (with pagination) | ~1.2 per channel |
@@ -275,7 +320,8 @@ must be qualified further.
 `playlistItems.list` does not: one playlist per call (two comma-separated
 `playlistId` values return HTTP 400). That is the floor.
 
-Estimated steady-state cost: **~9,000 units out of 10,000**, with 23,764
+Estimated steady-state cost: **~8,900 units out of 10,000** (the general
+chart's 136 calls are no longer spent), with 23,764
 unique channels and 24% turnover. It is tight. **The real 24-hour turnover
 has not yet been measured** — it comes free from the day 0 / day 1
 comparison, and it is the gate that decides whether we proceed as-is or
@@ -292,7 +338,7 @@ Census of 22 September 2026:
 
 | | |
 |---|---|
-| Charts queried | 448 of 476 (28 return 404) |
+| Charts queried | 448 of 544 (96 return 404) |
 | Unique videos | 29,433 |
 | of which Shorts | 20,073 |
 | of which long-form | 9,360 |

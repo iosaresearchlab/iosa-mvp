@@ -41,14 +41,14 @@ it means **the database contains only the survivors**.
 
 Direct consequence: *no* median we publish is the median of a real
 population. The "index median of 7.0×" is the median of videos that had
-already beaten themselves. The true median of trending videos is by
+already beaten themselves. The true median of Most Popular videos is by
 construction lower, and we do not know by how much, because **the discards
 are counted nowhere**: the engine logs them per cycle and then the number is
 lost.
 
 ### The second, subtler bias
 
-YouTube's documentation on trending states that placement takes into
+YouTube's documentation on Most Popular states that placement takes into
 account, among other factors, "how well the video performs compared to other
 recent uploads from the same channel". That is, **YouTube already
 pre-selects partly on the same quantity we measure**. We are not observing a
@@ -80,7 +80,7 @@ records out of 133.
 **It dies for two independent reasons.**
 
 **The sample is tiny and censored.** 133 records out of 16,234, and they are
-the 133 that passed the filter. We do not know how many trending music
+the 133 that passed the filter. We do not know how many Most Popular music
 videos were discarded for falling below 1.0×. It could be most of them.
 
 **The number is a denominator effect, not performance.** Direct comparison:
@@ -173,7 +173,24 @@ every threshold is wrong. Recalibrating on the censored distribution and
 then removing the censoring would mean calibrating twice, and publishing a
 scale we would have to change again within weeks.)*
 
-### 4.3 Absolute or percentile-based?
+### 4.3 Decided: numeric thresholds, fixed once
+
+**This is settled and is not an open question.** The procedure:
+
+1. Collect until there is enough data (the minimum is stated with the first
+   audit, not guessed now).
+2. Set the ten thresholds as **numbers** — level 10 above 250x, or above
+   1,000x, whatever the distribution supports.
+3. Those numbers are then **frozen**, and the vintage they were calibrated on
+   is printed on the plaque.
+4. If they are ever revised, the revision is published with the how, the when
+   and the why. Not silently.
+
+Historical v1 percentiles are **not** admissible as calibration evidence: the
+dataset was produced by a censored, non-probability sampling method this
+document itself declares invalid.
+
+### 4.4 Absolute or percentile-based? — background
 
 **Absolute**, and this follows from the plaque. The plaque is a permanent
 document carrying a date and a frozen number: if the level were a percentile
@@ -208,7 +225,7 @@ entirely. Step 3 begins on day 1 of v2 collection.
 
 The rule that comes out of this, effective immediately: **before publishing
 a number, ask which population the number belongs to.** Almost everything we
-can say must be qualified with "among the trending videos we measured", not
+can say must be qualified with "among the Most Popular videos we measured", not
 "on YouTube".
 
 Three sentences we used, or were about to use, that do not hold:

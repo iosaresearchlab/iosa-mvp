@@ -72,13 +72,14 @@ trajectory:
   value is the **VPI at exit**, always displayed together with the number of
   days charting.
 
-Because the denominator is frozen and cumulative views never decrease, VPI
-is monotonically non-decreasing over a record's life, so the exit value is
-also the maximum by construction.
+VPI generally rises over a record's life, since the denominator is frozen
+and views accumulate — but not by construction: YouTube removes views on
+audit, so the series can fall. The maximum is therefore stored as observed,
+never inferred from the exit value.
 
 The claim attached to the published figure is therefore:
 
-> For the whole period in which we observed this video in the trending
+> For the whole period in which we observed this video in the Most Popular
 > charts, it reached N times the median view count of the same channel's
 > videos in the same format published between 7 and 90 days before it was
 > first observed.
@@ -101,9 +102,30 @@ a segment aggregate. The measure is age-**indexed**, never age-adjusted.
 
 ---
 
+## 2.2 Decisions closed after review (25/09/2026)
+
+For a reviewer returning to this dossier, the design changed in five ways:
+
+1. The baseline window is anchored to the **measured video's own
+   `publishedAt`**, not to the measurement date — so the denominator is
+   genuinely pre-event.
+2. **YouTube's general chart is no longer read.** Measured: 58.8% of its
+   videos appear in no category chart, and its ordering is not by views
+   (Italy: #2 had 14,655 views, #20 had 6,881,481). It is a curated showcase.
+   Our own overall ranking is built from the union of the 414 category charts,
+   ordered by views, with each video's VPI beside it.
+3. The published figure is the **peak VPI observed**, with views and days in
+   Most Popular. Monotonicity was withdrawn: YouTube removes views on audit.
+4. **Cross-video comparisons at day 1 only** — the one index every record has
+   by construction. From day 2 a ranking conditions on residence, which
+   correlates with VPI. No post-exit tracking.
+5. **No segment figure pooled across baseline bands or formats**, because
+   chart entry requires absolute views and therefore sets a different VPI
+   threshold for each channel size.
+
 ## 3. The population
 
-> Videos — Shorts and long-form — **first observed** in YouTube's "trending"
+> Videos — Shorts and long-form — **first observed** in YouTube's "Most Popular"
 > charts, across 34 countries and 12 categories, starting from a declared
 > start date.
 
@@ -125,7 +147,7 @@ event, and the index must never be described as a census of chart entrants.
 *(Wording corrected 24/09/2026 after external review.)*
 
 **b) The population is already pre-selected by YouTube.** YouTube's own
-documentation states that among the ranking signals for trending is *"how
+documentation states that among the ranking signals for Most Popular is *"how
 well the video performs compared to other recent uploads from the same
 channel"* — **a quantity correlated with the one we measure**. This is a
 declared structural limitation that cannot be engineered away. See 6.1.
@@ -167,7 +189,7 @@ September 2026.
 
 | | |
 |---|---|
-| Charts queried | 448 of 476 (28 return 404) |
+| Charts queried | 448 carrying data of 544 queried (96 return 404) |
 | Unique videos | 29,433 |
 | of which Shorts (≤180s) | 20,073 |
 | of which long-form | 9,360 |
@@ -262,7 +284,7 @@ This is the section we want attacked.
 
 ### 6.1 The population is selected on a variable correlated with the outcome
 
-YouTube ranks trending partly on how much a video outperforms others from
+YouTube ranks Most Popular partly on how much a video outperforms others from
 the same channel. That signal is **correlated with** VPI; it is not VPI.
 YouTube's ranking is a different functional quantity, and we have access to
 neither its definition, nor its weighting, nor any threshold it may apply.
@@ -270,11 +292,11 @@ What the evidence supports is therefore **selection related to the
 outcome** — not truncation of the population at a VPI value.
 
 The consequence stands either way: no statistic we compute describes
-"YouTube videos". It describes "videos YouTube placed in trending", and the
+"YouTube videos". It describes "videos YouTube placed in Most Popular", and the
 observed VPI distribution cannot tell us how unusual a given VPI would be
 among ordinary uploads.
 
-A representative population cannot be obtained from the trending endpoint at
+A representative population cannot be obtained from the Most Popular endpoint at
 all. Whether some alternative sampling design exists under other constraints
 is outside what we have tested. **We declare the selection. Is declaring it
 enough?**
@@ -337,7 +359,7 @@ design hold up?**
 ### 6.5 The measured video is excluded from its own baseline… or is it?
 
 The measured video is excluded explicitly. But **other videos from the same
-channel that entered trending in the same period** are not, and may have
+channel that entered Most Popular in the same period** are not, and may have
 been inflated by the same event. We have no countermeasure.
 
 ### 6.6 Filters that remain, and need justifying

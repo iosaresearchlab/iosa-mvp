@@ -43,13 +43,14 @@ VPI = video views / channel baseline, within the same format
 Baseline = median view count of videos from the same channel and the same
 format published between 7 and 90 days before the measurement, at least 5,
 at most 20 spread evenly across the window. Computed once, when the video is
-first observed in the trending charts, and then frozen.
+first observed in the Most Popular charts, and then frozen.
 
 VPI is recomputed every day the video is observed in the chart. While it is
 charting the public sees a trajectory and no award; when it leaves, the
 record closes and the published value is the VPI at exit, always shown with
-the number of days charting. Because the denominator is frozen and views
-never decrease, the exit value is also the maximum by construction.
+the number of days charting. The maximum VPI is stored as observed, not
+inferred from the exit value: YouTube removes views on audit, so a daily
+series can go down.
 
 There are two formats and they never mix: Shorts (<=180s) and long-form
 (>180s).
@@ -60,7 +61,7 @@ not be cited as settled.
 
 ## 3. The population
 
-Videos — Shorts and long-form — FIRST OBSERVED in YouTube's trending charts,
+Videos — Shorts and long-form — FIRST OBSERVED in YouTube's Most Popular charts,
 across 34 countries and 12 categories, starting from day 1 of collection.
 
 First observed, not "entered". YouTube exposes no entry timestamp. What we
@@ -69,12 +70,28 @@ previous one — a weaker event than entry, since a video can enter and leave
 between two readings. The index is not a census of chart entrants and must
 never be described as one.
 
+## 3.1 What we read
+
+The **414 category charts** (34 countries x 13 categories that return data).
+**Not** YouTube's general chart: 58.8% of its videos appear in no category
+chart and its ordering is not by views — it is a curated showcase. Our own
+overall ranking is built from the union of the category charts, ordered by
+views, with each video's VPI beside it.
+
+Declared limitation: Music (~29 items per country), People & Blogs (~22) and
+Gaming (~121) are capped well below 200, so for those categories the
+observable window is only the head of the chart.
+
+Cross-video comparisons are made at **day 1**, the first day a video is
+observed: the only index every record has by construction. Segment figures
+are never pooled across baseline bands or formats.
+
 ## 4. How it works
 
 One reading per day at 23:59 UTC, triggered by pg_cron on Supabase calling
 POST /api/ingest/run on the backend.
 
-Each run reads 448 charts (~1,486 quota units), stores the snapshot of IDs,
+Each run reads 414 category charts (~1,350 quota units), stores the snapshot of IDs,
 computes baselines for new entries only, updates view counts for
 already-tracked videos, and closes the ones that left. Each run's report
 goes into the ingest_run table.
@@ -104,7 +121,7 @@ with the code:
 - docs/README.md — index and reading order
 - docs/01-methodology-protocol.md — what we measure
 - docs/02-technical-specification.md — what to build
-- docs/03-trending-population-measurements.md — the measured figures
+- docs/03-Most Popular-population-measurements.md — the measured figures
 - docs/04-bias-and-scale-analysis.md — selection biases and the scale
 - docs/05-external-review-dossier.md — for external reviewers
 ```

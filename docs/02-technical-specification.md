@@ -3,7 +3,7 @@
 **Status: approved 23 September 2026. No code written yet.**
 
 Implements `01-methodology-protocol.md`. Population figures from
-`03-trending-population-measurements.md`.
+`03-Most Popular-population-measurements.md`.
 
 Terminology: **day 0** = first reading, snapshot only. **day 1** = first
 reading with a comparison, first real records.
@@ -115,8 +115,9 @@ Next.js, `frontend/src`, 4,029 lines.
 ```
 23:59 UTC, once a day
    |
-   +- 1. CENSUS       448 charts, part=snippet,contentDetails,statistics
-   |                  -> 29,400 videos, views included, 1,486 units
+   +- 1. CENSUS       414 category charts (NOT the general chart)
+   |                  part=snippet,contentDetails,statistics
+   |                  -> ~28,000 videos, views included, 1,350 units
    +- 2. SNAPSHOT     writes trend_snapshot. Zero cost
    +- 3. ENTRIES      today \ yesterday \ ever_seen -> baseline -> insert
    +- 4. UPDATE       already tracked and still charting -> series. Zero cost
@@ -221,8 +222,8 @@ alter table public.post_daily enable row level security;
 create policy "public read" on public.post_daily for select using (true);
 ```
 
-`day_index` is the comparison key: **every cross-video comparison, ranking
-and aggregate runs at a fixed `day_index`** (see `01-methodology-protocol.md`
+`day_index` is the comparison key: **every cross-video comparison and
+ranking runs at `day_index = 1`** (see `01-methodology-protocol.md`
 §4.2). It is redundant with `day - entered_on`, but storing it turns the
 main query of the whole site into an index scan. Four bytes well spent.
 
@@ -361,15 +362,19 @@ in 6 countries with 1 video: keep it, it costs 6 calls).
 **To move to `archive/backend/`**: the entire TikTok branch
 (`get_tiktok_access_token`, `get_tiktok_user_baseline`,
 `fetch_and_ingest_tiktok_content`) — 1 record in the project's entire
-history, and the Research API exposes no trending chart, so entry into
-trending is not observable there. Same for `weekly_digest.py` (unwired stub,
+history, and the Research API exposes no Most Popular chart, so entry into
+Most Popular is not observable there. Same for `weekly_digest.py` (unwired stub,
 names real creators, comment-based CTA).
 
 ### 4.3 New module `backend/census.py`
 
 ```python
-def read_trending(countries, categories) -> tuple[dict, dict]:
-    """Full census. Returns (videos, report).
+def read_charts(countries, categories) -> tuple[dict, dict]:
+    """Full census of the CATEGORY charts. Returns (videos, report).
+
+    The general chart (no videoCategoryId) is NOT read: it is a different
+    population — curated, not ordered by views, 58.8% of its videos absent
+    from every category chart. See 01-methodology-protocol.md section 5.
 
     videos: {video_id: {channel_id, format, published_at, views,
                         countries:set, categories:set}}
@@ -383,7 +388,12 @@ def entries(day) -> list[str]      # calls entries_of_day()
 def close_exits(day) -> int
 ```
 
-Concurrency 8-12 threads. Measured: 1,486 calls in **112 seconds**.
+Concurrency 8-12 threads. Measured: 1,486 calls in **112 seconds** for all
+544 slices; the 414 category slices alone cost **1,350**.
+
+`CATEGORIES` excludes 19 (Travel & Events) and 27 (Education), which return
+404 in all 34 countries, so `CATEGORY_MAP` drops from 15 entries to 13 and no
+cycle is wasted on a 404.
 
 ### 4.4 New module `backend/baseline.py`
 
@@ -416,9 +426,8 @@ twice. An in-memory dictionary is enough. The file-backed `TTLCache` goes.
 | Endpoint | Change |
 |---|---|
 | `GET /api/posts` | `min_vpi` default 1.4 → **0**; filter `method_version='v2'`; `status` optional |
-| `GET /api/analytics/top10` | **rewritten**: ranks on `post_daily` at a required `day_index` parameter, not on `posts.vpi_ratio`. Timeframe filters on **`entered_on`**, not `created_at`. Returns `n` and the distribution of `age_at_first_obs_days` |
-| `GET /api/analytics/insights` | filter `method_version='v2'`; **every aggregate computed at a fixed `day_index`**, active and closed records together, never on exit VPI |
-| **`GET /api/analytics/trajectory`** | **new**: median VPI by `day_index` (1, 2, 3, 7, …) with `n` per point, optionally by country / category / format. This is the comparable aggregate |
+| `GET /api/analytics/top10` | **rewritten**: ranks on `post_daily` at `day_index = 1`, not on `posts.vpi_ratio`. Timeframe filters on **`entered_on`**, not `created_at`. Returns `n` and the distribution of `age_at_first_obs_days` |
+| `GET /api/analytics/insights` | filter `method_version='v2'`; any segment figure is computed at `day_index = 1`, **by baseline band and by format**, with `n` shown. No figure pooled across bands or formats |
 | `GET /api/analytics/keywords` | same |
 | `POST /api/ingest/run` | **daily lock**: if an `ingest_run` for today already exists with outcome `ok`, return 409. Without it, two close calls double the quota spend |
 | **`GET /api/ingest/status`** | **new**: the latest `ingest_run`. This is how the audit is read without opening the database |
@@ -490,14 +499,17 @@ just closed. Covers the case where Render does not wake in time.
   archive" selector
 - **line 750**: "Rotating sample across 34 countries and 15 categories" →
   full census, 12 categories
-- **line 759**: "Each cycle scans the trending Shorts of three countries and
+- **line 759**: "Each cycle scans the Most Popular Shorts of three countries and
   one category, rotating across 34 countries and 15 categories" → false
   twice, rewrite
 - **line 439**: "within active 15-day window" → remove
 - new columns: days charting, peak VPI reached
-- **default sort is no longer raw VPI.** Any ranked view on this page uses a
-  fixed `day_index`, per §4.2 of the protocol. Sorting the mixed population
-  by current VPI ranks by how long we have been measuring
+- **default sort is no longer raw VPI.** The page shows **our own overall
+  chart**: the union of the category charts ordered by **views**, with each
+  video's VPI beside it. The quantitative figure is YouTube's, the
+  qualitative one is ours, and no average hides either. Any VPI-ranked view
+  uses `day_index = 1`, per §4.2 of the protocol — sorting the mixed
+  population by current VPI ranks by how long we have been measuring
 
 ### 6.3 `app/leaderboard/page.tsx`
 
@@ -506,18 +518,19 @@ regardless of how long it has been measured. That ordering is confounded by
 observation duration and cannot be published as a performance ranking
 (`01-methodology-protocol.md` §4.2).
 
-- the page becomes **day-indexed**: a day selector (1 / 3 / 7) and the title
-  "Top VPI — day N", reading `post_daily` at that `day_index`
-- only videos with an **actual observation** at that day, active and closed
-  alike
+- the VPI ranking reads `post_daily` at **`day_index = 1`** and is titled
+  "Top VPI — first day observed". No day selector: from day 2 onward the
+  ranking would silently restrict itself to the videos that stayed long
+  enough to have that reading
 - `n` is displayed, and so is the range of `age_at_first_obs_days`
-- one line under the title: *"VPI at N days after first observation. Not
-  age-adjusted."*
+- one line under the title: *"VPI on the first day observed in Most Popular.
+  Not age-adjusted."*
 - timeframe 24h / 7d / 15d → **today / 7 days / 30 days / all**, filtered on
   `entered_on`. Today the filter runs on `created_at`, the video's
   publication date: the label promises one thing and the query does another
-- the all-time table by exit VPI may stay as a separate, clearly labelled
-  **"highest values observed"** section — never as "best-performing videos"
+- a separate table by **peak VPI**, clearly labelled *"highest values
+  observed"* — never as "best-performing videos", since the ordering is
+  confounded by how long each video was measured
 
 ### 6.4 `app/claim/[token]/page.tsx`
 
@@ -535,13 +548,13 @@ The public methodology text. **Rewrite entirely:**
 - "**Content with VPI ≤ 1.0x is excluded from indexing**" → **remove**: this
   is the sentence that documents the censoring
 - "15-Day Rolling Audit Window" → replace with the definition of the
-  population (observed entry into trending)
+  population (observed entry into Most Popular)
 - add: baseline frozen at entry and the 7-90 day window, comparison within
   format, 34 countries and 12 categories, one reading per day at 23:59 UTC,
   scale version and calibration date
 - add, verbatim, the two sentences that carry the estimand:
   *"VPI is cumulative and age-dependent. It is recalculated daily while the
-  video remains in the observed trending chart, and is interpreted together
+  video remains in the observed Most Popular chart, and is interpreted together
   with the video's age and its days observed in the chart."*
   *"VPI is not age-adjusted: values observed at different video ages are not
   directly comparable as age-independent measures of performance."*
@@ -583,7 +596,7 @@ identical.
 **Phase B — day 0**
 8. `cron.job` to `59 23 * * *`, Render reactivated
 9. First run in **snapshot-only** mode (`SNAPSHOT_ONLY=true`). Expected
-   spend: 1,486 units
+   spend: 1,350 units
 
 **Phase C — day 1 and the gate**
 10. Second full run, first v2 records

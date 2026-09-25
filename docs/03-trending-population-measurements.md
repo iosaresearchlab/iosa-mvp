@@ -1,4 +1,4 @@
-# YouTube trending charts — what we measured
+# YouTube Most Popular charts — what we measured
 
 Direct measurements against the official YouTube Data API v3, 22-23
 September 2026. These are the figures the methodology protocol rests on.
@@ -47,12 +47,26 @@ Two consequences:
 
 ## 3. The number: full census of 34 countries
 
-Run 22 September 2026, 476 slices (34 countries × 14 slice types), full
-pagination. **These are counted, not estimated.**
+Run 22 September 2026, **544 slices (34 countries × 16 slice types: the
+general chart plus 15 categories)**, full pagination. **These are counted,
+not estimated.**
+
+Of the 544, **96 return 404** and carry nothing:
+
+| Slice | Countries returning 404 |
+|---|---|
+| 19 — Travel & Events | 34 of 34 |
+| 27 — Education | 34 of 34 |
+| 29 — Nonprofits & Activism | 28 of 34 |
+
+**448 slices carry data.** *(Corrected 25/09/2026: the earlier figures
+"476 slices (34 × 14)" were never measured — recomputed from the census
+file.)*
 
 | | |
 |---|---|
-| Slices queried | 476 |
+| Slices queried | 544 |
+| of which carrying data | 448 |
 | **Quota calls** | **1,486** |
 | **Unique videos** | **29,433** |
 | of which Shorts (≤180s) | 20,073 |
@@ -64,7 +78,7 @@ pagination. **These are counted, not estimated.**
 Calls are 1,486 rather than ~1,900 because many slices are short: Music caps
 at 30, Nonprofits at 1, People & Blogs ranges from 6 to 89.
 
-**Reading every trending chart in the world costs 1,486 units out of 10,000,
+**Reading every Most Popular chart in the world costs 1,486 units out of 10,000,
 and takes two minutes.** Reading is not the constraint.
 
 The gross sum across slices is 69,726 videos; deduplicated it is 29,433.
@@ -246,8 +260,8 @@ The cycle in production until 22 September 2026 (every 20 minutes) took US +
 2 random countries out of 34, 1 random category out of 15, and 2 pages out
 of 4.
 
-At most **300 videos per cycle**, drawn at random from 476 slices holding
-~63,000 slots (~50,000 unique).
+At most **300 videos per cycle**, drawn at random from 448 slices holding
+~70,000 slots (~29,000 unique).
 
 It was not a census: it was a random sample of slices with the depth cut in
 half, and no video had a known probability of being observed.

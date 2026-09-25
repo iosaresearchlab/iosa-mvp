@@ -95,8 +95,8 @@ into an endorsement.
 
 ## §4 — Follow-up on the population (optional, high value)
 
-> Our population is videos that YouTube placed in "trending". YouTube's
-> documentation says trending ranking considers how well a video performs
+> Our population is videos that YouTube placed in "Most Popular". YouTube's
+> documentation says Most Popular ranking considers how well a video performs
 > compared to other recent uploads from the same channel — which is what we
 > measure. The population is therefore selected on a variable correlated
 > with the outcome. We cannot sample randomly: the API doesn't allow it and
