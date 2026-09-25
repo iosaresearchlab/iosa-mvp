@@ -129,10 +129,14 @@ Next.js, `frontend/src`, 4,029 lines.
 
 ## 3. Database
 
-### 3.1 New table `trend_snapshot` — a working buffer
+### 3.1 New table `trend_snapshot` — a working buffer, plus the day-0 archive
 
-**Not an archive: it is the reference point for "absent yesterday".** The
+**A working buffer: it is the reference point for "absent yesterday".** The
 research data lives in the series and the records, which are never deleted.
+The one exception is **day 0**: its rows are written with `permanent = true`
+and are never deleted. They are the reference state of the population at the
+start of the index (`01` §4) — a scientific record, never part of the
+metrics.
 
 ```sql
 create table public.trend_snapshot (
@@ -144,6 +148,7 @@ create table public.trend_snapshot (
   views         numeric,
   countries     text[] not null,
   categories    text[] not null,
+  permanent     boolean not null default false,  -- true only for day 0
   primary key (day, video_id)
 );
 create index trend_snapshot_day_idx on public.trend_snapshot (day);
@@ -152,11 +157,53 @@ alter table public.trend_snapshot enable row level security;
 ```
 
 Retention **7 days** (1 would suffice; 7 gives slack if a reading is
-missed):
+missed), day 0 excluded:
 
 ```sql
-delete from trend_snapshot where day < current_date - 7;
+delete from trend_snapshot where day < current_date - 7 and permanent = false;
 ```
+
+### 3.1.1 New table `day0_pending` — the day-0 exclusion list
+
+The IDs of day 0 that have **not yet been observed absent**. Seeded from day
+0's snapshot, and it only ever shrinks. It is a separate table precisely
+because it drains: draining must never touch the archive above.
+
+What it protects, exactly: a day-0 video still charting is already excluded
+by the comparison with the previous snapshot. The list is what keeps it
+excluded when a **partial** run left it out of that snapshot — without the
+list it would reappear the next day as a false entry. (After day 1 every
+other charting video is either a record in `posts` or on this list, so a
+partial run cannot turn any of them into a new record.)
+
+```sql
+create table public.day0_pending (
+  video_id text primary key
+);
+alter table public.day0_pending enable row level security;
+-- no policy: only the service role writes here
+```
+
+After every **complete** run (`ingest_run.outcome = 'ok'`), an ID leaves the
+list the first day we observe it absent from the charts:
+
+```sql
+delete from day0_pending
+where video_id not in (select video_id from trend_snapshot where day = :today);
+```
+
+A partial run does not drain: an ID missing from an incomplete snapshot was
+not observed absent, it was not read. If a day-0 video leaves and later
+returns, that entry was observed and is a legitimate entry like any other.
+Given the measured turnover the list empties within a couple of weeks
+*(estimate, from the 24% daily turnover in §5 of `01`; not yet measured on
+v2 data)*.
+
+**Day 0 must be complete before day 1 runs.** If day 0 ends `partial` — quota
+brake, 403, anything — `day0_pending` is incomplete, and every pre-existing
+video left unread would enter as a false entry on day 1. On a partial day 0:
+delete that day's snapshot rows and `day0_pending`, and re-run day 0. Do not
+proceed to day 1.
 
 ### 3.2 New columns on `posts`
 
@@ -268,20 +315,36 @@ create table public.ingest_run (
 database.
 
 ```sql
-create or replace function entries_of_day(d date)
-returns table (video_id text) language sql stable as $$
+create or replace function public.entries_of_day(d date)
+returns table (video_id text, gap_days int, entry_certain boolean)
+language sql stable
+set search_path = public
+as $$
   with previous as (
-    select max(day) as d from trend_snapshot where day < d
+    select max(day) as pd from trend_snapshot where day < d
   )
-  select s.video_id
-  from trend_snapshot s
+  select s.video_id,
+         case when previous.pd = d - 1 then 0 else d - previous.pd end,
+         previous.pd = d - 1
+  from trend_snapshot s, previous
   where s.day = d
-    and not exists (select 1 from trend_snapshot p, previous
-                    where p.day = previous.d and p.video_id = s.video_id)
+    and previous.pd is not null
+    and not exists (select 1 from trend_snapshot p
+                    where p.day = previous.pd and p.video_id = s.video_id)
     and not exists (select 1 from posts po
-                    where po.external_post_id = s.video_id);
+                    where po.external_post_id = s.video_id)
+    and not exists (select 1 from day0_pending z
+                    where z.video_id = s.video_id);
 $$;
 ```
+
+Four exclusions, each for one reason: present in the previous snapshot
+(already charting), already a record (re-entry: no new record, `01` §4 step
+6), still on the day-0 list (§3.1.1), and **no previous snapshot at all**
+(day 0 is snapshot only: with nothing to compare against, no entry is
+observable). The function returns the gap with each ID, so the writer sets
+`entry_certain` and `gap_days` from the database's answer rather than
+recomputing them.
 
 The `max(day) < d` is the countermeasure for a missed day: the comparison is
 against **the most recent existing snapshot**, not "yesterday" by definition.
@@ -290,7 +353,7 @@ That keeps the run from treating every video as new, but it does not restore
 the missing information. When `previous.d < d - 1` the entry date is
 **unknown**: the video may have entered during the gap. Every record created
 in such a run is written with `entry_certain = false` and `gap_days = d -
-previous.d`, and every statistic that depends on the entry date filters
+previous.d` (0 when there is no gap), and every statistic that depends on the entry date filters
 `entry_certain = true`. A gap must never manufacture an entry event.
 
 ### 3.6 Archiving the v1 records
@@ -552,6 +615,8 @@ The public methodology text. **Rewrite entirely:**
 - add: baseline frozen at entry and the 7-90 day window, comparison within
   format, 34 countries and 12 categories, one reading per day at 23:59 UTC,
   scale version and calibration date
+- add: **the index start date** (`01` §1), and that everything in the charts
+  before it is outside the measurement
 - add, verbatim, the two sentences that carry the estimand:
   *"VPI is cumulative and age-dependent. It is recalculated daily while the
   video remains in the observed Most Popular chart, and is interpreted together

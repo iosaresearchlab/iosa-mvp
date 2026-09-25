@@ -177,6 +177,20 @@ threshold calibration); a subscriber-count baseline (the API returns only the
 current count, rounded to three significant figures, with no history and no
 value at publication date, so it cannot be a pre-event denominator).
 
+**Day-0 exclusion, made explicit (decided by Migert, 25/09).** `01` §4 said
+day-0 videos never enter; `02` enforced it only by comparing with the
+previous snapshot, which fails when a partial run left a day-0 video out of
+that snapshot — it would then enter as a false entry. Now: day
+0's snapshot is kept permanently (`permanent = true`) as the reference state
+of the population; a separate list, `day0_pending`, holds the day-0 IDs not
+yet observed absent and drains after each complete run; a day-0 video that
+is observed absent and then returns is a legitimate entry. Day 0 must be
+complete before day 1 runs (`01` §4, `02` §3.1, §3.1.1, §3.5, `08` T-06,
+T-15). `01` §1 also states that **the series begins on day 1** and that the
+index carries an explicit start date, a placeholder until T-16, to be filled
+in with the day-1 audit (`08` T-17) and shown on the public methodology page
+(`02` §6.5).
+
 **Still to measure when collection resumes**: the 14→7 maturity-floor
 sensitivity ran on 167 of 220 channels, excluding by construction the ones
 where the floor mattered most. ~660 units.

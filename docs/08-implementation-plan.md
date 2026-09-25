@@ -105,13 +105,16 @@ Per `02` §3.2, including `entry_certain`, `age_at_first_obs_days`, `gap_days`,
   stays, it is harmless.
 
 ### T-06 — `entries_of_day()` and the archiving of v1
-The SQL function from `02` §3.5, and
+The SQL function from `02` §3.5, the `permanent` column and the
+`day0_pending` table from `02` §3.1 / §3.1.1, and
 `update posts set method_version='v1' where entered_on is null`.
 
 - **Closing check**: `tests/test_entries.py` green on a seeded
   `trend_snapshot` covering: normal entry, exit, re-entry, day 0 with no
-  previous snapshot, and **a missing day** (which must produce
-  `entry_certain = false`, never a new entry). Plus:
+  previous snapshot, **a missing day** (which must produce
+  `entry_certain = false`, never a certain entry), **a day-0 video still
+  present** (never a record), and **a day-0 video observed absent that then
+  returns** (a record). Plus:
   `select count(*) from posts where method_version='v1'` = 28,917.
 - **Rollback**: `drop function`; reset `method_version`.
 
@@ -236,9 +239,15 @@ not attempted. Report the measured consumption before proceeding.
 One full run with `SNAPSHOT_ONLY=true`. Expected spend **1,350 units**.
 
 - **Closing check**: `trend_snapshot` holds one row per (day, video) with
-  ~28,000 distinct videos; `ingest_run` reports `outcome='ok'` and
+  ~28,000 distinct videos, all with `permanent = true`; `day0_pending` holds
+  exactly the same IDs; `ingest_run` reports `outcome='ok'` and
   `quota_total` within 5% of 1,350; **zero rows written to `posts`**.
-- **Rollback**: delete the day's snapshot rows and re-run.
+- **This check protects the exclusion list, not only the quota budget.** An
+  incomplete day 0 leaves `day0_pending` incomplete, and every unread
+  pre-existing video would enter on day 1 as a false entry (`02` §3.1.1).
+  T-16 does not start until this check passes.
+- **Rollback / on a partial day 0**: delete that day's snapshot rows and
+  `day0_pending`, and re-run day 0. Do not proceed.
 
 ### T-16 — day 1: first real records
 Second full run. This is the first day of the index.
@@ -266,6 +275,12 @@ The numbers that decide whether this is a measurement or not:
 - **Closing check**: a written audit committed to
   `docs/09-day1-audit.md`, containing every figure above, computed by a
   script committed alongside it. No figure estimated.
+- **Same commit: the start date.** The `YYYY-MM-DD` placeholder in `01` §1 is
+  replaced with the date of the first successful day-1 run (T-16), and the
+  same date is written into the text that `02` §6.5 prescribes for the public
+  methodology page. `grep -rn "YYYY-MM-DD" docs/` returns nothing. The
+  claude.ai project description must state the date too: Migert pastes it,
+  since no session can edit it — the check is his confirmation.
 
 **GATE-3 — GO / NO-GO.** Decided on the audit, by Migert. Only after GO:
 the scale thresholds are set numerically and frozen with their vintage, and

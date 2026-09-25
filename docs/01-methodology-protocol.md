@@ -33,6 +33,23 @@ The population:
 > Most Popular charts, across 34 countries and 12 categories, starting from our
 > day 1.**
 
+**The series begins on day 1.** The index starts on `YYYY-MM-DD` (to be fixed
+at the first successful day-1 run — T-16). Everything present in YouTube's
+Most Popular charts before that date is outside the measurement: we did not
+observe it arrive, so we do not measure it.
+
+The day-0 snapshot is retained permanently as the reference state of the
+population at the start, and produces no records for that period. A day-0
+video becomes eligible only once we have observed it absent from all charts;
+if it later returns, that return is an entry we did observe and is measured
+like any other. Its view count is cumulative and therefore includes the
+earlier period, which is one reason `age_at_first_obs_days` is published
+alongside every ranking.
+
+*(The start date is a placeholder until T-16 closes; it is replaced in the
+commit that records the day-1 audit, T-17. A reader who cannot tell what
+period the index covers cannot judge any figure in it.)*
+
 **First observed, not "entered".** YouTube exposes no entry timestamp:
 verified by pulling every available API part — the only date present is
 `publishedAt`, the video's publication. What we observe is that a video is
@@ -162,8 +179,15 @@ a time that shifts with daylight saving is not a method parameter.)*
 Read all 448 charts and store every ID. **Nothing is ingested, no baseline
 is computed.** Cost: 1,486 units.
 
-Videos already in the chart on day 0 will never enter the index: we could
-not say when they entered.
+Videos already in the chart on day 0 do not enter the index while they
+remain in it: we could not say when they entered. **Day 0's snapshot is
+retained permanently as the reference state of the population**; it never
+enters the metrics. **A day-0 video becomes eligible again only once we have
+observed it absent from all charts**: if it later returns, we observed that
+entry, and it is recorded like any other. *(Made explicit 25/09/2026. A
+day-0 video that stays in the charts is excluded by the comparison with the
+previous snapshot; what was missing was the case of a partial run that left
+it out of that snapshot, which would have turned it into a false entry.)*
 
 ### Day 1 onward
 
