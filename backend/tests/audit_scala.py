@@ -12,7 +12,7 @@ UFFICIALE = [
     (10, "Hyper Outlier", "#FF0055"), (9, "Mega Outlier", "#FF2A00"),
     (8, "Outlier", "#FF5500"), (7, "Super Viral", "#FF8800"),
     (6, "Viral", "#FFAA00"), (5, "Breakout", "#FFCC00"),
-    (4, "Surging", "#00CC88"), (3, "Rising", "#0099FF"),
+    (4, "Trending", "#00CC88"), (3, "Rising", "#0099FF"),
     (2, "Moderate", "#7755FF"), (1, "Standard", "#888888"),
 ]
 ATTESI = {c for _, _, c in UFFICIALE}

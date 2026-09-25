@@ -52,7 +52,7 @@ import {
   CheckCircle2,
   Building2,
   Trophy,
-  Activity,
+  TrendingUp,
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -364,7 +364,7 @@ export default function Home() {
             href="/insights"
             className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
           >
-            <Activity className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
             <span className="hidden sm:inline">Insights</span>
           </Link>
 

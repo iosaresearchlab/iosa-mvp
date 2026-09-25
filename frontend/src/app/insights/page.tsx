@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatVPI } from "@/lib/format";
 import ContenutoMetodologia from '@/components/MetodologiaModal';
 import {
-  Activity,
+  TrendingUp,
   Trophy,
   HelpCircle,
   Info,
@@ -127,7 +127,7 @@ export default function InsightsPage() {
             href="/insights"
             className="flex items-center gap-1 bg-cyan-950/80 border border-cyan-500 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs shadow-[0_0_10px_rgba(0,229,255,0.3)]"
           >
-            <Activity className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
             <span className="hidden sm:inline">Insights</span>
           </Link>
 
