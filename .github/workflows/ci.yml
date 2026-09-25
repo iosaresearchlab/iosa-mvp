@@ -20,6 +20,13 @@ jobs:
   backend:
     name: backend tests
     runs-on: ubuntu-latest
+    env:
+      # Placeholders, not secrets. vpi_engine.py refuses to import without
+      # Supabase credentials; tests mock every HTTP call, so nothing is
+      # contacted. No YouTube key is set: a test that reached the real API
+      # would fail rather than spend quota.
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_KEY: ci-placeholder-key
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7

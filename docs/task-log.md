@@ -53,4 +53,5 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25: `backend/tests/` already exists (24 tests: `test_vpi_core.py`, `test_formati_motore.py`; `audit_scala.py` is a script). `pytest -q` from the root collects them together with `tests/`.
 - 2026-09-25: the frontend build fails with an empty `NEXT_PUBLIC_SUPABASE_URL` (`supabaseUrl is required`, on `/sitemap.xml`). CI sets public placeholders (`http://127.0.0.1:54321`), no secrets.
 - 2026-09-25: the shell on Migert's PC has no GitHub credentials: pushes are done by Migert from Windows. Git there needs delete permission on the folder (lock files).
+- 2026-09-25: first CI run on `5f50446` failed in `backend tests` (frontend green): `vpi_engine.py` raises at import without `SUPABASE_URL`/`SUPABASE_KEY`. Locally it had passed only because `backend/.env` was read. Local checks now run on a clean `git archive` of `HEAD` with an emptied environment (`env -i`), the same conditions as CI.
 - 2026-09-25: `frontend/node_modules` is built on Windows; the Linux shell builds from a clean `git archive` copy with its own `npm ci`, like CI.
