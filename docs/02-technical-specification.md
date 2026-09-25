@@ -406,8 +406,25 @@ previous.d` (0 when there is no gap), and every statistic that depends on the en
 update public.posts set method_version = 'v1' where entered_on is null;
 ```
 
-They stay readable and keep serving claim tokens already sent. Every public
+They keep serving claim tokens already sent. Every public
 v2 query filters `method_version = 'v2'`.
+
+**Correction, 25/09/2026 (decision by Migert).** Flagging in place was not
+enough: from day 1 the v2 series writes into the same table the site reads,
+so values computed under two rules would sit on one scale. The v1 rows
+**move out of `posts`** into `posts_v1` (migration `v2_archive_v1_records`):
+nothing deleted, nothing recomputed, count and md5 checked inside the
+migration before the delete.
+
+- `posts_v1`: same columns as `posts` plus `archived_at`; `id` is the
+  original post id. RLS on, no privilege for `anon`/`authenticated`: no page
+  and no statistic reads it.
+- `posts_v1_links`: the `outreach`, `claim_visite` and `claim_eventi` rows
+  that pointed at a v1 post, with that post id. Their `post_id` is set null
+  by the foreign key (`ON DELETE SET NULL`); the link stays reconstructable.
+- `claim_record_v1(token)`: the one archived record with that token, for the
+  claim page and the checkout, so a v1 claim token still resolves (`08`
+  T-20). Lookup by token only: the archive cannot be listed.
 
 ### 3.7 Storage optimisation
 

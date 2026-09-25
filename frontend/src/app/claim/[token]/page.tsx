@@ -54,9 +54,19 @@ export default function ClaimPage({
           .from('posts')
           .select('*')
           .eq('claim_token', token)
-          .single();
+          .maybeSingle();
 
-        setPost(data || null);
+        // I record v1 sono usciti da posts il 25/09/2026 (docs/02 §3.6): un
+        // token gia' inviato si risolve nell'archivio, solo per token.
+        let record = data;
+        if (!record) {
+          const archived = await supabase
+            .rpc('claim_record_v1', { p_token: token })
+            .maybeSingle();
+          record = archived.data;
+        }
+
+        setPost(record || null);
       } catch {
         setPost(null);
       } finally {

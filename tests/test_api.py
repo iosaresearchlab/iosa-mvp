@@ -31,6 +31,11 @@ class _Query:
 
     def execute(self):
         rows = self.store.data.get(self.table, [])
+        for name, args, _ in self.calls:            # claim lookups by token
+            if name == "eq" and args[0] == "claim_token":
+                rows = [r for r in rows if r.get("claim_token") == args[1]]
+            if name == "rpc":
+                rows = [r for r in rows if r.get("claim_token") == args[1]["p_token"]]
         for name, args, _ in self.calls:            # the one filter the lock needs
             if self.table == "ingest_run" and name == "eq" and args[0] == "day":
                 rows = [r for r in rows if r["day"] == args[1]]
@@ -46,6 +51,11 @@ class FakeDB:
 
     def table(self, name):
         return _Query(self, name)
+
+    def rpc(self, name, params):
+        q = _Query(self, "rpc:" + name)
+        q.calls.append(("rpc", (name, params), {}))
+        return q
 
     def last(self, table):
         return [q for q in self.queries if q.table == table][-1]
@@ -267,3 +277,22 @@ def test_ingest_status_returns_the_latest_run(api):
     assert body["latest"]["quota_total"] == 1350
     q = db.last("ingest_run")
     assert q.has("order", "day") and q.has("limit", 1)
+
+
+# --- claim tokens after the v1 archive (02 section 3.6) -------------------------
+
+
+def test_a_v2_token_resolves_in_posts_without_touching_the_archive(api):
+    _, db = api
+    db.data["posts"] = [{"id": "p2", "claim_token": "tok-v2"}]
+    assert main._claim_lookup("tok-v2").data == [{"id": "p2", "claim_token": "tok-v2"}]
+    assert not [q for q in db.queries if q.table.startswith("rpc:")]
+
+
+def test_a_v1_token_resolves_in_the_archive(api):
+    client, db = api
+    db.data["posts"] = []
+    db.data["rpc:claim_record_v1"] = [{"id": "p1", "claim_token": "tok-v1"}]
+    assert main._claim_lookup("tok-v1").data == [{"id": "p1", "claim_token": "tok-v1"}]
+    assert client.post("/api/claim/initialize/tok-v1").json() == {"status": "ready", "token": "tok-v1"}
+    assert main._claim_lookup("unknown").data == []

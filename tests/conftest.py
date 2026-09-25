@@ -165,6 +165,13 @@ def db():
                 "('v1_old_a', '@a', 900, 3.2, 4, 'Lvl 4 - Trending', '#00CC88'), "
                 "('v1_old_b', '@b', 400, 1.1, 1, 'Lvl 1 - Standard', '#888888')"
             )
+            # Production has outreach rows and claim visits pointing at v1 posts.
+            cur.execute(
+                "insert into outreach (post_id, claim_token) "
+                "select id, claim_token from posts where external_post_id = 'v1_old_a'; "
+                "insert into claim_visite (post_id, claim_token) "
+                "select id, claim_token from posts where external_post_id = 'v1_old_a'"
+            )
             for f in MIGRATIONS:
                 cur.execute(f.read_text(encoding="utf-8"))
         yield conn

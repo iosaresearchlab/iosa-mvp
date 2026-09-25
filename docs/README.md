@@ -69,6 +69,16 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 25 September 2026 — privacy, v1 archive, claim tokens (Migert)
+
+- `claims` was publicly readable (policy granted to PUBLIC) and would have
+  exposed buyers' names, emails and addresses. Closed; the table was empty.
+- The v1 records move out of `posts` into `posts_v1` (`02` §3.6 correction):
+  flagging in place would have put two rules on the scale the site reads.
+- The `claim_token` blocker raised at T-12 is withdrawn, not a defect: the
+  token is a public identifier of a plaque, not a secret. Anyone may look at
+  a plaque; only the creator can earn one.
+
 ### 24 September 2026 — external review, reviewer #2
 
 Six claims corrected. All were overclaims by this project, not disputed

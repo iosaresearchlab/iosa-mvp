@@ -354,6 +354,19 @@ def read_root():
 # POSTS & FEED ENDPOINTS
 # ==============================================================================
 
+def _claim_lookup(token):
+    """The record a claim token names: posts first, then the v1 archive.
+
+    The v1 records left posts on 25/09/2026 (02 section 3.6); claim tokens
+    already sent must still resolve (08 T-20). claim_record_v1 returns the one
+    archived row with that token and nothing else. Both answers carry .data.
+    """
+    res = supabase.table("posts").select("*").eq("claim_token", token).execute()
+    if (res and res.data) or not token:
+        return res
+    return supabase.rpc("claim_record_v1", {"p_token": token}).execute()
+
+
 # What /api/posts returns. An explicit list, never "*": claim_token is the
 # creator's claim credential and must not appear in any public response
 # (task-log, blocker on public deployment). printify_product_id and
@@ -676,7 +689,7 @@ async def get_trophy_preview(
 
         if supabase and claim_token:
             try:
-                res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                res = _claim_lookup(claim_token)
                 
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
@@ -810,7 +823,7 @@ async def initialize_claim_product(token: str):
         if not supabase:
             return {"status": "ready", "token": token}
 
-        db_res = supabase.table("posts").select("*").eq("claim_token", token).execute()
+        db_res = _claim_lookup(token)
         post_data = db_res.data[0] if db_res.data else None
 
         if not post_data:
@@ -841,7 +854,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
 
         if supabase and req.claimToken:
             try:
-                res = supabase.table("posts").select("*").eq("claim_token", req.claimToken).execute()
+                res = _claim_lookup(req.claimToken)
                 if res.data and len(res.data) > 0:
                     p = res.data[0]
                     raw_vpi = p.get("vpi_ratio", 8.7)
@@ -967,7 +980,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         if supabase and claim_token:
             try:
-                db_res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                db_res = _claim_lookup(claim_token)
                 if db_res.data and len(db_res.data) > 0:
                     p = db_res.data[0]
                     author = p.get("author_handle") or author
