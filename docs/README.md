@@ -21,6 +21,7 @@ so does anyone who later contributes to the repository.
 | `05-external-review-dossier.md` | Self-contained dossier for third-party reviewers, including review prompts. | External reviewers | Durable, updated when the method changes |
 | `06-claude-project-settings.md` | Replacement text for the claude.ai project description and instructions. | Migert, to paste manually | Delete once pasted |
 | `07-review-engagement-playbook.md` | How to engage external reviewers: what to send, exact prompts, how to process the answers. | Migert | Durable |
+| `08-implementation-plan.md` | **In what order** to build it, and how each step proves itself. Sequential tasks, closing checks, gates. | Whoever writes the code | Disposable. Closed tasks stay as a record |
 | `review-data/` | Anonymised data package supporting the dossier's figures. | External reviewers | Durable until re-measured |
 
 ---
@@ -29,13 +30,14 @@ so does anyone who later contributes to the repository.
 
 ```
 03 measurements  ──┐
-04 bias analysis ──┼──>  01 methodology protocol  ──>  02 technical spec  ──>  code
+04 bias analysis ──┼──>  01 methodology protocol  ──>  02 technical spec  ──>  08 plan  ──>  code
                    │              │
                    └──────────────┴──>  05 review dossier  ──>  external reviewers
 ```
 
 Read in this order if you are new: **05** for the whole picture, then **01**
-for the method, then **02** if you are going to write code.
+for the method, then **02** and **08** if you are going to write code — `02`
+says what to change, `08` says in what order and how each step is proved.
 
 ---
 
