@@ -31,7 +31,7 @@ const SCALA: ReadonlyArray<readonly [number, number, string, string]> = [
   [250.0, 7, 'Lvl 7 - Super Viral', '#FF8800'],
   [100.0, 6, 'Lvl 6 - Viral', '#FFAA00'],
   [50.0, 5, 'Lvl 5 - Breakout', '#FFCC00'],
-  [25.0, 4, 'Lvl 4 - Trending', '#00CC88'],
+  [25.0, 4, 'Lvl 4 - Surging', '#00CC88'],
   [10.0, 3, 'Lvl 3 - Rising', '#0099FF'],
   [5.0, 2, 'Lvl 2 - Moderate', '#7755FF'],
   [1.5, 1, 'Lvl 1 - Standard', '#888888'],

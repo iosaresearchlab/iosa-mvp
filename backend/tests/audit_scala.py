@@ -12,7 +12,7 @@ UFFICIALE = [
     (10, "Hyper Outlier", "#FF0055"), (9, "Mega Outlier", "#FF2A00"),
     (8, "Outlier", "#FF5500"), (7, "Super Viral", "#FF8800"),
     (6, "Viral", "#FFAA00"), (5, "Breakout", "#FFCC00"),
-    (4, "Trending", "#00CC88"), (3, "Rising", "#0099FF"),
+    (4, "Surging", "#00CC88"), (3, "Rising", "#0099FF"),
     (2, "Moderate", "#7755FF"), (1, "Standard", "#888888"),
 ]
 ATTESI = {c for _, _, c in UFFICIALE}
@@ -98,7 +98,7 @@ esiti.append(("targa — misure e colonne invariate",
 # Il corpo del popup (le dieci soglie) deve esistere una volta sola.
 corpi = sorted(str(p.relative_to(R)) for p in R.glob("frontend/src/**/*.tsx")
                if "node_modules" not in str(p)
-               and "Outlier Qualification Thresholds" in leggi(p))
+               and "Levels (10), set by the project owner" in leggi(p))
 esiti.append(("popup metodologia — un solo corpo",
               corpi == ["frontend/src/components/MetodologiaModal.tsx".replace("/", "\\")]
               or len(corpi) == 1, corpi))
