@@ -839,6 +839,38 @@ async def get_trophy_mug_preview(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+# Outreach parameter (01 section 4.1): the days available to claim a plaque,
+# counted from first observation. It does not touch the measurement: the
+# record never expires, the claim token does. Was CAMPAIGN_DAYS = 15 in v1
+# (02 section 4.7), same value.
+CLAIM_DAYS = 15
+
+
+def claim_window(record, today=None):
+    """{start, expires_on, claim_days, expired} for a record, computed here and
+    not in the browser (02 section 6.4). Start = entered_on (v2), else the
+    day it was detected (v1 records in the archive)."""
+    today = today or datetime.now(timezone.utc).date()
+    raw = (record or {}).get("entered_on") or (record or {}).get("detected_at") \
+        or (record or {}).get("created_at")
+    if not raw:
+        return {"start": None, "expires_on": None, "claim_days": CLAIM_DAYS, "expired": False}
+    start = datetime.fromisoformat(str(raw)[:10]).date()
+    expires = start + timedelta(days=CLAIM_DAYS)
+    return {"start": start.isoformat(), "expires_on": expires.isoformat(),
+            "claim_days": CLAIM_DAYS, "expired": today >= expires}
+
+
+@app.get("/api/claim/{token}/window")
+def get_claim_window(token: str):
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    res = _claim_lookup(token)
+    if not res or not res.data:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return claim_window(res.data[0])
+
+
 @app.post("/api/claim/initialize/{token}")
 async def initialize_claim_product(token: str):
     try:

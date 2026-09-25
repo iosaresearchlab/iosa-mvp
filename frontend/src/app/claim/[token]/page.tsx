@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useCallback } from 'react';
-import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
+import { livelloDaRatio, NESSUN_LIVELLO, stileBadge } from '@/lib/vpi-scale';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -33,8 +33,8 @@ export default function ClaimPage({
   // Tab state switcher
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
 
-  const [tokenWindow, setTokenWindow] = useState({ start: '', end: '' });
-  const [timeLeft, setTimeLeft] = useState({ days: 14, hours: 23, minutes: 59, seconds: 59 });
+  const [tokenWindow, setTokenWindow] = useState({ start: '', end: '', days: 0 });
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
 
@@ -177,39 +177,44 @@ export default function ClaimPage({
   }, [token, post?.id, passaggioAutomatico]);
 
   useEffect(() => {
-    // La finestra parte dal rilevamento, non dalla pubblicazione: altrimenti
-    // un video trovato al dodicesimo giorno darebbe al creator solo 3 giorni.
-    const windowStart = post?.detected_at || post?.created_at;
-    if (!post || !windowStart) return;
-
-    const createdAt = new Date(windowStart);
-    const expiresAt = new Date(createdAt.getTime() + 15 * 24 * 60 * 60 * 1000);
-
-    setTokenWindow({
-      start: createdAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-      end: expiresAt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-    });
-
-    const updateCountdown = () => {
-      const now = new Date();
-      const diff = expiresAt.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setIsExpired(true);
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((diff / 1000 / 60) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
-        setTimeLeft({ days, hours, minutes, seconds });
-      }
+    // La finestra del claim e' calcolata dal backend (docs/02 §6.4):
+    // entered_on + CLAIM_DAYS, dal primo giorno osservato. La misurazione non
+    // scade; scade solo il token. Qui si disegna solo il conto alla rovescia.
+    if (!post || !token) return;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let annullato = false;
+    fetch(`${BACKEND_URL}/api/claim/${encodeURIComponent(token)}/window`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((w) => {
+        if (annullato || !w || !w.expires_on) return;
+        const inizio = new Date(`${w.start}T00:00:00Z`);
+        const fine = new Date(`${w.expires_on}T00:00:00Z`);
+        const fmt = (d: Date) => d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+        setTokenWindow({ start: fmt(inizio), end: fmt(fine), days: w.claim_days });
+        setIsExpired(Boolean(w.expired));
+        const aggiorna = () => {
+          const diff = fine.getTime() - Date.now();
+          if (diff <= 0) {
+            setIsExpired(true);
+            setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+            return;
+          }
+          setTimeLeft({
+            days: Math.floor(diff / 86_400_000),
+            hours: Math.floor((diff / 3_600_000) % 24),
+            minutes: Math.floor((diff / 60_000) % 60),
+            seconds: Math.floor((diff / 1000) % 60),
+          });
+        };
+        aggiorna();
+        timer = setInterval(aggiorna, 1000);
+      })
+      .catch(() => {});
+    return () => {
+      annullato = true;
+      if (timer) clearInterval(timer);
     };
-
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
-  }, [post]);
+  }, [post, token]);
 
   if (loading) {
     return (
@@ -225,18 +230,18 @@ export default function ClaimPage({
     return (
       <main className="min-h-screen bg-[#030508] text-white font-mono flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-[#070A10] border border-amber-500/30 rounded-xl p-8 text-center shadow-2xl flex flex-col items-center gap-4">
-          <h1 className="text-xl font-bold text-amber-400">MEASUREMENT EXPIRED</h1>
+          <h1 className="text-xl font-bold text-amber-400">MEASUREMENT NOT FOUND</h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            This link is no longer active. Measurements stay published for 15
-            days, then leave the live index. Nothing went wrong on your side and
-            the link was valid when it was issued.
+            No record carries this link. Records are never deleted, so the link
+            is probably mistyped: check it against the one you received, or
+            search your channel on the index.
           </p>
           <div className="flex flex-col sm:flex-row gap-2 mt-2">
             <Link
               href="/outliers"
               className="inline-flex items-center justify-center gap-2 text-xs font-mono text-black bg-[#00E5FF] hover:bg-cyan-400 px-4 py-2 rounded-full transition-all"
             >
-              Browse current outliers
+              Browse the index
             </Link>
             <Link
               href="/"
@@ -250,18 +255,24 @@ export default function ClaimPage({
     );
   }
 
-  const formattedVpi = formatVPI(Number(post.vpi_ratio || 0));
+  // Il valore pubblicato e' il VPI piu' alto osservato, sempre con le views e
+  // i giorni in Most Popular (docs/01 §4.1). I record v1 non hanno vpi_max.
+  const vpiPubblicato = post.vpi_max ?? post.vpi_ratio;
+  const viewsPubblicate = post.views_max ?? post.engagement_score ?? post.e_act;
+  const giorniInClassifica: number | null = post.days_charting ?? null;
+  const livelloPubblicato = livelloDaRatio(vpiPubblicato) ?? NESSUN_LIVELLO;
+  const formattedVpi = formatVPI(vpiPubblicato);
   const postTitle = post.content_text || post.title || post.content_title || 'Measured Video';
 
   const trophyPayload = {
     author: post.author_handle || 'Creator',
-    vpi_ratio: formatVPIFull(Number(post.vpi_ratio || 0)),
-    level_name: post.vpi_level_name || 'LVL 5 — OUTLIER',
+    vpi_ratio: formatVPIFull(Number(vpiPubblicato || 0)),
+    level_name: livelloPubblicato.livello ? livelloPubblicato.nome : '',
     content_title: postTitle,
     date_str: post.created_at
       ? new Date(post.created_at).toISOString().split('T')[0]
       : '2026-08-20',
-    e_act: formatCountFull(Number(post.engagement_score ?? post.e_act)),
+    e_act: formatCountFull(Number(viewsPubblicate)),
     e_base: formatCountFull(Number(post.baseline_score ?? post.e_base)),
   };
 
@@ -270,7 +281,9 @@ export default function ClaimPage({
 
   const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
 
-  const formattedDetectedDate = post.detected_at 
+  const formattedDetectedDate = post.entered_on
+    ? new Date(`${post.entered_on}T00:00:00Z`).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : post.detected_at 
     ? new Date(post.detected_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
     : (post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
@@ -337,8 +350,13 @@ export default function ClaimPage({
         <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 flex items-center gap-3 shadow-md">
           <Calendar className="w-3.5 h-3.5 text-[#00E5FF] shrink-0" />
           <div>
-            <span className="text-gray-400 block text-[9px] mb-0.5">POST VALIDITY WINDOW (15 DAYS)</span>
-            <span className="text-white font-bold text-[11px]">{tokenWindow.start} - {tokenWindow.end}</span>
+            <span className="text-gray-400 block text-[9px] mb-0.5">
+              CLAIM WINDOW{tokenWindow.days ? ` (${tokenWindow.days} DAYS FROM FIRST OBSERVATION)` : ''}
+            </span>
+            <span className="text-white font-bold text-[11px]">
+              {tokenWindow.start ? `${tokenWindow.start} - ${tokenWindow.end}` : '\u2014'}
+            </span>
+            <span className="text-gray-500 block text-[9px] mt-0.5">The measurement never expires; the claim token does.</span>
           </div>
         </div>
 
@@ -347,7 +365,11 @@ export default function ClaimPage({
           <div>
             <span className="opacity-80 block text-[9px] mb-0.5">CLAIM TOKEN EXPIRES IN</span>
             <span className="font-bold text-[11px]">
-              {isExpired ? 'EXPIRED' : `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`}
+              {isExpired
+                ? 'EXPIRED'
+                : timeLeft
+                  ? `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`
+                  : '\u2014'}
             </span>
           </div>
         </div>
@@ -427,15 +449,29 @@ export default function ClaimPage({
 
             <span
               className="text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase mb-1.5 border"
-              style={stileBadge(livelloDiRecord(post).colore)}
+              style={stileBadge(livelloPubblicato.colore)}
             >
-              {post.vpi_level_name || livelloDiRecord(post).nome}
+              {livelloPubblicato.nome}
             </span>
 
             <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">
               {formattedVpi} <span className="text-[#00E5FF]">VPI</span>
             </h2>
-            <p className="text-[11px] font-mono text-gray-400">Viral Performance Index &mdash; independent measurement</p>
+            <p className="text-[11px] font-mono text-gray-400">Peak VPI observed in Most Popular &mdash; independent measurement</p>
+            <div className="mt-2 grid grid-cols-3 gap-2 w-full font-mono text-[10px]" data-plaque-figures>
+              <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                <span className="block text-gray-500">PEAK VPI</span>
+                <span className="text-[#00E5FF] font-bold">{formattedVpi}</span>
+              </div>
+              <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                <span className="block text-gray-500">VIEWS</span>
+                <span className="text-white font-bold">{formatCount(viewsPubblicate)}</span>
+              </div>
+              <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                <span className="block text-gray-500">DAYS IN MOST POPULAR</span>
+                <span className="text-white font-bold">{giorniInClassifica ?? '\u2014'}</span>
+              </div>
+            </div>
           </div>
 
           {/* Post Metrics Details */}
@@ -458,7 +494,7 @@ export default function ClaimPage({
             </div>
 
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-[#00E5FF]">DETECTION DATE:</span>
+              <span className="text-[#00E5FF]">FIRST OBSERVED:</span>
               <span className="text-[#00E5FF] font-medium">
                 {formattedDetectedDate}
               </span>
@@ -475,8 +511,8 @@ export default function ClaimPage({
             </div>
 
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-gray-500">ACTUAL VIEWS (E_act):</span>
-              <span className="text-[#00E5FF] font-bold">{formatCount(post.engagement_score ?? post.e_act)}</span>
+              <span className="text-gray-500">VIEWS (E_act):</span>
+              <span className="text-[#00E5FF] font-bold">{formatCount(viewsPubblicate)}</span>
             </div>
           </div>
         </div>
@@ -507,7 +543,7 @@ export default function ClaimPage({
               />
             ) : isExpired ? (
               <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-4 text-center text-xs font-mono text-red-400 shadow-inner">
-                This claim token has expired. The 15-day validity window from publication has closed.
+                This claim token has expired: the {tokenWindow.days || ''}-day claim window from first observation has closed. The measurement stays published.
               </div>
             ) : (
               <ClaimForm 
