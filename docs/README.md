@@ -203,6 +203,19 @@ in with the day-1 audit (`08` T-17) and shown on the public methodology page
    states (`standard` with baseline and VPI, `not_computable` with neither)
    the only possible ones for v2 rows (`02` §3.2).
 
+**GATE-1 decisions (Migert, 25/09).**
+
+1. `posts.vpi_level_name`, `vpi_color`, `author_handle` become nullable, and
+   `posts_baseline_state` extends to the level, its name and its colour: they
+   exist exactly when the VPI does (`02` §3.2).
+2. **Baseline bands, provisional**: decades, `<100` to `>=100k`, never re-cut
+   after seeing which split produces a nicer number (`01` §4.2).
+3. **`day0_pending` dropped.** With the reference always the last complete
+   reading it excluded nothing; the permanent day-0 snapshot stays as the
+   archive (`01` §4, `02` §3.1.1).
+4. `claim_token` publicly readable: a blocker on any public deployment
+   (`docs/task-log.md`).
+
 **Still to measure when collection resumes**: the 14→7 maturity-floor
 sensitivity ran on 167 of 220 channels, excluding by construction the ones
 where the floor mattered most. ~660 units.

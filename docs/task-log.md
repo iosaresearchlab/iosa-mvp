@@ -43,6 +43,14 @@ States: `OPEN`, `IN PROGRESS`, `CLOSED`, `BLOCKED — <why>`.
 
 ---
 
+## Blockers
+
+- **No public deployment while `claim_token` is publicly readable** (found at
+  T-12, 25/09). `/api/posts` returns `select(*)` and `posts` has a public
+  SELECT policy, so anyone who can read a token can claim someone else's
+  plaque. Fix: `claim_token` must not appear in any publicly readable select
+  or policy. Already true in v1; nothing is deployed from this branch.
+
 ## Notes
 
 Anything learned during a task that the next session needs: a surprise in the
@@ -95,3 +103,4 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25 (T-12): `/api/ingest/*` read `ingest_run` with `SUPABASE_SERVICE_KEY` (the public key sees nothing there); without it they answer 503. The `timeframe` values are now `today`, `7d`, `30d`, `all`; the current leaderboard sends `15d` and the insights page expects `avg_vpi`: both break against this API until T-18/T-19. Nothing is deployed from this branch (Render suspended).
 - 2026-09-25 (T-12): **found, not changed**: `/api/posts` returns `select(*)`, `claim_token` included, and `posts` has a public SELECT policy, so claim tokens are publicly readable (v1 as well). The new analytics responses do not include it. To decide before T-20.
 - 2026-09-25 (T-12): 02 §5's second attempt at 00:30 UTC would run with `datetime.now(UTC).date()` = the new day, not the day just closed. To settle at T-14.
+- 2026-09-25 (GATE-1): the baseline's real quota cost (`02` §4.4, phase 3 over every in-window id) is the number that decides GATE-2: measured at T-13 against the Google Cloud console, to the unit, before day 0.

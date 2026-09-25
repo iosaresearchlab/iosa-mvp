@@ -163,47 +163,20 @@ missed), day 0 excluded:
 delete from trend_snapshot where day < current_date - 7 and permanent = false;
 ```
 
-### 3.1.1 New table `day0_pending` — the day-0 exclusion list
+### 3.1.1 No day-0 exclusion list *(removed 25/09/2026, GATE-1)*
 
-The IDs of day 0 that have **not yet been observed absent**. Seeded from day
-0's snapshot, and it only ever shrinks. It is a separate table precisely
-because it drains: draining must never touch the archive above.
+A `day0_pending` table was added at T-06 and dropped at GATE-1. Once the
+reference for every day became the last complete reading (§3.5), it excluded
+nothing: a day-0 video still charting is in the reference snapshot and is
+excluded by the ordinary test; one that leaves and returns is an entry we
+genuinely observed. The permanent day-0 snapshot stays — that is the archive,
+not a mechanism.
 
-What it protects, exactly: a day-0 video still charting is already excluded
-by the comparison with the previous snapshot. The list is what keeps it
-excluded when a **partial** run left it out of that snapshot — without the
-list it would reappear the next day as a false entry. (After day 1 every
-other charting video is either a record in `posts` or on this list, so a
-partial run cannot turn any of them into a new record.)
-
-```sql
-create table public.day0_pending (
-  video_id text primary key
-);
-alter table public.day0_pending enable row level security;
--- no policy: only the service role writes here
-```
-
-After every **complete** run (`ingest_run.outcome = 'ok'`), an ID leaves the
-list the first day we observe it absent from the charts:
-
-```sql
-delete from day0_pending
-where video_id not in (select video_id from trend_snapshot where day = :today);
-```
-
-A partial run does not drain: an ID missing from an incomplete snapshot was
-not observed absent, it was not read. If a day-0 video leaves and later
-returns, that entry was observed and is a legitimate entry like any other.
-Given the measured turnover the list empties within a couple of weeks
-*(estimate, from the 24% daily turnover in §5 of `01`; not yet measured on
-v2 data)*.
-
-**Day 0 must be complete before day 1 runs.** If day 0 ends `partial` — quota
-brake, 403, anything — `day0_pending` is incomplete, and every pre-existing
-video left unread would enter as a false entry on day 1. On a partial day 0:
-delete that day's snapshot rows and `day0_pending`, and re-run day 0. Do not
-proceed to day 1.
+**Day 0 must still be complete.** An incomplete day 0 is not a reference, so
+it cannot produce false entries: day 1 would simply find no reference and
+record nothing. But the day-0 snapshot is the permanent record of the
+population at the start, and an incomplete one is a hole in it. On a partial
+day 0: delete that day's snapshot rows and re-run day 0 before day 1.
 
 ### 3.2 New columns on `posts`
 
@@ -251,11 +224,21 @@ alter table public.posts alter column baseline_score drop not null;
 alter table public.posts add constraint posts_baseline_state check (
   coalesce(method_version = 'v1', false)
   or coalesce(baseline_rule = 'standard'
-              and baseline_score is not null and vpi_ratio is not null, false)
+              and baseline_score is not null and vpi_ratio is not null
+              and vpi_level is not null and vpi_level_name is not null
+              and vpi_color is not null, false)
   or coalesce(baseline_rule = 'not_computable'
-              and baseline_score is null and vpi_ratio is null, false)
+              and baseline_score is null and vpi_ratio is null
+              and vpi_level is null and vpi_level_name is null
+              and vpi_color is null, false)
 );
 ```
+
+*(Extended at GATE-1, 25/09/2026: the level, its name and its colour follow
+the VPI, so a record cannot carry a level name without a level, nor a level
+without a VPI. `vpi_level_name`, `vpi_color` and `author_handle` become
+nullable at the same time: a `not_computable` record has no level, and a
+channel without a handle stays in the index, `01` §7.)*
 
 The `coalesce(..., false)` is not decoration: a `CHECK` that evaluates to
 NULL passes, so without it a v2 row with `baseline_rule` null would satisfy
@@ -358,15 +341,13 @@ as $$
     and not exists (select 1 from trend_snapshot p
                     where p.day = previous.pd and p.video_id = s.video_id)
     and not exists (select 1 from posts po
-                    where po.external_post_id = s.video_id)
-    and not exists (select 1 from day0_pending z
-                    where z.video_id = s.video_id);
+                    where po.external_post_id = s.video_id);
 $$;
 ```
 
-Four exclusions, each for one reason: present in the previous snapshot
+Three exclusions, each for one reason: present in the reference snapshot
 (already charting), already a record (re-entry: no new record, `01` §4 step
-6), still on the day-0 list (§3.1.1), and **no previous snapshot at all**
+6), and **no reference at all**
 (day 0 is snapshot only: with nothing to compare against, no entry is
 observable). The function returns the gap with each ID, so the writer sets
 `entry_certain` and `gap_days` from the database's answer rather than

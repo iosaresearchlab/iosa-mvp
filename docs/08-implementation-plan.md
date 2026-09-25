@@ -106,7 +106,8 @@ Per `02` §3.2, including `entry_certain`, `age_at_first_obs_days`, `gap_days`,
 
 ### T-06 — `entries_of_day()` and the archiving of v1
 The SQL function from `02` §3.5, the `permanent` column and the
-`day0_pending` table from `02` §3.1 / §3.1.1, and
+`day0_pending` table from `02` §3.1 / §3.1.1 (the table was dropped at
+GATE-1: see `02` §3.1.1), and
 `update posts set method_version='v1' where entered_on is null`.
 
 - **Closing check**: `tests/test_entries.py` green on a seeded
@@ -251,15 +252,15 @@ runs the job.
 One full run with `SNAPSHOT_ONLY=true`. Expected spend **1,350 units**.
 
 - **Closing check**: `trend_snapshot` holds one row per (day, video) with
-  ~28,000 distinct videos, all with `permanent = true`; `day0_pending` holds
-  exactly the same IDs; `ingest_run` reports `outcome='ok'` and
-  `quota_total` within 5% of 1,350; **zero rows written to `posts`**.
-- **This check protects the exclusion list, not only the quota budget.** An
-  incomplete day 0 leaves `day0_pending` incomplete, and every unread
-  pre-existing video would enter on day 1 as a false entry (`02` §3.1.1).
-  T-16 does not start until this check passes.
+  ~28,000 distinct videos, all with `permanent = true`; `ingest_run` reports
+  `outcome='ok'` and `quota_total` within 5% of 1,350; **zero rows written
+  to `posts`**.
+- **This check protects the archive, not only the quota budget.** An
+  incomplete day 0 cannot produce false entries (it is not a reference), but
+  the permanent record of the population at the start would have a hole
+  (`02` §3.1.1). T-16 does not start until this check passes.
 - **Rollback / on a partial day 0**: delete that day's snapshot rows and
-  `day0_pending`, and re-run day 0. Do not proceed.
+  re-run day 0. Do not proceed.
 
 ### T-16 — day 1: first real records
 Second full run. This is the first day of the index.

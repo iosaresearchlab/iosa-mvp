@@ -184,10 +184,11 @@ remain in it: we could not say when they entered. **Day 0's snapshot is
 retained permanently as the reference state of the population**; it never
 enters the metrics. **A day-0 video becomes eligible again only once we have
 observed it absent from all charts**: if it later returns, we observed that
-entry, and it is recorded like any other. *(Made explicit 25/09/2026. A
-day-0 video that stays in the charts is excluded by the comparison with the
-previous snapshot; what was missing was the case of a partial run that left
-it out of that snapshot, which would have turned it into a false entry.)*
+entry, and it is recorded like any other. *(Made explicit 25/09/2026. No
+separate exclusion list is kept: the reference for every day is the last
+complete reading, so a day-0 video still charting is in the reference
+snapshot and excluded by the ordinary test, and one that leaves and returns
+is an entry we genuinely observed.)*
 
 ### Day 1 onward
 
@@ -299,6 +300,14 @@ at 6,000x, and the difference is the entry threshold, not the merit. A pooled
 median therefore moves with how many small-baseline channels happened to
 chart that day. If a segment figure is ever published, it is published **by
 baseline band and by format**, with `n` shown.
+
+**Baseline bands — provisional.** Decades of the frozen baseline: `<100`,
+`100-1k`, `1k-10k`, `10k-100k`, `>=100k`. The 100 and 100,000 edges come from
+our own measurement (§8); the others are powers of ten, chosen before seeing
+any v2 data rather than fitted to it. They are to be reviewed against day-1
+data, under the same rule as the scale: **the bands are never re-cut after
+seeing which split produces a nicer number.** Any revision is published with
+the how, when and why. *(Set 25/09/2026, GATE-1.)*
 
 ## 5. The budget
 
