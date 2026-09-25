@@ -112,3 +112,13 @@ def test_the_v1_cron_trigger_is_switched_off(db):
     with db.cursor() as cur:
         cur.execute("select active from cron.job where jobname = 'ingestione-iosa'")
         assert cur.fetchone() == (False,)
+
+
+def test_a_quota_stop_record_without_baseline_or_vpi_is_accepted(db):
+    assert not rejected(db, method_version="v2", baseline_rule="quota_stop",
+                        baseline_score=None, vpi_ratio=None, **NO_LEVEL)
+
+
+def test_a_quota_stop_record_with_a_vpi_is_rejected(db):
+    assert rejected(db, method_version="v2", baseline_rule="quota_stop",
+                    baseline_score=900, vpi_ratio=2.0, **LEVEL)

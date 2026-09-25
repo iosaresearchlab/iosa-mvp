@@ -32,8 +32,9 @@ class FakeYouTube:
     status: {(endpoint, key): [codes...]} scripted failures, consumed in order.
     """
 
-    def __init__(self, channels, status=None, missing_playlists=()):
+    def __init__(self, channels, status=None, missing_playlists=(), unlisted=()):
         self.channels = channels
+        self.unlisted = set(unlisted)
         self.status = {k: list(v) for k, v in (status or {}).items()}
         self.missing = set(missing_playlists)
         self.calls = []
@@ -57,7 +58,7 @@ class FakeYouTube:
             ch = "UC" + q["playlistId"][2:]
             if ch not in self.channels or q["playlistId"] in self.missing:
                 return (404, {}, "{}")
-            ups = self.channels[ch]
+            ups = [u for u in self.channels[ch] if u[0] not in self.unlisted]
             page = int(q.get("pageToken", "0"))
             chunk = ups[page * 50:(page + 1) * 50]
             body = {"items": [{"contentDetails": {"videoId": v, "videoPublishedAt": iso(p)}}
@@ -71,7 +72,8 @@ class FakeYouTube:
                 if vid in self.videos:
                     _, _, dur, views = self.videos[vid]
                     st = {} if views is None else {"viewCount": str(views)}
-                    items.append({"id": vid, "contentDetails": {"duration": dur}, "statistics": st})
+                    items.append({"id": vid, "contentDetails": {"duration": dur}, "statistics": st,
+                                  "status": {"privacyStatus": "unlisted" if vid in self.unlisted else "public"}})
             return (200, {}, json.dumps({"items": items}))
         return (400, {}, "{}")
 

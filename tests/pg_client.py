@@ -2,6 +2,7 @@
 
 Implements exactly the calls the v2 engine makes, with PostgREST semantics:
   client.table(name).insert(rows) / .upsert(rows, on_conflict=...) .execute()
+  client.table(name).select("*").in_(col, values) .execute()
   client.rpc(fn, params) [.order(col)] [.range(a, b)] .execute()
 A set-returning function answers a list of dicts; a scalar function answers
 the value. Rows written come back in .data, as PostgREST returns them. Each
@@ -45,11 +46,31 @@ class _Table:
         self.op, self.rows, self.conflict = "insert", rows, None
         return self
 
+    def select(self, cols="*"):
+        self.op, self.cols, self.filters = "select", cols, []
+        return self
+
+    def in_(self, col, values):
+        self.filters.append((col, list(values)))
+        return self
+
     def upsert(self, rows, on_conflict=None):
         self.op, self.rows, self.conflict = "upsert", rows, on_conflict
         return self
 
     def execute(self):
+        if self.op == "select":
+            if self.cols != "*":
+                raise NotImplementedError("PgClient.select supports '*' only")
+            q = sql.SQL("select * from {}").format(sql.Identifier(self.name))
+            vals = []
+            if self.filters:
+                q += sql.SQL(" where ") + sql.SQL(" and ").join(
+                    sql.SQL("{} = any(%s)").format(sql.Identifier(c)) for c, _ in self.filters)
+                vals = [v for _, v in self.filters]
+            with self.conn.transaction(), self.conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(q, vals)
+                return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
         rows = self.rows if isinstance(self.rows, list) else [self.rows]
         if not rows:
             return _Result([])

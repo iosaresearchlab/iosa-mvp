@@ -214,7 +214,9 @@ def test_an_incomplete_day0_is_no_reference_and_says_to_rerun(world):
     assert posts(db) == {}
 
 
-def test_the_brake_during_baselines_writes_no_record_and_no_exit(world):
+def test_the_brake_records_the_entries_it_did_not_reach_without_a_vpi(world):
+    # GATE-2 (01 §2): valid records, baseline_rule = quota_stop, counted; the
+    # run ends partial, so no exit.
     fake, client, db = world
     fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
     run(client, fake, 0, snapshot_only=True)
@@ -222,8 +224,24 @@ def test_the_brake_during_baselines_writes_no_record_and_no_exit(world):
     run(client, fake, 1, limit=5)                    # 4 chart calls + 1 channels, then the brake
     r = ingest(db, 1)
     assert r["outcome"] == "partial" and r["quota_total"] == 5 == len(fake.calls)
-    assert posts(db) == {}
-    assert "left without a baseline" in r["notes"]
+    p = posts(db)
+    assert set(p) == {"n1"} and p["n1"][3] == "quota_stop"
+    assert p["n1"][4] is None and p["n1"][5] is None             # no baseline, no VPI
+    assert daily(db, "n1") == [(day(1), 1, 5000, None)]           # views still observed
+    assert "1 entries recorded without a VPI (quota_stop)" in r["notes"]
+    assert one(db, "select discards->>'quota_stop' from ingest_run where day = %s", day(1)) == [("1",)]
+    assert r["exits"] == 0
+
+
+def test_the_inventory_is_persisted_and_reused_the_next_day(world):
+    fake, client, db = world
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 0, snapshot_only=True)
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 720)]}
+    run(client, fake, 1)
+    rows = one(db, "select channel_id, jsonb_object_keys(items) from channel_inventory order by 2")
+    assert {r[0] for r in rows} == {"UCnew"} and len(rows) == 12
+    assert one(db, "select refreshed_on from channel_inventory") == [(day(1),)]
 
 
 def test_every_posts_row_carries_method_version_v2_explicitly(world, monkeypatch):

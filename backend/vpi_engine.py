@@ -225,6 +225,10 @@ BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
 WRITE_BATCH = 500
 
 
+QUOTA_STOP_RESULT = {"baseline": None, "samples": 0, "rule": "quota_stop",
+                     "span_days": None, "video_ids": []}
+
+
 class RunAlreadyExists(Exception):
     """An ingest_run row for this day exists: one reading a day."""
 
@@ -325,7 +329,9 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
     archive of the population at the start, and nothing else (01 §4).
     A partial run (census incomplete, 403, quota brake, unresolved baselines)
     records the entries it observed and today's views, but never exits:
-    absence is not observable, and the day is no reference (01 §4).
+    absence is not observable, and the day is no reference (01 §4). Entries
+    the quota brake did not reach are recorded without a VPI,
+    baseline_rule = 'quota_stop', and counted (01 §2).
     """
     countries = list(countries or census.TARGET_COUNTRIES)
     categories = list(categories or census.CATEGORY_MAP)
@@ -385,22 +391,34 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         for m in measured:
             by_channel.setdefault(m["channel_id"], []).append(m)
         channels = sorted(by_channel)
-        results, meta, unresolved, stopped = {}, {}, [], None
+        results, meta, unresolved, quota_stopped, stopped = {}, {}, [], [], None
+        store = baseline_mod.SupabaseInventory(client)
+        run_state = baseline_mod.new_run_state()
         for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
             batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
             if stopped:
-                unresolved.extend(m["video_id"] for m in batch)
+                quota_stopped.extend(m["video_id"] for m in batch)
                 continue
-            res, brep = baseline_mod.baselines_for_videos(batch, api_key, session=session,
-                                                          sleep=sleep, quota=quota)
+            res, brep = baseline_mod.baselines_for_videos(
+                batch, api_key, session=session, sleep=sleep, quota=quota,
+                inventory=store, run_state=run_state, today=day)
             results.update(res)
             meta.update(brep["channels"])
-            unresolved.extend(brep.get("unresolved", []))
             if brep["stop_reason"]:
                 stopped = brep["stop_reason"]
+                quota_stopped.extend(brep.get("unresolved", []))
                 notes.append(f"baselines stopped: {stopped}")
+            else:
+                unresolved.extend(brep.get("unresolved", []))
+        # 01 §2: entries the brake did not reach are valid records without a VPI
+        for vid in quota_stopped:
+            results[vid] = QUOTA_STOP_RESULT
+        if quota_stopped:
+            discards["quota_stop"] = len(quota_stopped)
+            notes.append(f"{len(quota_stopped)} entries recorded without a VPI (quota_stop)")
         if unresolved:
-            notes.append(f"{len(unresolved)} entries left without a baseline, not written")
+            notes.append(f"{len(unresolved)} entries left without a baseline after transient "
+                         f"failures, not written")
 
         records = [_record(vid, videos[vid], entry_of[vid], res, meta.get(videos[vid]["channel_id"], {}),
                            day, now_iso) for vid, res in sorted(results.items())]

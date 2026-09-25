@@ -554,38 +554,45 @@ windows; a channel already refreshed earlier in the run is not read again.
 
 **Channel inventory (GATE-2, 25/09/2026).** A video's id, `publishedAt` and
 duration never change, so they are kept across runs in `channel_inventory`
-(§3.1.2). Views change and are never cached across runs: they are read at
-the moment the baseline is computed, as before. With an inventory:
+(§3.1.2). Views and privacy change: they are read in the run that computes
+the baseline, and never reused from an earlier run. With an inventory:
 
 - the uploads are refreshed **forward only**: pages from the newest, stopping
-  at the first page that contains an already-known video;
+  at the first page that holds an already-known video;
 - a full read (from the newest, up to 3 pages, until the window is covered)
   happens only for a channel never read, or whose inventory does not reach far
   enough back for the video being measured;
-- durations are fetched only for in-window ids whose format is still unknown;
-  views only for the samples actually chosen.
+- **every candidate a fresh read would consider is checked in the run**:
+  existence, privacy, duration and views of every in-window id (plus all 150
+  most recent when the 3-page cap truncates a window), in one `videos.list`
+  call per 50 ids. Gone or no longer public -> removed.
 
-**Why it changes no baseline.** Every choice is made on the same set a fresh
-read would produce:
+**Why it changes no baseline — and the one case where it does.**
 
-- *the 3-page cap is kept exactly*: only the **150 most recent** uploads of
-  the inventory are ever considered, which is what 3 pages would return now.
-  An inventory that grows over the days must not reach further into the window
-  than a fresh read could, or the same channel would be measured under two
-  rules;
-- *removed videos*: a chosen sample that `videos.list` no longer returns is
-  dropped from the inventory and the 20 are chosen again among the rest, as
-  a fresh read — which would not have listed it — would have chosen;
-- *hidden view counts*: excluded, and the 20 chosen again, as before.
+- *The 3-page cap is kept exactly*: only the **150 most recent** uploads are
+  ever considered, which is what 3 pages return. When a video among them is
+  removed while the cap truncates a window, the channel is read again from the
+  newest, as a fresh read would.
+- *Every in-window candidate is checked, not only the chosen 20.* Checking only
+  the chosen samples looked sufficient and is not: a removed video left in the
+  list shifts the even spacing and changes the choice. Found by
+  `tests/test_inventory.py` on 25/09, before any production use.
+- A test proves it on 300 generated histories plus named cases (new uploads,
+  removals, unlisted videos, changed and hidden views, more than 150 uploads,
+  a measured video needing a deeper window): the same measured video gives
+  the same baseline and the same sample ids warm and cold.
+- **Declared exception:** the forward refresh stops at the first page holding
+  a known upload, so an *old* video that becomes public again deeper in the
+  list (for example private -> public) is not seen until the channel's next
+  full read; a fresh read would include it. It is pinned by a dedicated test.
+  It follows from the refresh rule decided at GATE-2.
 
-A test proves it: the same measured video computed on a warm inventory and on
-a fresh read gives the same baseline and the same sample ids, including after
-new uploads, removals and more than 150 uploads.
+*Cost*: the forward refresh saves `playlistItems` pages (~1 instead of ~2.07
+per channel measured at T-13); the in-window check keeps `videos.list` at about
+what a cold read costs. Measured after the change at T-13 (re-run).
 
-*Declared edge:* a video removed from the channel but never chosen as a sample
-still occupies one of the 150 slots, where a fresh read would list the 151st.
-It can change the sample only for a channel with more than 150 uploads in the
-window.
+*Corrected 25/09/2026: the first text of this section said views were read
+only for the chosen samples and claimed exact equivalence; both were wrong.*
 
 ### 4.5 `backend/main.py`
 
