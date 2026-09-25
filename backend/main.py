@@ -471,7 +471,7 @@ DAY1_POST_COLUMNS = (
     "id, external_post_id, format, baseline_score, baseline_rule, country, countries, "
     "category, categories, entered_on, age_at_first_obs_days, entry_certain, "
     "method_version, status, content_text, author_name, author_handle, post_url, "
-    "vpi_max, vpi_max_on, days_charting"
+    "vpi_max, vpi_max_on, days_charting, claim_token"
 )
 
 

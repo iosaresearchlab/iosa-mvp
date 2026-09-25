@@ -37,7 +37,7 @@ commit hash and the evidence — the command that passed, not an adjective.
 | T-17 day 1 audit | MILESTONE C | | |
 | **GATE-3 GO / NO-GO** | MILESTONE C | | Migert, on the T-17 audit |
 | T-18 data layer and overall chart | CLOSED (loop part) | this commit (subject `T-18: ...`) | `lib/supabase-server.ts` per 02 §6.1 (MIN_VPI_DISPLAY 0, new `Post` fields, `contains` on `countries`/`categories`, `method_version='v2'`, no `vpi_color`/`vpi_level_name` in the select); home = our own overall chart: v2 records by views, VPI beside, charting now / full archive, days in Most Popular and peak VPI; the pooled "avg spike" removed (01 §4.2). `grep` for the lines 750, 759, 439 claims returns nothing; `npm run build` exit 0 locally, CI on push. "Renders against real v2 data" is in Milestone C (needs day 1). Owner's wording used for categories: "the 13 category charts that return data" (01 §1 says 12: noted below) |
-| T-19 leaderboard at day 1 | OPEN | | |
+| T-19 leaderboard at day 1 | CLOSED | this commit (subject `T-19: ...`) | `app/leaderboard/page.tsx` rebuilt per 02 §6.3: "Top VPI — first day observed" from `/api/analytics/top10` (post_daily `day_index = 1`, certain v2 entries: asserted in `tests/test_api.py`), the not-age-adjusted line, `n` and the age range shown, today / 7 days / 30 days / all on `entered_on`, no day selector, the per-creator VPI average removed; a separate "Highest values observed" table on `vpi_max`. `claim_token` added to the day-1 columns for the plaque link. `tests/test_frontend_leaderboard.py` 4 passed; build exit 0; `pytest -q` 520 passed |
 | T-20 claim page and plaque | OPEN | | |
 | T-21 public methodology text | OPEN | | |
 | T-22 three weeks of accumulation | MILESTONE C | | |
