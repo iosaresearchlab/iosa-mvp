@@ -125,6 +125,12 @@ exists**, with a null `vpi_ratio` and `baseline_rule = not_computable`,
 counted in the daily run report. Nobody is excluded from the population: we
 state that for that video the ratio cannot be computed.
 
+**When the daily quota brake stops a run**, the entries it did not reach are
+recorded the same way, without a baseline and without a VPI, with
+`baseline_rule = quota_stop`: valid records, declared in the run report with
+their count. They are kept apart from `not_computable` because the reason is
+the budget, not the channel's data. *(Decided at GATE-2, 25/09/2026.)*
+
 ### Other criteria
 
 - **Median, not mean**: a previous breakout on the channel must not inflate
@@ -367,6 +373,15 @@ reduce the number of countries.
 
 If it overruns, in order: drop to 10 baseline samples, then reduce
 countries. No quota extension request to Google.
+
+*GATE-2, 25/09/2026.* Measured at T-13: the baseline costs 3.24 units per
+channel read cold, and lowering the sample cap does not reduce it (`02`
+§4.4). Decision: **no country reduction and no preliminary measurement.** Two
+read optimisations that do not change any baseline (a persistent inventory
+of each channel's uploads, and one read per channel per run), then the
+normal plan with the 9,500 brake active; entries a run cannot reach are
+`quota_stop` (§2). The perimeter is tuned afterwards, on costs measured in
+production.
 
 ---
 

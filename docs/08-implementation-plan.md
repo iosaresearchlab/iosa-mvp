@@ -226,13 +226,18 @@ only, `POST /api/ingest/run` with the daily lock (409), new
 `QUOTA_MAX_DAILY=2000`, 3 countries, real API key, writing to a scratch
 schema or with a `dry_run` flag that rolls back its writes.
 
-- **Closing check**: the counter in `ingest_run` matches the consumption
-  reported in the Google Cloud console for that window, **to the unit**. Any
-  discrepancy is a bug in the counter, not a rounding difference.
+- **Closing check** *(changed at GATE-2, 25/09: the console is not reachable
+  from the session)*: the counter matches the kill-proof call log — one line
+  per HTTP attempt, written before it is sent — **to the unit**, on a re-run of
+  the same perimeter with the channel inventory. Any discrepancy is a bug in
+  the counter, not a rounding difference.
 - **Rollback**: truncate the scratch rows.
 
 **GATE-2 — decision point.** The counter is trustworthy, or the day-0 run is
 not attempted. Report the measured consumption before proceeding.
+*Passed 25/09 by Migert's decision: no country reduction; channel inventory
+and per-run dedup; the brake stays, entries it stops are `quota_stop`
+records.*
 
 ---
 

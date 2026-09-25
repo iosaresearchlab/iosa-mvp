@@ -178,6 +178,28 @@ record nothing. But the day-0 snapshot is the permanent record of the
 population at the start, and an incomplete one is a hole in it. On a partial
 day 0: delete that day's snapshot rows and re-run day 0 before day 1.
 
+### 3.1.2 New table `channel_inventory` *(GATE-2, 25/09/2026)*
+
+The immutable part of each channel's uploads, kept across runs (§4.4).
+
+```sql
+create table public.channel_inventory (
+  channel_id      text primary key,
+  items           jsonb not null,   -- {video_id: [published_epoch_s, format]}
+  covered_back_to timestamptz,      -- oldest upload read contiguously from the newest
+  capped          boolean not null default false,  -- 150 most recent held
+  ended           boolean not null default false,  -- the playlist was read to its end
+  refreshed_on    date
+);
+alter table public.channel_inventory enable row level security;
+-- no policy: only the service role reads and writes here
+```
+
+`format` is `SHORT`, `LONG`, `NONE` (no usable duration) or null (not yet
+known). At most the 150 most recent uploads are kept per channel.
+*Estimate*: a few tens of MB at 24,000 channels (TOAST-compressed jsonb, ~80
+items per channel); to be measured once populated.
+
 ### 3.2 New columns on `posts`
 
 ```sql
@@ -227,14 +249,15 @@ alter table public.posts add constraint posts_baseline_state check (
               and baseline_score is not null and vpi_ratio is not null
               and vpi_level is not null and vpi_level_name is not null
               and vpi_color is not null, false)
-  or coalesce(baseline_rule = 'not_computable'
+  or coalesce(baseline_rule in ('not_computable', 'quota_stop')
               and baseline_score is null and vpi_ratio is null
               and vpi_level is null and vpi_level_name is null
               and vpi_color is null, false)
 );
 ```
 
-*(Extended at GATE-1, 25/09/2026: the level, its name and its colour follow
+*(`quota_stop` added at GATE-2: entries a run could not reach because of the
+brake, `01` §2.)* *(Extended at GATE-1, 25/09/2026: the level, its name and its colour follow
 the VPI, so a record cannot carry a level name without a level, nor a level
 without a VPI. `vpi_level_name`, `vpi_color` and `author_handle` become
 nullable at the same time: a `not_computable` record has no level, and a
@@ -525,9 +548,44 @@ per channel in phase 3. Phase 3 now reads every in-window id, so it costs
 per channel is unknown until the dry run (T-13), which is where it is
 measured.
 
-**No cache table.** The baseline is computed once and frozen: the cache is
-only needed *within a run*, so a channel with two new videos is not paid for
-twice. An in-memory dictionary is enough. The file-backed `TTLCache` goes.
+**Per channel, once per run.** A channel is read once in a run even when
+several of its videos enter on the same day, over the union of their
+windows; a channel already refreshed earlier in the run is not read again.
+
+**Channel inventory (GATE-2, 25/09/2026).** A video's id, `publishedAt` and
+duration never change, so they are kept across runs in `channel_inventory`
+(§3.1.2). Views change and are never cached across runs: they are read at
+the moment the baseline is computed, as before. With an inventory:
+
+- the uploads are refreshed **forward only**: pages from the newest, stopping
+  at the first page that contains an already-known video;
+- a full read (from the newest, up to 3 pages, until the window is covered)
+  happens only for a channel never read, or whose inventory does not reach far
+  enough back for the video being measured;
+- durations are fetched only for in-window ids whose format is still unknown;
+  views only for the samples actually chosen.
+
+**Why it changes no baseline.** Every choice is made on the same set a fresh
+read would produce:
+
+- *the 3-page cap is kept exactly*: only the **150 most recent** uploads of
+  the inventory are ever considered, which is what 3 pages would return now.
+  An inventory that grows over the days must not reach further into the window
+  than a fresh read could, or the same channel would be measured under two
+  rules;
+- *removed videos*: a chosen sample that `videos.list` no longer returns is
+  dropped from the inventory and the 20 are chosen again among the rest, as
+  a fresh read — which would not have listed it — would have chosen;
+- *hidden view counts*: excluded, and the 20 chosen again, as before.
+
+A test proves it: the same measured video computed on a warm inventory and on
+a fresh read gives the same baseline and the same sample ids, including after
+new uploads, removals and more than 150 uploads.
+
+*Declared edge:* a video removed from the channel but never chosen as a sample
+still occupies one of the 150 slots, where a fresh read would list the 151st.
+It can change the sample only for a channel with more than 150 uploads in the
+window.
 
 ### 4.5 `backend/main.py`
 
@@ -555,10 +613,14 @@ class QuotaCounter:
 ```
 
 **Brake**: `QUOTA_MAX_DAILY` (default **9,500**). On reaching the ceiling the
-run stops cleanly, writes what it has, marks `outcome='partial'` and records
-how many channels were left without a baseline. It never hits the 403.
-Leftover videos are picked up the next day with `baseline_delayed = true`,
-because that is no longer a measurement at entry and must be declared.
+run stops cleanly: the entries it did not reach are written without a
+baseline and without a VPI, `baseline_rule = 'quota_stop'` (`01` §2), their
+count is in the run report, and the run ends with `outcome='partial'`. It
+never hits the 403; a 403 during the baselines is treated the same way.
+*(Changed at GATE-2: the first version deferred them with a
+`baseline_delayed` flag that no table defined.)* A transient failure (5xx,
+network) is different: those entries are not written and return as
+uncertain entries after the next complete run.
 
 ### 4.7 Other scripts
 

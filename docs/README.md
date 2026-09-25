@@ -216,6 +216,15 @@ in with the day-1 audit (`08` T-17) and shown on the public methodology page
 4. `claim_token` publicly readable: a blocker on any public deployment
    (`docs/task-log.md`).
 
+**GATE-2 decisions (Migert, 25/09).** Measured at T-13: 3.24 units per
+channel read cold. No country reduction, no preliminary measurement run. Two
+read optimisations that change no baseline — a persistent inventory of each
+channel's uploads (ids, dates, durations; views are never cached) and one read
+per channel per run — then the plan as written. The 9,500 brake stays;
+entries it stops are valid records without a VPI, `baseline_rule =
+quota_stop`, declared in the run report. T-13 closes against the kill-proof
+call log. Perimeter tuning afterwards, on costs measured in production.
+
 **Still to measure when collection resumes**: the 14→7 maturity-floor
 sensitivity ran on 167 of 220 channels, excluding by construction the ones
 where the floor mattered most. ~660 units.
