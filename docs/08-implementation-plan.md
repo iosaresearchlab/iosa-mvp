@@ -130,11 +130,20 @@ engine still runs unchanged at this point; if it does not, stop.
 §4.3. **414 category slices, not the general chart.** `CATEGORY_MAP` drops to
 13 entries (19 and 27 removed).
 
-- **Files**: `backend/census.py`, `tests/test_census.py`
+Plus the partial-reading rule of `01` §4: `entries_of_day()` takes as
+reference the most recent day with `ingest_run.outcome = 'ok'` (`02` §3.5), and
+`close_exits()` never runs after a partial run (`02` §4.3).
+
+- **Files**: `backend/census.py`, `tests/test_census.py`, a migration
+  replacing `entries_of_day()`, `tests/test_entries.py` extended
 - **Closing check**: `tests/test_census.py` green on mocked HTTP —
   pagination to exhaustion, 404 on a slice skips it without failing the run,
   403 stops everything with `outcome='partial'`, dedup across slices, and the
-  call count for a 3-country fixture equals the expected number exactly.
+  call count for a 3-country fixture equals the expected number exactly;
+  `close_exits(day, run_complete=False)` makes no database call.
+  `tests/test_entries.py` green, including: yesterday partial -> the
+  reference is the last complete day and the entry is uncertain; entries
+  detected during a partial run when the reference is yesterday.
 - **Rollback**: the module is new and unreferenced; delete it.
 
 ### T-08 — `backend/baseline.py`
@@ -173,7 +182,9 @@ does not systematically drop the same slices.
 - **Closing check**: `pytest -q` fully green, including the rewritten
   `tests/test_formati_motore.py`; plus an end-to-end test on mocks that
   writes one full simulated day and asserts the resulting rows in
-  `posts`, `post_daily` (with `day_index = 1`) and `ingest_run`.
+  `posts`, `post_daily` (with `day_index = 1`) and `ingest_run`. Every
+  `posts` row it writes carries `method_version = 'v2'` **explicitly** (the
+  column default is `'v1'`).
 - **Rollback**: the old function is kept in `archive/backend/` for one
   release, so a revert is a one-line import change.
 
@@ -227,8 +238,9 @@ not attempted. Report the measured consumption before proceeding.
 ## Phase 5 — day 0, day 1, and the go/no-go
 
 ### T-14 — scheduling and reactivation
-`cron.job` to `59 23 * * *`, Render reactivated, `IOSA_ENGINE_MODE` left
-`off` so only the HTTP trigger runs the job.
+`cron.job` to `59 23 * * *` and **re-enabled** (switched off at GATE-0),
+Render reactivated, `IOSA_ENGINE_MODE` left `off` so only the HTTP trigger
+runs the job.
 
 - **Closing check**: `GET /api/ingest/status` answers from the deployed
   service; the pg_cron job is listed with the new schedule; a manual trigger
@@ -255,7 +267,8 @@ Second full run. This is the first day of the index.
 - **Closing check**: `ingest_run.outcome='ok'`; `quota_total ≤ 9,500`;
   entries detected > 0; for every new record either `baseline_rule='standard'`
   with `vpi_ratio not null`, or `baseline_rule='not_computable'` with
-  `vpi_ratio null` — no third case; every record has a `post_daily` row at
+  `vpi_ratio null` — no third case, and the constraint
+  `posts_baseline_state` (`02` §3.2) makes one impossible; every record has a `post_daily` row at
   `day_index = 1`; `entry_certain = true` for all (no gap yet).
 - **Rollback**: the run is idempotent per day; delete the day's rows and
   re-run.

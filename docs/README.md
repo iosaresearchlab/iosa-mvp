@@ -191,6 +191,18 @@ index carries an explicit start date, a placeholder until T-16, to be filled
 in with the day-1 audit (`08` T-17) and shown on the public methodology page
 (`02` §6.5).
 
+**GATE-0 decisions (Migert, 25/09).**
+
+1. The v1 pg_cron trigger is **switched off** until T-14. `method_version`
+   defaults to `'v1'` and the v2 pipeline writes `'v2'` explicitly, so a
+   legacy writer can only produce rows that public queries exclude.
+2. **A partial reading observes presence but not absence** (`01` §4): it can
+   produce entries, never exits, and is never the reference snapshot for the
+   next day. The reference is the last run with `outcome = 'ok'`.
+3. `baseline_score` becomes nullable, and a constraint makes the two record
+   states (`standard` with baseline and VPI, `not_computable` with neither)
+   the only possible ones for v2 rows (`02` §3.2).
+
 **Still to measure when collection resumes**: the 14→7 maturity-floor
 sensitivity ran on 167 of 220 channels, excluding by construction the ones
 where the floor mattered most. ~660 units.

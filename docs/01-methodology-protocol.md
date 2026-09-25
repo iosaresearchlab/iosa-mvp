@@ -199,18 +199,23 @@ it out of that snapshot, which would have turned it into a false entry.)*
    baseline computed and frozen → record written.
 4. **Already tracked and still charting** → views updated, today's VPI
    recomputed. Zero cost.
-5. **Gone** → record closed with `left_on`. Stays in the database forever.
+5. **Gone** → record closed with `left_on`, only after a complete reading.
+   Stays in the database forever.
 6. **Re-entries** → no new record, no baseline recomputation.
 
 **If a day's reading is missed, entry status becomes indeterminate.** The
-comparison still runs against the most recent existing snapshot rather than
-"yesterday" by definition, but a video first seen after a gap cannot be
+comparison still runs against the most recent **complete** reading rather
+than "yesterday" by definition, but a video first seen after a gap cannot be
 called a new entrant: it may have entered and been present throughout the
 gap. Such records are written and tracked normally, carrying
 `entry_certain = false` and the size of the gap, and they are excluded from
 every statistic that depends on the entry date.
 
 **A gap never manufactures an entry event.**
+
+**A partial reading observes presence but not absence: it can produce entries
+and never exits, and it cannot serve as the reference snapshot for the
+following day.** *(25/09/2026.)*
 
 ### 4.1 The published value and the record lifecycle
 

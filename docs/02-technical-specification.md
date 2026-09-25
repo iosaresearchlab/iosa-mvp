@@ -239,8 +239,33 @@ create index posts_categories_idx on public.posts using gin (categories);
 create index posts_method_idx     on public.posts (method_version);
 ```
 
-`vpi_ratio` and `vpi_level` become nullable: a record with
-`baseline_rule = not_computable` exists without a VPI.
+`vpi_ratio`, `vpi_level` and `baseline_score` become nullable: a record with
+`baseline_rule = not_computable` exists without a baseline and without a VPI,
+and is never discarded (`01` §2).
+
+**The two states cannot drift apart.** A constraint makes a third case
+impossible in the database, rather than tested for afterwards:
+
+```sql
+alter table public.posts alter column baseline_score drop not null;
+alter table public.posts add constraint posts_baseline_state check (
+  coalesce(method_version = 'v1', false)
+  or coalesce(baseline_rule = 'standard'
+              and baseline_score is not null and vpi_ratio is not null, false)
+  or coalesce(baseline_rule = 'not_computable'
+              and baseline_score is null and vpi_ratio is null, false)
+);
+```
+
+The `coalesce(..., false)` is not decoration: a `CHECK` that evaluates to
+NULL passes, so without it a v2 row with `baseline_rule` null would satisfy
+the constraint. Measured on 25/09: all 28,917 v1 rows evaluate to NULL under
+the bare form, which is why the v1 archive is exempted explicitly instead.
+
+**`method_version` defaults to `'v1'`; the v2 pipeline writes `'v2'`
+explicitly.** Any legacy writer then produces rows that every public query
+excludes by construction, instead of rows that silently claim to be current.
+*(Changed 25/09/2026: the default was `'v2'` at T-05.)*
 
 `country` and `category` remain as the **primary value** (the first chart
 the video appeared in) so existing queries and pages keep working;
@@ -321,7 +346,8 @@ language sql stable
 set search_path = public
 as $$
   with previous as (
-    select max(day) as pd from trend_snapshot where day < d
+    select max(r.day) as pd from ingest_run r
+    where r.day < d and r.outcome = 'ok'
   )
   select s.video_id,
          case when previous.pd = d - 1 then 0 else d - previous.pd end,
@@ -346,8 +372,22 @@ observable). The function returns the gap with each ID, so the writer sets
 `entry_certain` and `gap_days` from the database's answer rather than
 recomputing them.
 
-The `max(day) < d` is the countermeasure for a missed day: the comparison is
-against **the most recent existing snapshot**, not "yesterday" by definition.
+The reference is **the most recent day whose run completed**
+(`ingest_run.outcome = 'ok'`), not "yesterday" by definition and not the most
+recent snapshot: a partial reading observes presence but not absence, so it
+cannot be the reference (`01` §4). If yesterday was partial, the reference is
+further back, `gap_days > 1`, and the record is correctly marked uncertain.
+The completion flag lives only in `ingest_run`; it is not copied onto
+`trend_snapshot`.
+
+Entries are still detected **during** a partial run when the reference is
+yesterday: presence in a chart we read is observed, and discarding it would
+lose real data.
+
+*Limit, declared:* the reference snapshot is kept by the 7-day retention, so
+more than 7 consecutive incomplete runs would leave no reference to compare
+against. That is a stop condition for the operator, not a case the function
+papers over.
 
 That keeps the run from treating every video as new, but it does not restore
 the missing information. When `previous.d < d - 1` the entry date is
@@ -447,9 +487,15 @@ def read_charts(countries, categories) -> tuple[dict, dict]:
     """
 
 def save_snapshot(day, videos) -> int
-def entries(day) -> list[str]      # calls entries_of_day()
-def close_exits(day) -> int
+def entries(day) -> list[dict]     # calls entries_of_day()
+def close_exits(day, run_complete: bool) -> int
 ```
+
+**`close_exits()` never runs after a partial run.** Absence is not observable
+in an unfinished read: the videos stay open and that day is simply not an
+observation for them. `run_complete` is false as soon as the census stopped
+early (403) or the quota brake fired; the function then returns 0 without
+touching the database.
 
 Concurrency 8-12 threads. Measured: 1,486 calls in **112 seconds** for all
 544 slices; the 414 category slices alone cost **1,350**.
@@ -528,7 +574,10 @@ because that is no longer a measurement at entry and must be declared.
 
 ## 5. Scheduling
 
-`cron.job` id 1: from `*/20 * * * *` to **`59 23 * * *`**.
+`cron.job` id 1 (`ingestione-iosa`): from `*/20 * * * *` to
+**`59 23 * * *`**. **Switched off on 25/09/2026 at GATE-0** (migration
+`v2_gate0_disable_v1_cron`): a single row from the v1 engine would have
+entered the new population. T-14 re-enables it with the new schedule.
 
 23:59 UTC = 16:59 Pacific, mid quota-day: no risk on the reset. Fixed UTC
 hour year-round.
@@ -684,7 +733,7 @@ identical.
 | Risk | Effect | Mitigation |
 |---|---|---|
 | Quota overrun on day 1 | partial run | brake at 9,500, `partial` outcome, resume with a flag |
-| **Missing snapshot day** | **every video looks new: spend explodes and entry dates are corrupted** | `entries_of_day()` compares against the most recent existing snapshot and writes `gap_days`; records created after a gap carry `entry_certain = false` and are excluded from entry-date statistics |
+| **Missing snapshot day** | **every video looks new: spend explodes and entry dates are corrupted** | `entries_of_day()` compares against the most recent complete reading and writes `gap_days`; records created after a gap carry `entry_certain = false` and are excluded from entry-date statistics |
 | Render asleep | run skipped | `timeout_milliseconds: 90000` already present + second attempt at 00:30 UTC |
 | Double run | quota doubled | unique on `ingest_run.day` + 409 |
 | Database full | writes rejected | see 3.7 |
