@@ -96,6 +96,39 @@ returns bigint language sql as
    returning jobid';
 """
 
+# Tables that reference posts in production, with their foreign keys as read
+# from pg_constraint on 25/09: claims cascades, the three outreach-side tables
+# set null. claims carries the public read policy it had in production.
+LINKED_STUB = """
+create table public.claims (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references public.posts(id) on delete cascade,
+  status varchar, product_selected varchar, stripe_session_id text,
+  customer_email varchar, shipping_name varchar, shipping_address jsonb,
+  created_at timestamptz default now()
+);
+alter table public.claims enable row level security;
+create policy "Allow public read on claims" on public.claims for select to public using (true);
+grant all on public.claims to anon, authenticated, service_role;
+create table public.outreach (
+  id uuid primary key default gen_random_uuid(),
+  round integer not null default 1, channel_id text not null default 'UC',
+  fascia_iscritti text not null default 'x', banda_livello text not null default 'x',
+  post_id uuid references public.posts(id) on delete set null,
+  claim_token text
+);
+create table public.claim_visite (
+  id uuid primary key default gen_random_uuid(), claim_token text not null,
+  post_id uuid references public.posts(id) on delete set null,
+  vista_il timestamptz not null default now()
+);
+create table public.claim_eventi (
+  id uuid primary key default gen_random_uuid(), claim_token text not null,
+  post_id uuid references public.posts(id) on delete set null,
+  azione text not null default 'x', avvenuto_il timestamptz not null default now()
+);
+"""
+
 
 def _require_db():
     return os.environ.get("IOSA_REQUIRE_DB_TESTS") == "1"
@@ -125,6 +158,7 @@ def db():
         with conn.cursor() as cur:
             cur.execute(SUPABASE_STUB)
             cur.execute(POSTS_STUB)
+            cur.execute(LINKED_STUB)
             cur.execute(
                 "insert into posts (external_post_id, author_handle, baseline_score, vpi_ratio, "
                 "vpi_level, vpi_level_name, vpi_color) values "
