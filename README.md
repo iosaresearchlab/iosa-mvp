@@ -1,14 +1,25 @@
 # IOSA — Viral Performance Index (VPI)
 
 **[iosaresearch.org](https://iosaresearch.org)** · independent non-profit study
-of short-form video performance.
+of video performance relative to a channel's own baseline.
+
+> **Status, 25 September 2026.** The method was rebuilt after an external
+> review and the v2 documentation in **[`docs/`](docs/README.md)** is the only
+> authoritative description. Collection is suspended while v2 is implemented
+> (see `docs/08-implementation-plan.md`). Parts of this page still describe
+> v1 and are corrected below where they were plainly wrong; the rest is
+> rewritten when v2 goes live.
 
 A view count says how big a channel is. It does not say whether a video did
 anything unusual. The VPI measures the second thing:
 
 ```
-VPI = views of the video / median views of that channel's recent Shorts
+VPI = views of the video / median views of that channel's recent videos
+                           in the same format
 ```
+
+Two formats are measured and never mixed: **Shorts** (≤180s) and
+**long-form** (>180s).
 
 Because the reference is the channel's own baseline, a 20,000-subscriber
 channel and a 9-million-subscriber channel can appear on the same scale
@@ -33,14 +44,21 @@ honestly. A Short at 3× its own baseline is a real outlier whether it did
 The scale is defined once, in `backend/vpi_core.py`, and mirrored for the
 frontend in `frontend/src/lib/vpi-scale.ts`.
 
+**These thresholds are inherited from v1 and await recalibration.** On
+historical data level 10 holds 16.8% of records, which is not a usable top
+band. They must not be cited as settled. See
+`docs/04-bias-and-scale-analysis.md`.
+
 ## What is measured, and what is not
 
-- Only short-form video, 0–180 seconds, from the official platform APIs.
-- The view count is **frozen at the moment of measurement**. It is not updated
-  afterwards, so ratios stay comparable between channels measured on different
-  days. Every published figure carries its measurement date for this reason.
-- A measurement stays active for 15 days, then expires. Nothing is claimed
-  about a video after that window.
+- Shorts (≤180s) **and** long-form (>180s), from the official platform APIs,
+  never mixed in one figure.
+- **v2**: the *baseline* is frozen at the video's entry into the index; the
+  *view count* is re-read every day the video is observed in YouTube's Most
+  Popular charts, and the published figure is the peak reached. (The sentence
+  previously here — views frozen at measurement, records expiring after 15
+  days — described v1 and is no longer the method.)
+- Records do not expire. Once written, a record stays.
 - The baseline is a median, not a mean, so one earlier spike on the same
   channel does not flatten the next one.
 
@@ -53,7 +71,9 @@ data, not hidden from it.
 
 | Path | What it is |
 | --- | --- |
-| `backend/vpi_engine_2.py` | ingestion: queries the official APIs, computes baselines and ratios |
+| `backend/vpi_engine.py` | ingestion: queries the official APIs, computes baselines and ratios |
+| `docs/` | **the authoritative documentation** — method, spec, measurements, implementation plan |
+| `CLAUDE.md` | working agreement for Claude sessions in this repository |
 | `backend/vpi_core.py` | the scale and the ratio, single definition |
 | `backend/main.py` | FastAPI service: ingestion trigger, analytics, plaque rendering |
 | `backend/generate_trophy.py` | renders a creator's digital plaque |
