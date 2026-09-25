@@ -42,9 +42,13 @@ create table public.posts (
 );
 """
 
-# Supabase-only objects some migrations call. pg_cron does not exist on a
-# plain PostgreSQL; this stub has the same call signature for alter_job.
+# Supabase-only objects some migrations use: the API roles, and pg_cron,
+# which does not exist on a plain PostgreSQL (same call signature for
+# alter_job).
 SUPABASE_STUB = """
+do $r$ begin
+  create role anon; create role authenticated; create role service_role;
+exception when duplicate_object then null; end $r$;
 create schema cron;
 create table cron.job (jobid bigint primary key, jobname text, active boolean);
 insert into cron.job values (1, 'ingestione-iosa', true);

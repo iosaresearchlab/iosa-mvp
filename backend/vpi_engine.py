@@ -66,30 +66,9 @@ OPTOUT_EMAIL = os.getenv("OPTOUT_EMAIL", "iosa.research.lab@gmail.com")
 MAX_SUBSCRIBERS = 1_500_000 
 MIN_SUBSCRIBERS = 1_000
 
-# Global Country/Category map (Expanded global rotation)
-TARGET_COUNTRIES = [
-    'US', 'IT', 'GB', 'DE', 'FR', 'ES', 'BR', 'JP', 'IN', 'CA', 'AU',
-    'MX', 'AR', 'KR', 'NL', 'PL', 'SE', 'NO', 'FI', 'DK', 'ZA', 'TR',
-    'CH', 'AT', 'BE', 'PT', 'IE', 'NZ', 'CL', 'CO', 'PH', 'ID', 'TH', 'VN'
-]
-
-CATEGORY_MAP = {
-    '1': 'Film & Animation',
-    '2': 'Autos & Vehicles',
-    '10': 'Music',
-    '15': 'Pets & Animals',
-    '17': 'Sports',
-    '19': 'Travel & Events',
-    '20': 'Gaming',
-    '22': 'People & Blogs',
-    '23': 'Comedy',
-    '24': 'Entertainment',
-    '25': 'News & Politics',
-    '26': 'Howto & Style',
-    '27': 'Education',
-    '28': 'Tech',
-    '29': 'Nonprofits & Activism'
-}
+# Countries and categories: one definition, in census.py (T-07). 19 and 27
+# are gone: they returned 404 in all 34 countries.
+from census import CATEGORY_MAP, TARGET_COUNTRIES  # noqa: E402
 
 # I template di commento automatico su YouTube sono stati rimossi il 20/09/2026.
 # Promettevano 'certified report', 'accredited award' e 'official physical trophy':

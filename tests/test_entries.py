@@ -1,12 +1,18 @@
-"""T-06: entries_of_day(), the day-0 exclusion list, and the v1 archiving.
+"""T-06 / T-07: entries_of_day(), close_exits_of_day(), the day-0 list,
+the v1 archiving, and the partial-reading rule.
 
 The SQL under test is the SQL applied to Supabase: every file in
 supabase/migrations/ is executed verbatim, in order, on top of a minimal stub
 of the pre-v2 ``posts`` table (the ``db`` fixture in conftest.py). Nothing
 here is a copy of the function.
 
+A partial reading observes presence but not absence: it can produce entries
+and never exits, and it cannot serve as the reference snapshot for the
+following day (01 section 4). Every fixture day therefore records its run in
+ingest_run, 'ok' unless the test says otherwise.
+
 Sources: docs/01-methodology-protocol.md sections 1 and 4;
-docs/02-technical-specification.md sections 3.1, 3.1.1, 3.5, 3.6.
+docs/02-technical-specification.md sections 3.1, 3.1.1, 3.5, 3.6, 4.3.
 """
 
 from datetime import date, timedelta
@@ -29,7 +35,8 @@ def d(n):
     return D0 + timedelta(days=n)
 
 
-def snap(conn, day, ids, permanent=False):
+def snap(conn, day, ids, permanent=False, run="ok"):
+    """The day's snapshot and, unless run is None, its ingest_run row."""
     with conn.cursor() as cur:
         cur.executemany(
             "insert into trend_snapshot (day, video_id, channel_id, format, "
@@ -37,6 +44,11 @@ def snap(conn, day, ids, permanent=False):
             "values (%s, %s, 'UCfixture', 'SHORT', 1000, '{IT}', '{24}', %s)",
             [(day, v, permanent) for v in ids],
         )
+        if run is not None:
+            cur.execute(
+                "insert into ingest_run (day, started_at, outcome) values (%s, now(), %s)",
+                (day, run),
+            )
 
 
 def day0(conn, ids):
@@ -157,7 +169,7 @@ def test_day0_video_left_unread_by_a_partial_run_is_not_an_entry(db):
     # b's slice, so b is missing from the previous snapshot. A partial run
     # does not drain, so b is still pending and must not enter.
     day0(db, ["a", "b"])
-    snap(db, d(1), ["a"])  # partial run: b unread, no drain
+    snap(db, d(1), ["a"], run="partial")  # b unread, no drain
     snap(db, d(2), ["a", "b"])
     assert entries(db, d(2)) == {}
 
@@ -192,6 +204,112 @@ def test_draining_never_touches_the_day0_archive(db):
         assert cur.fetchone()[0] == 0
         cur.execute("select count(*) from trend_snapshot where day = %s and permanent", (d(0),))
         assert cur.fetchone()[0] == 2
+
+
+# --- T-07: the partial-reading rule ---------------------------------------
+
+
+def test_a_partial_day_is_never_the_reference(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a"])
+    snap(db, d(2), ["a"], run="partial")  # x may have been in an unread slice
+    snap(db, d(3), ["a", "x"])
+    # reference is d(1), the last complete reading: x's entry day is unknown
+    assert entries(db, d(3)) == {"x": (2, False)}
+
+
+def test_a_partial_day_does_not_hide_a_video_it_did_not_read(db):
+    # Without the rule, x would be excluded as "present yesterday" on day 3
+    # only if the partial read had seen it; here the partial read DID see it,
+    # and the reference is still the last complete day.
+    day0(db, ["a"])
+    snap(db, d(1), ["a"])
+    snap(db, d(2), ["a", "x"], run="partial")
+    record(db, "x")  # entered on d(2), observed during the partial run
+    snap(db, d(3), ["a", "x"])
+    assert entries(db, d(3)) == {}
+
+
+def test_entries_are_detected_during_a_partial_run_when_the_reference_is_yesterday(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a"])
+    snap(db, d(2), ["a", "y"], run="partial")
+    assert entries(db, d(2)) == {"y": (0, True)}
+
+
+def test_a_run_still_in_progress_is_not_a_reference(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a"], run=None)
+    with db.cursor() as cur:  # started, never finished: outcome null
+        cur.execute("insert into ingest_run (day, started_at) values (%s, now())", (d(1),))
+    snap(db, d(2), ["a", "z"])
+    assert entries(db, d(2)) == {"z": (2, False)}  # reference is d(0)
+
+
+def v2_record(conn, video_id, entered, days_observed):
+    with conn.cursor() as cur:
+        cur.execute(
+            "insert into posts (external_post_id, method_version, status, entered_on, "
+            "baseline_rule, baseline_score, vpi_ratio) "
+            "values (%s, 'v2', 'ACTIVE', %s, 'standard', 500, 2.0) returning id",
+            (video_id, entered),
+        )
+        pid = cur.fetchone()[0]
+        cur.executemany(
+            "insert into post_daily (post_id, day, day_index, views) values (%s, %s, %s, 1000)",
+            [(pid, entered + timedelta(days=i), i + 1) for i in range(days_observed)],
+        )
+
+
+def closed(conn):
+    with conn.cursor() as cur:
+        cur.execute("select external_post_id, status, left_on, days_charting "
+                    "from posts where method_version = 'v2' order by 1")
+        return cur.fetchall()
+
+
+def close(conn, day):
+    with conn.cursor() as cur:
+        cur.execute("select close_exits_of_day(%s)", (day,))
+        return cur.fetchone()[0]
+
+
+def test_close_exits_closes_only_v2_records_absent_today(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a", "p", "q"])
+    v2_record(db, "p", d(1), 3)
+    v2_record(db, "q", d(1), 3)
+    snap(db, d(4), ["a", "q"], run=None)  # today's run: census complete
+    assert close(db, d(4)) == 1
+    assert closed(db) == [("p", "CLOSED", d(4), 3), ("q", "ACTIVE", None, None)]
+    with db.cursor() as cur:  # the v1 archive is never touched
+        cur.execute("select count(*) from posts where method_version = 'v1' and status <> 'ACTIVE'")
+        assert cur.fetchone()[0] == 0
+
+
+def test_close_exits_refuses_when_the_day_is_already_known_partial(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a", "p"])
+    v2_record(db, "p", d(1), 1)
+    snap(db, d(2), ["a"], run="partial")
+    assert close(db, d(2)) == 0
+    assert closed(db) == [("p", "ACTIVE", None, None)]
+
+
+def test_close_exits_refuses_without_a_snapshot_for_the_day(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a", "p"])
+    v2_record(db, "p", d(1), 1)
+    assert close(db, d(2)) == 0  # nothing read: nothing observed absent
+    assert closed(db) == [("p", "ACTIVE", None, None)]
+
+
+def test_close_exits_is_not_callable_by_the_public_api_roles(db):
+    with db.cursor() as cur:
+        cur.execute("select has_function_privilege('anon', 'public.close_exits_of_day(date)', 'execute'), "
+                    "has_function_privilege('authenticated', 'public.close_exits_of_day(date)', 'execute'), "
+                    "has_function_privilege('service_role', 'public.close_exits_of_day(date)', 'execute')")
+        assert cur.fetchone() == (False, False, True)
 
 
 # --- 02 §3.6: archiving v1 -----------------------------------------------
