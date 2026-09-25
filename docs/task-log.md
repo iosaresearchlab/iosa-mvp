@@ -10,7 +10,7 @@ commit hash and the evidence — the command that passed, not an adjective.
 | Task | State | Commit | Evidence |
 |---|---|---|---|
 | T-01 test and CI scaffolding | CLOSED | `5f50446`, `530dd37` | `CHK-CI`: workflow green on `530dd37` (backend tests, frontend build) — https://github.com/iosaresearchlab/iosa-mvp/actions/runs/36092416638. Local, clean `git archive` + `env -i`: `pytest -q` 24 passed |
-| T-02 regression harness | OPEN | | |
+| T-02 regression harness | CLOSED | this commit (subject `T-02: regression harness`) | on untouched code, clean `git archive` + `env -i`: `pytest -q tests/test_regressione.py` 4 passed; full `CHK-REG` exit 0 (frontend build included). Negative control on a throwaway copy: renaming the Stripe webhook route -> 1 failed (`routes no longer registered: POST /api/webhooks/stripe`); renaming `send_printify_order` -> 3 failed |
 | T-03 pin current core behaviour | OPEN | | |
 | **GATE-0 database** | | | |
 | T-04 migration: new tables | OPEN | | |
@@ -55,3 +55,6 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25: the shell on Migert's PC has no GitHub credentials: pushes are done by Migert from Windows. Git there needs delete permission on the folder (lock files).
 - 2026-09-25: first CI run on `5f50446` failed in `backend tests` (frontend green): `vpi_engine.py` raises at import without `SUPABASE_URL`/`SUPABASE_KEY`. Locally it had passed only because `backend/.env` was read. Local checks now run on a clean `git archive` of `HEAD` with an emptied environment (`env -i`), the same conditions as CI.
 - 2026-09-25: `frontend/node_modules` is built on Windows; the Linux shell builds from a clean `git archive` copy with its own `npm ci`, like CI.
+- 2026-09-25: a commit cannot contain its own hash. Where the Commit column says "this commit", the hash is the commit whose subject carries that task ID.
+- 2026-09-25: `CHK-REG` as listed in T-02 covers Printify, the plaque modules and the routes. It does **not** assert that an existing v1 claim token still resolves, which T-20 says `CHK-REG` covers: that needs a database fixture, and must be added before T-20 at the latest.
+- 2026-09-25: `main.py` uses the deprecated `@app.on_event("startup")`; FastAPI warns, it still works. Not touched.
