@@ -30,18 +30,19 @@ commit hash and the evidence — the command that passed, not an adjective.
 | SEC-3 `claim_token` blocker withdrawn | CLOSED | this commit (subject `SEC-3: ...`) | Not a defect (decision by Migert, 25/09, reasoning under Blockers). `claim_token` back in `PUBLIC_POST_COLUMNS`; `printify_product_id`, `comment_sent` stay out, nothing reads them outside the backend webhook. `pytest -q` green; `CHK-REG` green |
 | SEC-4 Stripe webhook guard | CLOSED | this commit (subject `SEC-4: ...`) | Real bug, confirmed: the webhook wrote `printify_product_id` with the anon client (`SUPABASE_KEY` decodes to role `anon`), `posts` has no UPDATE policy, so the write changed 0 rows and the duplicate-order guard, which read that column, never fired. Fix: the session is reserved in `claims` (service role) before ordering, unique index `claims_stripe_session_id_key` (migration `20260925210849`, applied) refuses a repeat; outcome written with the service role (`claims.status`, and `printify_product_id` on v2 records). The archive is never written (its checksum stands). No personal data stored in `claims`. The old guard also blocked a legitimate second purchase of the same plaque: gone, the session is the unit. `tests/test_webhook.py` 6 passed (write lands, repeat rejected, new session orders, v1 token orders without touching `posts_v1`, failure recorded and not retried, no service key = no order, anon write = 0 rows). `ENABLE_ORDERS` still false |
 | SCALE owner's thresholds | CLOSED | this commit (subject `SCALE: ...`) | Set by the project owner 25/09 (`01` §4.3), active in `vpi_core.VPI_SCALE` and `vpi-scale.ts`; the v1 thresholds and every "awaits recalibration" line in `01` replaced. T-24 removed from the plan and this log. Below 1.5x: no level (the v1 code gave level 1, now follows the table); `posts_baseline_state` accepts a standard record with its three level fields all null (migration `v2_scale_no_level`). `tests/test_scale.py` (backend = frontend = the table in `01`); `pytest -q` green |
+| APP-1 app back online | CLOSED | PR #2 merged to `main` (`ff3132c`) | Owner decision 25/09: the Vercel freeze is lifted. Vercel production deployment of `ff3132c`: success. Checked in the browser: `iosaresearch.org` renders (0 records, `posts` empty until day 1); the v1 claim link `/claim/iosa_LtdFPTUvgWIGxs0p` resolves through `claim_record_v1` and shows the plaque. With the public anon key: `posts_v1`, `posts_v1_links`, `claims` answer 401 `42501`; `claim_record_v1` returns `[]` for an unknown token, `null` and `%`, one row for the real token. Render stays on `docs/methodology-v2` |
 | T-14 scheduling and reactivation | CLOSED | `2da7339` (prep), `6b4e0b7` (day 0 automatic), this commit (subject `T-14: close ...`) | Render `iosa-mvp-backend` live on `docs/methodology-v2` at `6b4e0b7` (auto-deploy on push), seen in the dashboard; env has no `SNAPSHOT_ONLY`, `IOSA_COUNTRIES`, `QUOTA_MAX_DAILY`; `/` answers `motore: off`. `GET /api/ingest/status` from the deployed service: `{"latest": null}`. Migration `20260925210300_v2_t14_schedule` applied: job 1 `59 23 * * *` active, job 2 `ingestione-iosa-retry` `30 0 * * *` active. One-country check (changed check, Migert 25/09): IT snapshot-only against the test database, real API, `outcome=ok`, 42 units, call log 42 = counter, 1,682 videos all permanent, 0 `posts` |
-| T-15 day 0: snapshot only | OPEN | | |
-| T-16 day 1: first real records | OPEN | | |
-| T-17 day 1 audit | OPEN | | |
-| **GATE-3 GO / NO-GO** | | | |
+| T-15 day 0: snapshot only | MILESTONE C | | tonight 23:59 UTC; checked at 00:08 UTC |
+| T-16 day 1: first real records | MILESTONE C | | |
+| T-17 day 1 audit | MILESTONE C | | |
+| **GATE-3 GO / NO-GO** | MILESTONE C | | Migert, on the T-17 audit |
 | T-18 data layer and overall chart | OPEN | | |
 | T-19 leaderboard at day 1 | OPEN | | |
 | T-20 claim page and plaque | OPEN | | |
 | T-21 public methodology text | OPEN | | |
-| T-22 three weeks of accumulation | OPEN | | |
-| T-23 deferred measurements | OPEN | | |
-| T-25 final review and production | OPEN | | |
+| T-22 three weeks of accumulation | MILESTONE C | | |
+| T-23 deferred measurements | MILESTONE C | | |
+| T-25 final review and production | MILESTONE C | | |
 
 States: `OPEN`, `IN PROGRESS`, `CLOSED`, `BLOCKED — <why>`.
 
@@ -128,3 +129,4 @@ decisions — those belong in `01` or in the correction log.
 - 2026-09-25 (T-14): Render auto-deploys every push to `docs/methodology-v2`, and a deploy restarts the service, which kills a reading in progress. No push between 23:45 UTC and the end of the night's reading.
 - 2026-09-25 (T-14): the Vault `INGEST_TRIGGER_TOKEN` and Render's were not compared (reading a secret in the dashboard was refused, correctly). The 23:59 call answers it: 202 means they match, 401 that they do not.
 - 2026-09-25 (T-16 prep): Render's free tier stops a service after 15 minutes without inbound requests; a background task does not count. Day 0 (census only) is a few minutes; a day with baselines is not. While a reading runs, the service now calls its own `RENDER_EXTERNAL_URL` every 240 s (`main._keepalive`, no quota). Tested; the real check is tomorrow's run.
+- 2026-09-25 (SEC-2, checksums): `78c8c5fd858a42734838743fba72044d` is md5 of every column of the 28,917 v1 rows, each as `to_jsonb(row)`, joined with `|` in `id` order, computed on `posts` just before the move and on `posts_v1` (minus `archived_at`) just after, inside the same migration: equal, so the moved rows are the same data. Reproducible any time: `select md5(string_agg((to_jsonb(v) - 'archived_at')::text, '|' order by id)) from posts_v1 v`. `b0335510f2e7f258563b7119e60edd64` (T-10, GATE-2) is a different formula over the same table, not recorded in the repo; re-tried eight plausible serialisations on `posts_v1` and none reproduces it, so the two hashes are not comparable to each other. What links them is that nothing wrote `posts` between GATE-2 and the move (cron off, Render suspended, same row count).

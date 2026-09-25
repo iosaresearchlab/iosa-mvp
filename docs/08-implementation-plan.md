@@ -313,7 +313,8 @@ for it, by the owner's decision to put the app back online.)*
 
 ## Phase 6 — frontend and public material
 
-Only after GATE-3.
+~~Only after GATE-3.~~ Now, by the owner's decision of 25/09/2026 to put the
+app back online.
 
 ### T-18 — data layer and the overall chart
 `lib/supabase-server.ts` per `02` §6.1; `app/page.tsx` shows **our own
@@ -381,6 +382,28 @@ Removed 25/09/2026: the thresholds are set by the project owner (`01`
 ### T-25 — final review and production
 Full re-read of the documentation, external review pass on the closed
 solution with real distributions in hand, then live.
+
+---
+
+## Milestone C — collection (outside the loop)
+
+*(Owner decision, 25/09/2026.)* A task whose closing check cannot pass
+without elapsed collection time is not a loop task: the loop does not wait
+on the calendar. These close when the calendar lets them, each still on its
+own closing check above, and are reported as they do:
+
+| Item | Needs | Earliest |
+|---|---|---|
+| T-15 day 0 | tonight's 23:59 UTC reading | 26/09 00:10 UTC |
+| T-16 day 1 | the next night's reading | 27/09 |
+| T-17 day-1 audit, and the start date | T-16 | 27/09 |
+| GATE-3 GO / NO-GO | T-17, decided by Migert | after T-17 |
+| T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | 27/09 |
+| T-22 three weeks | 21 readings | mid-October |
+| T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
+| T-25 final review | real distributions in hand, external reviewers | after T-23 |
+
+The loop itself ends with T-21.
 
 ---
 
