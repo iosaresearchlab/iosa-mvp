@@ -1,0 +1,116 @@
+{
+ "window_utc": {
+  "start": "2026-09-25T18:46:13+00:00",
+  "end": "2026-09-25T18:54:14+00:00"
+ },
+ "countries": [
+  "IT",
+  "US",
+  "DE"
+ ],
+ "limit": 2000,
+ "seed": 20260925,
+ "counter": {
+  "charts": 127,
+  "channels": 6,
+  "playlist": 473,
+  "videos": 494
+ },
+ "counter_total": 1100,
+ "call_log_total": 1299,
+ "call_log_by_endpoint": {
+  "chart": 127,
+  "channels": 7,
+  "playlistItems": 584,
+  "videos": 581
+ },
+ "http_status_tally": {
+  "chart:404": 1,
+  "chart:200": 126,
+  "channels:200": 6,
+  "playlistItems:200": 473,
+  "videos:200": 494
+ },
+ "census": {
+  "videos_in_snapshot": 4563,
+  "units": {
+   "charts": 127
+  }
+ },
+ "cold": {
+  "batches": 3,
+  "channels": 150,
+  "videos": 188,
+  "units": {
+   "channels": 3,
+   "playlist": 323,
+   "videos": 247
+  },
+  "units_per_channel": 3.82,
+  "full_reads": 150,
+  "forward_refreshes": 0,
+  "removed": 0
+ },
+ "warm": {
+  "batches": 3,
+  "channels": 150,
+  "videos": 188,
+  "units": {
+   "channels": 3,
+   "playlist": 150,
+   "videos": 247
+  },
+  "units_per_channel": 2.667,
+  "full_reads": 0,
+  "forward_refreshes": 150,
+  "removed": 0
+ },
+ "warm_equals_cold": {
+  "compared": 188,
+  "identical": 102
+ },
+ "per_call_log_vs_counter": {
+  "census": {
+   "log": 127,
+   "counter": 127
+  },
+  "cold_batch_0": {
+   "log": 191,
+   "counter": 191
+  },
+  "cold_batch_1_killed_at_85s": {
+   "log": 199,
+   "counter": "lost with the process"
+  },
+  "cold_batch_1_rerun": {
+   "log": 199,
+   "counter": 199
+  },
+  "cold_batch_2": {
+   "log": 183,
+   "counter": 183
+  },
+  "warm_batch_0": {
+   "log": 136,
+   "counter": 136
+  },
+  "warm_batch_1": {
+   "log": 138,
+   "counter": 138
+  },
+  "warm_batch_2": {
+   "log": 126,
+   "counter": 126
+  }
+ },
+ "warm_vs_cold_on_real_data": {
+  "compared": 188,
+  "same_sample_ids": 188,
+  "same_rule": 188,
+  "identical_including_views": 102,
+  "same_ids_baseline_moved": 86,
+  "median_relative_change": 3.522880567303007e-05,
+  "max_relative_change": 0.000918105031215571,
+  "ids_differ": []
+ }
+}

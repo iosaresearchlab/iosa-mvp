@@ -21,6 +21,11 @@ status in a wrapping session, as an internal check on the counter.
     QUOTA_MAX_DAILY=2000 python tests/dry_run_t13.py baselines   # repeat until done
     python tests/dry_run_t13.py report > docs/t13-dry-run.json
 
+Re-run after GATE-2 (channel inventory), T13_PHASES=1:
+    ... baselines cold   # T13_BATCHES batches, the inventory filled from nothing
+    ... baselines warm   # the same batches again, on the saved inventory
+    ... report           # per-phase cost, and the call log against the counter
+
 The API key is read from backend/.env (CRLF-safe) and never printed.
 """
 
@@ -110,7 +115,8 @@ def census():
 
     if load():
         raise SystemExit(f"{STATE} exists: the census already ran")
-    srv = pgserver.get_server(str(Path.home() / "pgdata-t13"), cleanup_mode="stop")
+    srv = pgserver.get_server(str(Path.home() / os.environ.get("T13_PGDATA", "pgdata-t13")),
+                              cleanup_mode="stop")
     with psycopg.connect(srv.get_uri(), autocommit=True) as c:
         c.execute("drop database if exists t13")
         c.execute("create database t13")
@@ -140,10 +146,16 @@ def census():
           f"videos={len(snap)} slices_ok={row.get('slices_ok')} 404={row.get('slices_404')}")
 
 
-def baselines():
+def baselines(phase=None):
     import baseline as bl
     st = load()
-    if not st or st["done"]:
+    key = f"_{phase}" if phase else ""
+    if phase:
+        st.setdefault("next_batch" + key, 0)
+        st.setdefault("batches" + key, [])
+        st.setdefault("done" + key, False)
+        st.setdefault("inventory", {})
+    if not st or st["done" + key]:
         raise SystemExit("nothing to do")
     by_channel = {}
     for vid, ch, fmt, pub in st["snapshot"]:
@@ -156,34 +168,75 @@ def baselines():
     t0 = time.monotonic()
     key = api_key()
     max_batches = int(os.environ.get("T13_MAX_BATCHES", "0")) or len(batches)
+    total_batches = int(os.environ.get("T13_BATCHES", "0")) or len(batches)
+    batches = batches[:total_batches]
+    store = bl.MemoryInventory(st.get("inventory")) if phase else None
+    api = key
+    key = "_" + phase if phase else ""
     ran = 0
-    while (st["next_batch"] < len(batches) and time.monotonic() - t0 < BUDGET_S
+    while (st["next_batch" + key] < len(batches) and time.monotonic() - t0 < BUDGET_S
            and ran < max_batches):
         ran += 1
-        chs = batches[st["next_batch"]]
+        chs = batches[st["next_batch" + key]]
         measured = [m for ch in chs for m in by_channel[ch]]
         before = dict(counter.per_endpoint)
-        res, rep = bl.baselines_for_videos(measured, key, quota=counter, session=TallySession(tally))
+        res, rep = bl.baselines_for_videos(measured, api, quota=counter, session=TallySession(tally),
+                                           inventory=store, run_state=bl.new_run_state())
         spent = {k: counter.per_endpoint[k] - before.get(k, 0) for k in counter.per_endpoint}
         rules = Counter(r["rule"] for r in res.values())
-        st["batches"].append({"index": st["next_batch"], "channels": len(chs), "videos": len(measured),
-                              "units": spent, "resolved": len(res), "rules": dict(rules),
-                              "unresolved": len(rep.get("unresolved", [])),
-                              "playlist_missing": rep["playlist_missing"],
-                              "stop_reason": rep["stop_reason"], "at": now()})
-        st["next_batch"] += 1
+        st["batches" + key].append({"index": st["next_batch" + key], "channels": len(chs),
+                                    "videos": len(measured), "units": spent, "resolved": len(res),
+                                    "rules": dict(rules), "unresolved": len(rep.get("unresolved", [])),
+                                    "playlist_missing": rep["playlist_missing"],
+                                    "full_reads": rep.get("full_reads"),
+                                    "forward_refreshes": rep.get("forward_refreshes"),
+                                    "removed": rep.get("removed"),
+                                    "results": res if phase else None,
+                                    "stop_reason": rep["stop_reason"], "at": now()})
+        st["next_batch" + key] += 1
         st["counter"], st["tally"] = dict(counter.per_endpoint), dict(tally)
+        if store is not None:
+            st["inventory"] = store.data
         if rep["stop_reason"]:
-            st["done"], st["stopped"] = True, rep["stop_reason"]
+            st["done" + key], st["stopped"] = True, rep["stop_reason"]
         save(st)
-        if st["done"]:
+        if st["done" + key]:
             break
-    if st["next_batch"] >= len(batches):
-        st["done"] = True
+    if st["next_batch" + key] >= len(batches):
+        st["done" + key] = True
     st["last_call_finished"] = now()
     save(st)
     print(f"batches done={st['next_batch']}/{len(batches)} total={sum(counter.per_endpoint.values())} "
           f"done={st['done']} stop={st.get('stopped')}")
+
+
+def report_phases():
+    st = load()
+    log_lines = CALL_LOG.read_text().splitlines() if CALL_LOG.exists() else []
+    log_by_ep = Counter(line.split()[1] for line in log_lines)
+    out = {"window_utc": {"start": st["started"], "end": st.get("last_call_finished")},
+           "countries": COUNTRIES, "limit": st["limit"], "seed": SEED,
+           "counter": st["counter"], "counter_total": sum(st["counter"].values()),
+           "call_log_total": len(log_lines), "call_log_by_endpoint": dict(log_by_ep),
+           "http_status_tally": st["tally"],
+           "census": {"videos_in_snapshot": len(st["snapshot"]), "units": st["census_counter"]}}
+    for phase in ("cold", "warm"):
+        bs = [b for b in st.get("batches_" + phase, []) if not b["stop_reason"]]
+        units = Counter()
+        for b in bs:
+            units.update(b["units"])
+        ch = sum(b["channels"] for b in bs)
+        out[phase] = {"batches": len(bs), "channels": ch, "videos": sum(b["videos"] for b in bs),
+                      "units": {k: v for k, v in units.items() if v},
+                      "units_per_channel": round(sum(units.values()) / ch, 3) if ch else None,
+                      "full_reads": sum(b["full_reads"] or 0 for b in bs),
+                      "forward_refreshes": sum(b["forward_refreshes"] or 0 for b in bs),
+                      "removed": sum(b["removed"] or 0 for b in bs)}
+    cold = {k: v for b in st.get("batches_cold", []) for k, v in (b["results"] or {}).items()}
+    warm = {k: v for b in st.get("batches_warm", []) for k, v in (b["results"] or {}).items()}
+    out["warm_equals_cold"] = {"compared": len(set(cold) & set(warm)),
+                               "identical": sum(cold[k] == warm[k] for k in set(cold) & set(warm))}
+    print(json.dumps(out, indent=1, default=str))
 
 
 def report():
@@ -217,4 +270,9 @@ def report():
 
 
 if __name__ == "__main__":
-    {"census": census, "baselines": baselines, "report": report}[sys.argv[1]]()
+    if sys.argv[1] == "baselines" and len(sys.argv) > 2:
+        baselines(sys.argv[2])
+    elif sys.argv[1] == "report" and os.environ.get("T13_PHASES"):
+        report_phases()
+    else:
+        {"census": census, "baselines": baselines, "report": report}[sys.argv[1]]()

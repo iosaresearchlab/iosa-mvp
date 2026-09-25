@@ -66,3 +66,71 @@ Two facts that bear on the choice `01` §5 foresees for an overrun:
 - **The cost is per entry, every day, not only on day 1**: the window is
   anchored to each video's publication, so even a channel already seen needs
   its uploads read again for a new video. Nothing is cached across runs.
+
+
+---
+
+# T-13 re-run after GATE-2 — channel inventory, 25 September 2026
+
+Same perimeter (IT, US, DE), `QUOTA_MAX_DAILY=2000`, no production write.
+Window 18:46:13 - 18:54:14 UTC. Raw figures: `docs/t13-dry-run-2.json`.
+Census, then the same 150 channels (188 measured videos) twice: **cold**, the
+inventory filled from nothing, and **warm**, on the saved inventory as on
+every following day.
+
+## Cost per channel, measured
+
+| | `channels.list` | `playlistItems` | `videos.list` | **per channel** |
+|---|---|---|---|---|
+| Cold (150 channels) | 0.02 | 2.15 | 1.65 | **3.82** |
+| Warm (same 150) | 0.02 | **1.00** | 1.65 | **2.67** |
+
+The forward refresh cut `playlistItems` to exactly one page per channel. The
+in-window check (existence, privacy, views of every candidate) stays at what
+a cold read costs: that is the price of changing no baseline (`02` §4.4). The
+cold figure differs from the 3.24 of the first run because the 150 channels
+are a different sample of the 3,900; per-batch cold costs ranged 141-199.
+
+## The closing check: call log against counter
+
+Every HTTP attempt was written and flushed to the call log before it was
+sent. For every call that completed, the log delta equals the counter delta,
+to the unit:
+
+| Call | Log | Counter |
+|---|---|---|
+| Census | 127 | 127 |
+| Cold batch 0 | 191 | 191 |
+| Cold batch 1 | 199 | 199 |
+| Cold batch 2 | 183 | 183 |
+| Warm batch 0 | 136 | 136 |
+| Warm batch 1 | 138 | 138 |
+| Warm batch 2 | 126 | 126 |
+
+In total the log holds 1,299 lines and the counter 1,100. The 199 difference is
+one call I launched with an 85 s shell limit, shorter than a cold batch: it was
+cut while running cold batch 1, and its counter died with the process. The
+log kept every one of its calls — 1 `channels`, 111 `playlistItems`, 87
+`videos` — the exact split of the same batch re-run in full right after
+(1 / 111 / 87). That is the case the log exists for.
+
+## Warm against cold on the real API
+
+| | |
+|---|---|
+| Measured videos compared | 188 |
+| Same sample ids | **188** |
+| Same `baseline_rule` | **188** |
+| Same baseline to the unit | 102 |
+| The other 86 | same samples, baseline moved by the views gained in the minutes between the two reads: median 0.0035%, max 0.09% |
+
+Views are read fresh by rule, so the baseline is expected to move with them;
+what must not move is which videos are chosen, and it did not.
+
+## What it implies — an estimate, not a measurement
+
+Steady state: each day's entries mostly belong to channels already in the
+inventory, at ~2.67 units per channel; new channels cost ~3.82. The day-1 cost
+is still of the order of twice the 9,500 brake at the assumed turnover
+*(estimate: the turnover is not measured)*. By the GATE-2 decision the brake
+stays: the entries a run cannot reach are `quota_stop` records, counted.
