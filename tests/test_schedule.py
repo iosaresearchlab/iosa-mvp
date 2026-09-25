@@ -100,3 +100,34 @@ def test_esegui_un_ciclo_forces_snapshot_only_on_day0(monkeypatch):
     monkeypatch.delenv("SNAPSHOT_ONLY", raising=False)
     vpi_engine.esegui_un_ciclo()
     assert seen["snapshot_only"] is True
+
+
+# --- keepalive while a reading runs ---------------------------------------------
+
+
+def test_keepalive_pings_until_stopped():
+    import threading
+    import main
+    stop, hits = threading.Event(), []
+
+    def get(url):
+        hits.append(url)
+        if len(hits) == 3:
+            stop.set()
+    main._keepalive(stop, "https://svc.example/", interval=0.01, get=get)
+    assert hits == ["https://svc.example/"] * 3
+
+
+def test_a_reading_runs_the_keepalive_and_stops_it(monkeypatch):
+    import threading
+    import main
+    started = []
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://svc.example")
+    monkeypatch.setattr(main, "_keepalive", lambda stop, url: started.append((stop, url)))
+    monkeypatch.setattr(main, "esegui_un_ciclo", lambda: {"outcome": "ok"})
+    main._giro_di_ingestione()
+    for t in threading.enumerate():
+        if t is not threading.current_thread() and t.daemon:
+            t.join(timeout=1)
+    (stop, url), = started
+    assert url == "https://svc.example/" and stop.is_set()

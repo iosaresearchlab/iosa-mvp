@@ -19,18 +19,22 @@ export type Livello = {
   colore: string;
 };
 
-/** (soglia minima, livello, nome, colore) — dal piu' alto al piu' basso. */
+/**
+ * (soglia minima, livello, nome, colore) — dal piu' alto al piu' basso.
+ * Soglie fissate dal titolare del progetto il 25/09/2026 (docs/01 §4.3); puo'
+ * cambiarle quando vuole. Sotto la soglia piu' bassa un record non ha livello.
+ */
 const SCALA: ReadonlyArray<readonly [number, number, string, string]> = [
-  [50.0, 10, 'Lvl 10 - Hyper Outlier', '#FF0055'],
-  [25.0, 9, 'Lvl 9 - Mega Outlier', '#FF2A00'],
-  [15.0, 8, 'Lvl 8 - Outlier', '#FF5500'],
-  [10.0, 7, 'Lvl 7 - Super Viral', '#FF8800'],
-  [7.5, 6, 'Lvl 6 - Viral', '#FFAA00'],
-  [5.0, 5, 'Lvl 5 - Breakout', '#FFCC00'],
-  [3.0, 4, 'Lvl 4 - Trending', '#00CC88'],
-  [2.0, 3, 'Lvl 3 - Rising', '#0099FF'],
-  [1.5, 2, 'Lvl 2 - Moderate', '#7755FF'],
-  [0.0, 1, 'Lvl 1 - Standard', '#888888'],
+  [2500.0, 10, 'Lvl 10 - Hyper Outlier', '#FF0055'],
+  [1500.0, 9, 'Lvl 9 - Mega Outlier', '#FF2A00'],
+  [1000.0, 8, 'Lvl 8 - Outlier', '#FF5500'],
+  [250.0, 7, 'Lvl 7 - Super Viral', '#FF8800'],
+  [100.0, 6, 'Lvl 6 - Viral', '#FFAA00'],
+  [50.0, 5, 'Lvl 5 - Breakout', '#FFCC00'],
+  [25.0, 4, 'Lvl 4 - Surging', '#00CC88'],
+  [10.0, 3, 'Lvl 3 - Rising', '#0099FF'],
+  [5.0, 2, 'Lvl 2 - Moderate', '#7755FF'],
+  [1.5, 1, 'Lvl 1 - Standard', '#888888'],
 ];
 
 export const LIVELLI: ReadonlyArray<Livello> = SCALA.map(
@@ -41,16 +45,25 @@ export const LIVELLI: ReadonlyArray<Livello> = SCALA.map(
 export const SOGLIE: ReadonlyArray<number> = SCALA.map(([soglia]) => soglia);
 
 const PER_NUMERO = new Map(LIVELLI.map((l) => [l.livello, l]));
-const FALLBACK = PER_NUMERO.get(1)!;
 
-/** Il livello a cui appartiene un rapporto VPI. */
-export function livelloDaRatio(ratio: number | string | null | undefined): Livello {
+/** Soglia sotto la quale un record ha un VPI ma nessun livello. */
+export const SOGLIA_MINIMA = SCALA[SCALA.length - 1][0];
+
+/** Cosa mostrare per un record senza livello: il VPI c'e', il livello no. */
+export const NESSUN_LIVELLO: Livello = {
+  livello: 0,
+  nome: `No level (VPI < ${SOGLIA_MINIMA}x)`,
+  colore: SCALA[SCALA.length - 1][3],
+};
+
+/** Il livello a cui appartiene un rapporto VPI; null sotto la soglia minima. */
+export function livelloDaRatio(ratio: number | string | null | undefined): Livello | null {
   const v = typeof ratio === 'number' ? ratio : parseFloat(String(ratio ?? ''));
-  if (!Number.isFinite(v)) return FALLBACK;
+  if (!Number.isFinite(v)) return null;
   for (const [soglia, livello, nome, colore] of SCALA) {
     if (v >= soglia) return { livello, nome, colore };
   }
-  return FALLBACK;
+  return null;
 }
 
 /** Il livello dato il numero salvato in vpi_level. */
@@ -76,7 +89,7 @@ export function livelloDiRecord(post: {
     const daNome = livelloDaNumero(parseInt(match[1], 10));
     if (daNome) return daNome;
   }
-  return livelloDaRatio(post.vpi_ratio);
+  return livelloDaRatio(post.vpi_ratio) ?? NESSUN_LIVELLO;
 }
 
 /**

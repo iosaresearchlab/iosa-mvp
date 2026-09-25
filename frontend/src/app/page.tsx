@@ -6,14 +6,19 @@ import { formatVPI, formatCount } from '@/lib/format';
 import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
 import { PAESI } from '@/lib/segments';
 
-// Soglia di ingresso nella tabella pubblica.
+// Nessuna soglia sul VPI (docs/01 §7): l'indice non e' censurato dal basso e
+// un record senza baseline calcolabile resta in tabella, senza VPI.
 //
-// Il VPI viene memorizzato arrotondato a una decimale, quindi fra 1.4 e 1.5
-// esiste un solo valore rappresentabile: 1.4. Con il confronto stretto che
-// c'era prima (> 1.4) il livello 1, che arriva fino a 1.5 escluso, non
-// compariva mai in tabella: tutti i suoi record si fermano a 1.4 esatto.
-// Il confronto e' quindi >= , non >.
-const MIN_VPI_DISPLAY = 1.4;
+// La home e' la nostra classifica generale (docs/02 §6.2): l'unione delle
+// classifiche di categoria ordinata per views, con il VPI di ogni video
+// accanto. Il dato quantitativo e' di YouTube, quello qualitativo e' nostro.
+// Si caricano le prime MAX_RIGHE per views; il conteggio resta esatto.
+const MAX_RIGHE = 5000;
+
+type Vista = 'charting' | 'archive';
+
+const CAMPI_HOME =
+  'id,external_post_id,platform,format,author_handle,author_name,channel_id,content_text,post_url,country,category,countries,categories,engagement_score,baseline_score,baseline_rule,vpi_ratio,vpi_level,vpi_max,views_max,days_charting,entered_on,left_on,status,claim_token';
 
 // Quante righe si disegnano per volta.
 //
@@ -47,7 +52,7 @@ import {
   CheckCircle2,
   Building2,
   Trophy,
-  TrendingUp,
+  Activity,
 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -68,7 +73,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const [campaignDates, setCampaignDates] = useState({ start: '', end: '' });
+  const [vista, setVista] = useState<Vista>('charting');
   
   // English comment: Modal management state for transparent governance popups
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -99,10 +104,10 @@ export default function Home() {
 
       <div className="text-center space-y-1">
         <p className="text-xs font-mono font-bold tracking-widest text-white uppercase animate-pulse">
-          Analyzing Social Baselines...
+          Reading Most Popular...
         </p>
         <p className="text-[10px] text-gray-400 font-mono">
-          IOSA Research Lab • Fetching 15-Day Outliers
+          IOSA Research Lab • one reading a day at 23:59 UTC
         </p>
       </div>
     </div>
@@ -133,31 +138,19 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    const updateRollingWindow = () => {
-      const now = new Date();
-      const past15Days = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
-
-      setCampaignDates({
-        start: past15Days.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
-        end: now.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }),
-      });
-    };
-
-    updateRollingWindow();
-  }, []);
-
   const loadData = async () => {
     try {
       // Verificato sul progetto: max_rows non e' limitato e la query restituisce
       // tutte le righe. Nessun range, ma chiediamo comunque il conteggio esatto
       // cosi' la statistica resta corretta anche se un domani il tetto cambia.
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('posts')
-        .select('*', { count: 'exact' })
-        .eq('status', 'ACTIVE')
-        .gte('vpi_ratio', MIN_VPI_DISPLAY)
-        .order('vpi_ratio', { ascending: false });
+        .select(CAMPI_HOME, { count: 'exact' })
+        .eq('method_version', 'v2');
+      if (vista === 'charting') query = query.eq('status', 'ACTIVE');
+      const { data, error, count } = await query
+        .order('engagement_score', { ascending: false })
+        .range(0, MAX_RIGHE - 1);
 
       if (!error && data) {
         setPosts(data);
@@ -190,7 +183,8 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista]);
 
   // Le voci dei filtri si ricavano dai record caricati, non da un elenco
   // scritto a mano. Un elenco fisso si scolla dai dati al primo paese nuovo
@@ -199,14 +193,17 @@ export default function Home() {
   // quel filtro svuotasse la tabella. Il conteggio accanto al nome dice
   // quante righe ci sono dietro, cosi' una voce vuota non puo' esistere.
   const opzioniFiltri = useMemo(() => {
-    const conta = (chiave: 'platform' | 'country' | 'category') => {
+    // Paese e categoria dagli array: un video presente in piu' fette compare
+    // sotto ciascuna (docs/02 §6.1).
+    const conta = (chiave: 'platform' | 'countries' | 'categories') => {
       const mappa = new Map<string, number>();
       for (const post of posts) {
-        if (post.status && post.status !== 'ACTIVE') continue;
-        if (!post.vpi_ratio || Number(post.vpi_ratio) < MIN_VPI_DISPLAY) continue;
-        const valore = post[chiave];
-        if (typeof valore !== 'string' || !valore.trim()) continue;
-        mappa.set(valore, (mappa.get(valore) ?? 0) + 1);
+        const grezzo = post[chiave];
+        const valori: unknown[] = Array.isArray(grezzo) ? grezzo : [grezzo];
+        for (const valore of valori) {
+          if (typeof valore !== 'string' || !valore.trim()) continue;
+          mappa.set(valore, (mappa.get(valore) ?? 0) + 1);
+        }
       }
       return Array.from(mappa.entries())
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -214,8 +211,8 @@ export default function Home() {
     };
     return {
       piattaforme: conta('platform'),
-      paesi: conta('country'),
-      categorie: conta('category'),
+      paesi: conta('countries'),
+      categorie: conta('categories'),
     };
   }, [posts]);
 
@@ -233,21 +230,16 @@ export default function Home() {
 
   const filteredPosts = useMemo(() => {
     return posts.filter((post) => {
-      if (post.status && post.status !== 'ACTIVE') return false;
-      if (!post.vpi_ratio || Number(post.vpi_ratio) < MIN_VPI_DISPLAY) return false;
-
       const matchPlatform =
         selectedPlatform === 'ALL' ||
         (post.platform &&
           post.platform.toLowerCase() === selectedPlatform.toLowerCase());
       const matchCountry =
         selectedCountry === 'ALL' ||
-        (post.country &&
-          post.country.toUpperCase() === selectedCountry.toUpperCase());
+        (post.countries || []).some((c: string) => c.toUpperCase() === selectedCountry.toUpperCase());
       const matchCategory =
         selectedCategory === 'ALL' ||
-        (post.category &&
-          post.category.toLowerCase() === selectedCategory.toLowerCase());
+        (post.categories || []).some((c: string) => c.toLowerCase() === selectedCategory.toLowerCase());
 
       const query = searchQuery.toLowerCase().trim();
       const matchSearch =
@@ -294,25 +286,24 @@ export default function Home() {
     return fuori;
   }, [filteredPosts]);
 
-  const avgSpike = useMemo(() => {
-    if (filteredPosts.length === 0) return '0.0x';
-    const total = filteredPosts.reduce((acc, p) => acc + Number(p.vpi_ratio || 0), 0);
-    return formatVPI(total / filteredPosts.length);
-  }, [filteredPosts]);
-
   const exportToCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
     // Nessun claim_token nell'export: e' il codice che autorizza il claim del creator.
-    const headers = ['Rank', 'Platform', 'Country', 'Category', 'Creator Handle', 'VPI Ratio', 'Baseline Score', 'Recorded Score', 'Post URL'];
+    const headers = ['Rank by views', 'Platform', 'Format', 'Countries', 'Categories', 'Creator Handle', 'Views', 'Baseline', 'VPI', 'Peak VPI observed', 'Days in Most Popular', 'First observed', 'Baseline rule', 'Post URL'];
     const rows = filteredPosts.map((post, idx) => [
       idx + 1,
       `"${post.platform || ''}"`,
-      `"${post.country || ''}"`,
-      `"${post.category || ''}"`,
+      `"${post.format || ''}"`,
+      `"${(post.countries || []).join(' ')}"`,
+      `"${(post.categories || []).join(' | ')}"`,
       `"${(post.author_handle || '').replace(/"/g, '""')}"`,
-      post.vpi_ratio || 0,
-      post.baseline_score || 0,
-      post.engagement_score || 0,
+      post.engagement_score ?? '',
+      post.baseline_score ?? '',
+      post.vpi_ratio ?? '',
+      post.vpi_max ?? '',
+      post.days_charting ?? '',
+      post.entered_on ?? '',
+      post.baseline_rule ?? '',
       `"${post.post_url || ''}"`
     ]);
 
@@ -373,7 +364,7 @@ export default function Home() {
             href="/insights"
             className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
           >
-            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <Activity className="w-3.5 h-3.5 text-[#00E5FF]" />
             <span className="hidden sm:inline">Insights</span>
           </Link>
 
@@ -428,7 +419,7 @@ export default function Home() {
           <div className="relative z-10 max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-3 py-0.5 rounded-full mb-2">
               <Calendar className="w-3 h-3 text-[#00E5FF]" />
-              <span>Rolling Window: <strong className="text-white">{campaignDates.start} — {campaignDates.end}</strong></span>
+              <span>One reading a day: <strong className="text-white">23:59 UTC</strong></span>
             </div>
 
             <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight text-white mb-1 leading-tight">
@@ -436,7 +427,7 @@ export default function Home() {
             </h1>
 
             <p className="text-gray-400 text-xs md:text-xs leading-relaxed mb-3 font-sans max-w-2xl mx-auto">
-              Search handle or URL to view observed public metric data within active 15-day window.
+              Search a handle or a video link among the videos we observed entering YouTube&apos;s Most Popular charts.
             </p>
 
             {/* Search Bar Container */}
@@ -507,13 +498,13 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">INDEXED OUTLIERS</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{vista === 'charting' ? 'CHARTING NOW' : 'RECORDS'}</div>
                 <div className="text-sm md:text-base font-black text-white">{totalIndexed || posts.length}</div>
               </div>
 
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">AVG SPIKE RATIO</div>
-                <div className="text-sm md:text-base font-black text-[#00E5FF]">{avgSpike}</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">ORDERED BY</div>
+                <div className="text-sm md:text-base font-black text-[#00E5FF]">VIEWS</div>
               </div>
 
               <div className="flex flex-col justify-center items-center">
@@ -588,14 +579,22 @@ export default function Home() {
         <section id="directory-table" className="bg-[#070A10] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
           <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
             <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1">
+                {(['charting', 'archive'] as Vista[]).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => { setIsLoading(true); setVista(v); }}
+                    className={`px-2 py-0.5 rounded border text-[10px] cursor-pointer ${vista === v ? 'text-black bg-[#00E5FF] border-[#00E5FF]' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/40'}`}
+                  >
+                    {v === 'charting' ? 'CHARTING NOW' : 'FULL ARCHIVE'}
+                  </button>
+                ))}
+              </span>
               <span>
-                ACTIVE INDEX: <strong className="text-white">{filteredPosts.length} OUTLIERS</strong>{' '}
+                <strong className="text-white">{filteredPosts.length.toLocaleString('en-US')}</strong> videos, by views{' '}
                 <Link href="/outliers" className="text-[#00E5FF] hover:underline ml-1">
                   browse by country and category
                 </Link>
-              </span>
-              <span className="text-[10px] text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
-                15-DAY ROLLING
               </span>
             </div>
 
@@ -614,7 +613,7 @@ export default function Home() {
             ) : filteredPosts.length > 0 ? (
               postsVisibili.map((post, indiceLocale) => {
                 const index = primoIndice + indiceLocale;
-                const formattedVpi = formatVPI(Number(post.vpi_ratio || 0));
+                const formattedVpi = formatVPI(post.vpi_ratio);
                 return (
                   <div
                     key={post.id || index}
@@ -628,7 +627,7 @@ export default function Home() {
                       <div className="w-14 h-11 rounded-lg bg-black border border-cyan-500/30 flex flex-col items-center justify-center font-mono font-black text-sm text-[#00E5FF] shadow-lg shadow-cyan-950/40 shrink-0">
                         {formattedVpi}
                         <span className="text-[7px] text-gray-500 font-normal -mt-0.5">
-                          VPI RATIO
+                          VPI
                         </span>
                       </div>
 
@@ -641,7 +640,7 @@ export default function Home() {
                             {post.format === 'LONG' ? 'Long' : 'Short'}
                           </span>
                           <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
-                            {post.country || 'GLOBAL'}
+                            {(post.countries || [post.country]).filter(Boolean).join(' ') || 'GLOBAL'}
                           </span>
                           <span
                             className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
@@ -667,12 +666,14 @@ export default function Home() {
                           {post.baseline_score
                             ? formatCount(Number(post.baseline_score))
                             : 'N/A'}{' '}
-                          | Recorded:{' '}
+                          | Views:{' '}
                           <span className="text-[#00E5FF] font-bold">
                             {post.engagement_score
                               ? formatCount(Number(post.engagement_score))
                               : 'N/A'}
-                          </span>
+                          </span>{' '}
+                          | Peak VPI: {formatVPI(post.vpi_max)}{' '}
+                          | Days in Most Popular: {post.days_charting ?? 1}
                         </p>
                       </div>
                     </div>
@@ -700,7 +701,7 @@ export default function Home() {
               })
             ) : (
               <div className="p-8 text-center text-gray-500 font-mono text-xs">
-                NO STATISTICAL OUTLIERS MATCHING YOUR SEARCH/FILTERS.
+                NO RECORDS MATCH YOUR SEARCH OR FILTERS.
               </div>
             )}
           </div>
@@ -744,27 +745,27 @@ export default function Home() {
         <section id="how-it-works" className="pt-2">
           <div className="text-center mb-2.5">
             <h2 className="text-[9px] font-mono tracking-widest text-[#00E5FF] uppercase font-bold mb-0.5">
-              TRANSPARENT SAMPLING METHODOLOGY
+              HOW THE INDEX IS BUILT
             </h2>
             <p className="text-sm md:text-base font-extrabold font-mono text-white">
-              Rotating sample across 34 countries and 15 categories
+              A full reading of 34 countries and the 13 category charts that return data
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Zap className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">1. Global Video Ingestion</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">1. One reading a day</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Each cycle scans the trending Shorts of three countries and one category, rotating across 34 countries and 15 categories, via the official YouTube Data API v3.
+                Every day at 23:59 UTC we read every Most Popular category chart of 34 countries through the official YouTube Data API v3, Shorts and long-form alike. A video enters the index the first day we observe it in a chart.
               </p>
             </div>
 
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <BarChart3 className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">2. VPI Outlier Filtering</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">2. Against its own channel</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Only videos that outperform their own channel baseline are indexed, so a small creator and a large one are measured on the same scale.
+                VPI divides a video&apos;s views by the median of the same channel&apos;s videos of the same format, published 7 to 90 days before it. Nothing is filtered on VPI: every video we observe is recorded.
               </p>
             </div>
 
@@ -772,7 +773,7 @@ export default function Home() {
               <Award className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Insights & Rankings</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Explore real-time Top 10 leaderboards and viral keyword mining insights to discover what drives content velocity globally.
+                The ranking by VPI is read on the first day each video is observed, the one reading every record has. VPI is not age-adjusted.
               </p>
             </div>
           </div>
@@ -836,7 +837,7 @@ export default function Home() {
                       <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> How is the VPI Ratio calculated?
                     </h3>
                     <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
-                      VPI = Actual Views / Historical Baseline Views. If a creator averages 10,000 views and a video reaches 150,000 views within 15 days, their VPI is 15.0x.
+                      VPI = views / channel baseline, within the same format. If a channel&apos;s recent videos have a median of 10,000 views and a video reaches 150,000, its VPI is 15.0x. It is recalculated every day the video stays in Most Popular.
                     </p>
                   </div>
 

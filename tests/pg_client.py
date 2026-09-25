@@ -54,11 +54,29 @@ class _Table:
         self.filters.append((col, list(values)))
         return self
 
+    def update(self, values):
+        self.op, self.values, self.filters = "update", values, []
+        return self
+
+    def eq(self, col, value):
+        self.filters.append((col, [value]))
+        return self
+
     def upsert(self, rows, on_conflict=None):
         self.op, self.rows, self.conflict = "upsert", rows, on_conflict
         return self
 
     def execute(self):
+        if self.op == "update":
+            q = sql.SQL("update {} set {} where {} returning *").format(
+                sql.Identifier(self.name),
+                sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(c)) for c in self.values),
+                sql.SQL(" and ").join(sql.SQL("{} = any(%s)").format(sql.Identifier(c))
+                                      for c, _ in self.filters))
+            vals = list(self.values.values()) + [v for _, v in self.filters]
+            with self.conn.transaction(), self.conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(q, vals)
+                return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
         if self.op == "select":
             if self.cols != "*":
                 raise NotImplementedError("PgClient.select supports '*' only")

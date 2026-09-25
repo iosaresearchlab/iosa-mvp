@@ -151,8 +151,8 @@ def test_four_days(world):
     run(client, fake, 1)
     p = posts(db)
     assert set(p) == {"n1", "n2"}
-    assert p["n1"][:9] == ("ACTIVE", "v2", day(1), "standard", 1000, 5.0, 5, True, 0) or \
-        p["n1"][:9] == ("ACTIVE", "v2", day(1), "standard", 1000.0, 5.0, 5, True, 0)
+    assert p["n1"][:9] == ("ACTIVE", "v2", day(1), "standard", 1000, 5.0, 2, True, 0) or \
+        p["n1"][:9] == ("ACTIVE", "v2", day(1), "standard", 1000.0, 5.0, 2, True, 0)
     assert p["n2"][3] == "not_computable" and p["n2"][4] is None and p["n2"][5] is None
     assert daily(db, "n1") == [(day(1), 1, 5000, 5.0)]
     assert daily(db, "n2") == [(day(1), 1, 300, None)]
@@ -164,7 +164,7 @@ def test_four_days(world):
                             array_length(baseline_video_ids, 1), vpi_level_name, claim_token like 'iosa_%%'
                      from posts where external_post_id = 'n1'""")[0]
     assert row == ("YOUTUBE", "@newchan", False, "https://www.youtube.com/watch?v=n1", "Entertainment",
-                   "IT", ["IT"], ["Entertainment"], 2, 12, 12, "Lvl 5 - Breakout", True)
+                   "IT", ["IT"], ["Entertainment"], 2, 12, 12, "Lvl 2 - Moderate", True)
     assert one(db, "select author_handle, auto_generated_channel, vpi_level_name, vpi_color "
                    "from posts where external_post_id = 'n2'") == [(None, True, None, None)]
 

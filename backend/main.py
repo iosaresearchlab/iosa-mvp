@@ -206,8 +206,30 @@ INGEST_TRIGGER_TOKEN = (os.getenv("INGEST_TRIGGER_TOKEN") or "").strip()
 _ingestione_in_corso = False
 
 
+# Render's free tier stops a web service after 15 minutes without inbound
+# requests, and a background task is not inbound traffic: a reading longer
+# than that (a day with baselines) would be killed half-way. While a reading
+# runs, the service calls its own public URL (RENDER_EXTERNAL_URL, set by
+# Render) every few minutes. Nothing is read from YouTube: no quota.
+KEEPALIVE_SECONDS = 240
+
+
+def _keepalive(stop, url, interval=KEEPALIVE_SECONDS, get=None):
+    import urllib.request
+    get = get or (lambda u: urllib.request.urlopen(u, timeout=30).read(64))
+    while not stop.wait(interval):
+        try:
+            get(url)
+        except Exception as e:                      # a missed ping is not fatal
+            log.info("keepalive: %s", e)
+
+
 def _giro_di_ingestione():
     global _ingestione_in_corso
+    stop = threading.Event()
+    url = (os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    if url:
+        threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
     try:
         esiti = esegui_un_ciclo()
         log.info("ingestione su richiesta conclusa: %s", esiti)
@@ -216,6 +238,7 @@ def _giro_di_ingestione():
     except Exception as e:
         log.error("reading failed: %s", e)
     finally:
+        stop.set()
         _ingestione_in_corso = False
 
 
@@ -448,7 +471,7 @@ DAY1_POST_COLUMNS = (
     "id, external_post_id, format, baseline_score, baseline_rule, country, countries, "
     "category, categories, entered_on, age_at_first_obs_days, entry_certain, "
     "method_version, status, content_text, author_name, author_handle, post_url, "
-    "vpi_max, vpi_max_on, days_charting"
+    "vpi_max, vpi_max_on, days_charting, claim_token"
 )
 
 
@@ -816,6 +839,38 @@ async def get_trophy_mug_preview(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+# Outreach parameter (01 section 4.1): the days available to claim a plaque,
+# counted from first observation. It does not touch the measurement: the
+# record never expires, the claim token does. Was CAMPAIGN_DAYS = 15 in v1
+# (02 section 4.7), same value.
+CLAIM_DAYS = 15
+
+
+def claim_window(record, today=None):
+    """{start, expires_on, claim_days, expired} for a record, computed here and
+    not in the browser (02 section 6.4). Start = entered_on (v2), else the
+    day it was detected (v1 records in the archive)."""
+    today = today or datetime.now(timezone.utc).date()
+    raw = (record or {}).get("entered_on") or (record or {}).get("detected_at") \
+        or (record or {}).get("created_at")
+    if not raw:
+        return {"start": None, "expires_on": None, "claim_days": CLAIM_DAYS, "expired": False}
+    start = datetime.fromisoformat(str(raw)[:10]).date()
+    expires = start + timedelta(days=CLAIM_DAYS)
+    return {"start": start.isoformat(), "expires_on": expires.isoformat(),
+            "claim_days": CLAIM_DAYS, "expired": today >= expires}
+
+
+@app.get("/api/claim/{token}/window")
+def get_claim_window(token: str):
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    res = _claim_lookup(token)
+    if not res or not res.data:
+        raise HTTPException(status_code=404, detail="Token not found")
+    return claim_window(res.data[0])
+
+
 @app.post("/api/claim/initialize/{token}")
 async def initialize_claim_product(token: str):
     try:
@@ -919,6 +974,52 @@ def create_checkout_session(req: CheckoutSessionRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+def _is_duplicate(err) -> bool:
+    text = f"{getattr(err, 'code', '')} {err}"
+    return "23505" in text or "duplicate key" in text
+
+
+def _reserve_order(session_id, record, metadata):
+    """Reserve a Stripe session in claims before ordering.
+
+    True: reserved, go ahead. False: this session was already handled (a
+    repeated webhook). None: the guard cannot run (no service client or no
+    session id), and then nothing is ordered. Written with the service role:
+    claims is private (SEC-1) and the anon key cannot write it. No personal
+    data is stored here: Stripe and Printify hold the address.
+    """
+    if not supabase_service or not session_id:
+        return None
+    row = {"stripe_session_id": session_id, "status": "PROCESSING",
+           "product_selected": (metadata or {}).get("product_key") or DEFAULT_PRODUCT_KEY}
+    if record and record.get("method_version") == "v2" and record.get("id"):
+        row["post_id"] = record["id"]           # v1 records live in posts_v1: no FK
+    try:
+        supabase_service.table("claims").insert(row).execute()
+        return True
+    except Exception as err:
+        if _is_duplicate(err):
+            return False
+        raise
+
+
+def _record_order(session_id, record, claim_token, status, product_id):
+    """The order's outcome: claims.status, and printify_product_id on the
+    record when it is in posts. The archive (posts_v1) is never written: its
+    checksum is the proof that the v1 rows were moved unchanged. Service role:
+    the anon key has no UPDATE on posts, and that write used to be lost."""
+    if not supabase_service:
+        return
+    try:
+        supabase_service.table("claims").update({"status": status}).eq(
+            "stripe_session_id", session_id).execute()
+        if claim_token and record and record.get("method_version") == "v2":
+            supabase_service.table("posts").update({"printify_product_id": product_id}).eq(
+                "claim_token", claim_token).execute()
+    except Exception as err:
+        log.info(f"Failed to record the order state: {err}")
+
+
 @app.post("/api/webhooks/stripe")
 async def stripe_webhook(request: Request, stripe_signature: str = Header(None)):
     payload = await request.body()
@@ -975,13 +1076,14 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         date_str = metadata.get("date_str", "2026-08-20")
         e_act = metadata.get("e_act", "N/A")
         e_base = metadata.get("e_base", "N/A")
-        already_fulfilled = False
+        record = None
 
         if supabase and claim_token:
             try:
                 db_res = _claim_lookup(claim_token)
                 if db_res.data and len(db_res.data) > 0:
                     p = db_res.data[0]
+                    record = p
                     author = p.get("author_handle") or author
                     raw_vpi = p.get("vpi_ratio") or vpi_ratio
                     try:
@@ -999,16 +1101,19 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                         e_act = str(p.get("engagement_score"))
                     if p.get("baseline_score") is not None:
                         e_base = str(p.get("baseline_score"))
-
-                    # Idempotenza: se l'ordine e' gia' stato evaso non lo ripetiamo.
-                    prev = p.get("printify_product_id")
-                    if prev and not str(prev).startswith("FAILED"):
-                        already_fulfilled = True
             except Exception as err:
                 log.info(f"Error fetching post details for token {claim_token}: {err}")
 
-        if already_fulfilled:
-            log.info(f"[WEBHOOK] Ordine gia' evaso per {claim_token}, nessuna azione.")
+        # Idempotency: one Stripe session, one order. Stripe delivers a webhook
+        # at least once, so a repeat must not place a second paid Printify
+        # order. The session is reserved in claims (private, service role)
+        # before anything is ordered; the unique index rejects the second one.
+        reserved = _reserve_order(stripe_session_id, record, metadata)
+        if reserved is None:
+            log.warning("[WEBHOOK] Guard unavailable (no service key or no session id): no order placed.")
+            return {"status": "error_recorded", "detail": "idempotency guard unavailable"}
+        if reserved is False:
+            log.info(f"[WEBHOOK] Session {stripe_session_id} already handled, nessuna azione.")
             return {"status": "already_fulfilled"}
 
         log.info(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
@@ -1026,22 +1131,16 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 claim_token=claim_token,
                 external_ref=stripe_session_id
             )
-            
+
             product_id = order_result.get("product_id")
-            if supabase and claim_token and product_id:
-                supabase.table("posts").update({"printify_product_id": product_id}).eq("claim_token", claim_token).execute()
-                
+            _record_order(stripe_session_id, record, claim_token, "FULFILLED", product_id)
+
             log.info(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
-            
+
         except Exception as err:
             log.info(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
             traceback.print_exc()
-            
-            if supabase and claim_token:
-                try:
-                    supabase.table("posts").update({"printify_product_id": "FAILED_ORDER_ERROR"}).eq("claim_token", claim_token).execute()
-                except Exception as db_err:
-                    log.info(f"Failed to update DB error state: {db_err}")
+            _record_order(stripe_session_id, record, claim_token, "FAILED", "FAILED_ORDER_ERROR")
 
             # Rispondiamo 200: un 500 farebbe ritentare Stripe e ogni tentativo
             # creerebbe un nuovo ordine Printify a pagamento.

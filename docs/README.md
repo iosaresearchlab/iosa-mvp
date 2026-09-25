@@ -60,8 +60,8 @@ says what to change, `08` says in what order and how each step is proved.
 
 - The v2 method is **approved** (`01`) and **not yet implemented** (`02`).
 - Ingestion on Render is **suspended**.
-- All social and outreach activity is **suspended** until the scale is
-  recalibrated.
+- All social and outreach activity is **suspended**. *(25/09: the scale is
+  set by the owner, `01` §4.3; it no longer gates anything.)*
 - The 28,917 historical records were collected under the v1 method and are
   **not valid data**. They are useful only for studying the defects.
 

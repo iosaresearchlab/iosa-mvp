@@ -58,19 +58,24 @@ V1_BASELINE_MIN_AGE_DAYS = 14
 MIN_BASELINE_VIEWS = 500
 MIN_VPI_FOR_INGESTION = 1.0      # sotto o uguale non e' un outlier
 
-# Scala a 10 livelli: (soglia minima, livello, nome, colore)
+# The 10-level scale (docs/01 section 4.3): (minimum VPI, level, name, colour),
+# highest first. Thresholds set by the project owner on 25/09/2026; he may
+# change them at any time at his sole discretion. Names and colours are the
+# design system's. Below the lowest threshold a record has no level: it keeps
+# its VPI, and vpi_level, vpi_level_name and vpi_color are null.
 VPI_SCALE = (
-    (50.0, 10, "Lvl 10 - Hyper Outlier", "#FF0055"),
-    (25.0, 9, "Lvl 9 - Mega Outlier", "#FF2A00"),
-    (15.0, 8, "Lvl 8 - Outlier", "#FF5500"),
-    (10.0, 7, "Lvl 7 - Super Viral", "#FF8800"),
-    (7.5, 6, "Lvl 6 - Viral", "#FFAA00"),
-    (5.0, 5, "Lvl 5 - Breakout", "#FFCC00"),
-    (3.0, 4, "Lvl 4 - Trending", "#00CC88"),
-    (2.0, 3, "Lvl 3 - Rising", "#0099FF"),
-    (1.5, 2, "Lvl 2 - Moderate", "#7755FF"),
-    (0.0, 1, "Lvl 1 - Standard", "#888888"),
+    (2500.0, 10, "Lvl 10 - Hyper Outlier", "#FF0055"),
+    (1500.0, 9, "Lvl 9 - Mega Outlier", "#FF2A00"),
+    (1000.0, 8, "Lvl 8 - Outlier", "#FF5500"),
+    (250.0, 7, "Lvl 7 - Super Viral", "#FF8800"),
+    (100.0, 6, "Lvl 6 - Viral", "#FFAA00"),
+    (50.0, 5, "Lvl 5 - Breakout", "#FFCC00"),
+    (25.0, 4, "Lvl 4 - Surging", "#00CC88"),
+    (10.0, 3, "Lvl 3 - Rising", "#0099FF"),
+    (5.0, 2, "Lvl 2 - Moderate", "#7755FF"),
+    (1.5, 1, "Lvl 1 - Standard", "#888888"),
 )
+NO_LEVEL = (None, None, None)
 
 _ISO_DURATION = re.compile(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?')
 
@@ -234,15 +239,18 @@ def baseline_v2(samples, measured_video_id, measured_published_at):
 
 
 def get_vpi_metadata(vpi_ratio: float):
-    """Restituisce (livello, nome, colore) per un VPI ratio."""
+    """(level, name, colour) for a VPI; NO_LEVEL below the lowest threshold,
+    and for a value that is not a number."""
     try:
         value = float(vpi_ratio)
     except (TypeError, ValueError):
-        value = 0.0
+        return NO_LEVEL
+    if value != value:                       # NaN
+        return NO_LEVEL
     for threshold, level, name, color in VPI_SCALE:
         if value >= threshold:
             return level, name, color
-    return 1, "Lvl 1 - Standard", "#888888"
+    return NO_LEVEL
 
 
 def age_in_days(published_at, now=None):

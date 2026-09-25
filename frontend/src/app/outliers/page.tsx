@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { PageShell } from '@/components/PageShell';
-import { supabaseServer, MIN_VPI_DISPLAY } from '@/lib/supabase-server';
+import { supabaseServer } from '@/lib/supabase-server';
 import {
   PAESI,
   CATEGORIE,
@@ -21,28 +21,36 @@ export const metadata: Metadata = {
 
 type Conteggio = Record<string, number>;
 
-async function conteggi(colonna: 'country' | 'category'): Promise<Conteggio> {
+// Un video presente in piu' fette conta in ciascuna: si leggono gli array
+// countries / categories, non la prima fetta (docs/02 §6.1).
+async function conteggi(colonna: 'countries' | 'categories'): Promise<Conteggio> {
   const { data } = await supabaseServer
     .from('posts')
     .select(colonna)
-    .eq('status', 'ACTIVE')
-    .gte('vpi_ratio', MIN_VPI_DISPLAY);
+    .eq('method_version', 'v2')
+    .eq('status', 'ACTIVE');
 
   const out: Conteggio = {};
-  for (const riga of (data || []) as Record<string, string | null>[]) {
-    const v = riga[colonna];
-    if (v) out[v] = (out[v] || 0) + 1;
+  for (const riga of (data || []) as Record<string, string[] | null>[]) {
+    for (const v of riga[colonna] || []) out[v] = (out[v] || 0) + 1;
   }
   return out;
 }
 
 export default async function Outliers() {
-  const [perPaese, perCategoria] = await Promise.all([
-    conteggi('country'),
-    conteggi('category'),
+  const [perPaese, perCategoria, { count }] = await Promise.all([
+    conteggi('countries'),
+    conteggi('categories'),
+    supabaseServer
+      .from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('method_version', 'v2')
+      .eq('status', 'ACTIVE'),
   ]);
 
-  const totale = Object.values(perPaese).reduce((a, b) => a + b, 0);
+  // Il totale e' dei record, non la somma dei paesi: un video in piu' fette
+  // la farebbe contare due volte.
+  const totale = count ?? 0;
 
   const paesi = Object.keys(PAESI)
     .map((c) => ({ codice: c, nome: PAESI[c], n: perPaese[c] || 0 }))

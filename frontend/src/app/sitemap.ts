@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { supabaseServer, MIN_VPI_DISPLAY } from '@/lib/supabase-server';
+import { supabaseServer } from '@/lib/supabase-server';
 import {
   PAESI,
   CATEGORIE,
@@ -19,8 +19,8 @@ async function creatorDaIndicizzare(): Promise<string[]> {
   const { data } = await supabaseServer
     .from('posts')
     .select('author_handle')
-    .eq('status', 'ACTIVE')
-    .gte('vpi_ratio', MIN_VPI_DISPLAY);
+    .eq('method_version', 'v2')
+    .eq('status', 'ACTIVE');
 
   const conteggio = new Map<string, number>();
   for (const riga of (data || []) as { author_handle: string | null }[]) {

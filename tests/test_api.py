@@ -297,3 +297,28 @@ def test_a_v1_token_resolves_in_the_archive(api):
     assert main._claim_lookup("tok-v1").data == [{"id": "p1", "claim_token": "tok-v1"}]
     assert client.post("/api/claim/initialize/tok-v1").json() == {"status": "ready", "token": "tok-v1"}
     assert main._claim_lookup("unknown").data == []
+
+
+# --- claim window (02 section 6.4) ---------------------------------------------
+
+
+def test_the_claim_window_counts_from_first_observation():
+    from datetime import date
+    w = main.claim_window({"entered_on": "2026-09-26", "created_at": "2026-09-01T00:00:00+00:00"},
+                          today=date(2026, 10, 1))
+    assert w == {"start": "2026-09-26", "expires_on": "2026-10-11", "claim_days": 15, "expired": False}
+    assert main.claim_window({"entered_on": "2026-09-26"}, today=date(2026, 10, 11))["expired"] is True
+
+
+def test_a_v1_record_uses_its_detection_day():
+    from datetime import date
+    w = main.claim_window({"detected_at": "2026-09-21T10:00:00+00:00"}, today=date(2026, 9, 25))
+    assert (w["start"], w["expires_on"]) == ("2026-09-21", "2026-10-06")
+
+
+def test_claim_window_endpoint(api):
+    client, db = api
+    db.data["posts"] = [{"id": "p", "claim_token": "tok", "entered_on": "2026-09-26"}]
+    body = client.get("/api/claim/tok/window").json()
+    assert body["start"] == "2026-09-26" and body["claim_days"] == 15
+    assert client.get("/api/claim/none/window").status_code == 404

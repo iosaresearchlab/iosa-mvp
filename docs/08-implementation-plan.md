@@ -305,15 +305,16 @@ The numbers that decide whether this is a measurement or not:
   claude.ai project description must state the date too: Migert pastes it,
   since no session can edit it — the check is his confirmation.
 
-**GATE-3 — GO / NO-GO.** Decided on the audit, by Migert. Only after GO:
-the scale thresholds are set numerically and frozen with their vintage, and
-the frontend work starts.
+**GATE-3 — GO / NO-GO.** Decided on the audit, by Migert. *(25/09/2026: the
+scale is no longer part of it, `01` §4.3; the frontend work no longer waits
+for it, by the owner's decision to put the app back online.)*
 
 ---
 
 ## Phase 6 — frontend and public material
 
-Only after GATE-3.
+~~Only after GATE-3.~~ Now, by the owner's decision of 25/09/2026 to put the
+app back online.
 
 ### T-18 — data layer and the overall chart
 `lib/supabase-server.ts` per `02` §6.1; `app/page.tsx` shows **our own
@@ -356,7 +357,7 @@ in place of "trending".
 ## Phase 7 — accumulation
 
 ### T-22 — three weeks, nothing published
-Collection runs. No statistics published, no scale cited as settled.
+Collection runs. No statistics published.
 
 - **Closing check**: 21 consecutive `ingest_run` rows with
   `outcome='ok'`; zero days with `entry_certain=false` records, or a written
@@ -374,17 +375,35 @@ Collection runs. No statistics published, no scale cited as settled.
 - **Closing check**: each result committed under `docs/`, with the script
   that produced it.
 
-### T-24 — scale calibration
-Numeric thresholds set on the accumulated data, frozen, vintage recorded and
-printed on the plaque. `vpi-scale.ts` and `vpi_core.py` changed **together**;
-`tests/audit_scala.py` proves they are identical.
-
-- **Closing check**: `tests/audit_scala.py` green; the vintage appears in the
-  API response and on the plaque.
+### ~~T-24 — scale calibration~~
+Removed 25/09/2026: the thresholds are set by the project owner (`01`
+§4.3), who may change them at any time. Not a task, not a gate.
 
 ### T-25 — final review and production
 Full re-read of the documentation, external review pass on the closed
 solution with real distributions in hand, then live.
+
+---
+
+## Milestone C — collection (outside the loop)
+
+*(Owner decision, 25/09/2026.)* A task whose closing check cannot pass
+without elapsed collection time is not a loop task: the loop does not wait
+on the calendar. These close when the calendar lets them, each still on its
+own closing check above, and are reported as they do:
+
+| Item | Needs | Earliest |
+|---|---|---|
+| T-15 day 0 | tonight's 23:59 UTC reading | 26/09 00:10 UTC |
+| T-16 day 1 | the next night's reading | 27/09 |
+| T-17 day-1 audit, and the start date | T-16 | 27/09 |
+| GATE-3 GO / NO-GO | T-17, decided by Migert | after T-17 |
+| T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | 27/09 |
+| T-22 three weeks | 21 readings | mid-October |
+| T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
+| T-25 final review | real distributions in hand, external reviewers | after T-23 |
+
+The loop itself ends with T-21.
 
 ---
 

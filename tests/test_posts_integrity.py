@@ -127,3 +127,9 @@ def test_a_quota_stop_record_without_baseline_or_vpi_is_accepted(db):
 def test_a_quota_stop_record_with_a_vpi_is_rejected(db):
     assert rejected(db, method_version="v2", baseline_rule="quota_stop",
                     baseline_score=900, vpi_ratio=2.0, **LEVEL)
+
+
+def test_v2_standard_below_the_lowest_threshold_has_no_level_and_is_accepted(db):
+    """01 section 4.3 (25/09/2026): below 1.5x a record keeps its VPI and has no level."""
+    assert not rejected(db, method_version="v2", baseline_rule="standard",
+                        baseline_score=900, vpi_ratio=1.2, **NO_LEVEL)
