@@ -19,8 +19,22 @@ from pathlib import Path
 SHORT_MAX_SECONDS = 180          # durata massima di uno Short
 CAMPAIGN_DAYS = 15               # finestra di visibilita' di un record
 BASELINE_MAX_AGE_DAYS = 90       # quanto indietro guardare per la baseline
-BASELINE_MIN_AGE_DAYS = 14       # eta' minima perche' un video sia "maturo"
 MIN_BASELINE_SAMPLES = 5         # sotto questa soglia la mediana non e' affidabile
+
+# v2 baseline rule (docs/01-methodology-protocol.md section 2): samples of the
+# same channel and format published between BASELINE_MIN_AGE_DAYS and
+# BASELINE_MAX_AGE_DAYS before the MEASURED VIDEO was published; at least
+# MIN_BASELINE_SAMPLES, at most BASELINE_SAMPLES_MAX spread evenly across the
+# window; uploads read up to BASELINE_PAGES_MAX pages. One rule, no fallback.
+BASELINE_MIN_AGE_DAYS = 7
+BASELINE_SAMPLES_MAX = 20
+BASELINE_PAGES_MAX = 3
+RULE_STANDARD = "standard"
+RULE_NOT_COMPUTABLE = "not_computable"
+
+# v1 only: the floor under which baseline_from_samples() computed the 28,917
+# archived records. Kept so that recomputing a v1 record keeps the v1 rule.
+V1_BASELINE_MIN_AGE_DAYS = 14
 
 # Soglia minima di visualizzazioni della baseline.
 #
@@ -113,7 +127,11 @@ def calculate_vpi_ratio(views, baseline) -> float:
 
 
 def baseline_from_samples(campioni, exclude_video_id: str = None, giorni_indietro: float = 0):
-    """Mediana delle views dei video recenti e maturi del canale.
+    """v1 ONLY. Mediana delle views dei video recenti e maturi del canale.
+
+    The rule of the 28,917 archived v1 records, kept unchanged for them. v2
+    records use baseline_v2(): window anchored to the measured video, no
+    fallback, at most 20 samples (docs/01-methodology-protocol.md section 2).
 
     I campioni che riceve sono gia' filtrati per formato da chi la chiama: qui
     non si distingue fra Short e video lunghi, si applica la stessa regola alla
@@ -152,7 +170,7 @@ def baseline_from_samples(campioni, exclude_video_id: str = None, giorni_indietr
         if eta > BASELINE_MAX_AGE_DAYS:
             continue
         recent.append(c["views"])
-        if eta >= BASELINE_MIN_AGE_DAYS:
+        if eta >= V1_BASELINE_MIN_AGE_DAYS:
             mature.append(c["views"])
 
     sample = mature if len(mature) >= MIN_BASELINE_SAMPLES else recent
@@ -161,6 +179,58 @@ def baseline_from_samples(campioni, exclude_video_id: str = None, giorni_indietr
 
     median_baseline = float(statistics.median(sample))
     return (median_baseline if median_baseline > 0 else None), len(sample)
+
+
+def _as_datetime(value):
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    d = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def even_pick(items, k):
+    """k items spread evenly across an ordered list, first and last included."""
+    n = len(items)
+    if n <= k:
+        return list(items)
+    if k == 1:
+        return [items[0]]
+    return [items[round(i * (n - 1) / (k - 1))] for i in range(k)]
+
+
+def baseline_v2(samples, measured_video_id, measured_published_at):
+    """The v2 baseline of ONE measured video (docs/01 section 2).
+
+    samples: [{video_id, published_at, views}] of the same channel AND the
+    same format as the measured video; views None = not readable, excluded.
+    The window is [published - 90 days, published - 7 days], both ends
+    included, measured from the measured video's own publication, never from
+    now: that is what makes the denominator pre-event.
+
+    Returns {baseline, samples, rule, span_days, video_ids}. With fewer than
+    5 usable samples, or a median of 0 (the ratio would be undefined):
+    rule 'not_computable', baseline None. The record still exists.
+    """
+    ref = _as_datetime(measured_published_at)
+    window = []
+    for c in samples:
+        if c["video_id"] == measured_video_id or c.get("views") is None:
+            continue
+        pub = _as_datetime(c["published_at"])
+        age = (ref - pub).total_seconds() / 86400.0
+        if BASELINE_MIN_AGE_DAYS <= age <= BASELINE_MAX_AGE_DAYS:
+            window.append((pub, c["video_id"], float(c["views"])))
+    window.sort()
+    chosen = even_pick(window, BASELINE_SAMPLES_MAX)
+    ids = [vid for _, vid, _ in chosen]
+    span = ((chosen[-1][0] - chosen[0][0]).total_seconds() / 86400.0) if chosen else None
+    out = {"samples": len(chosen), "video_ids": ids, "span_days": span}
+    if len(chosen) < MIN_BASELINE_SAMPLES:
+        return {**out, "baseline": None, "rule": RULE_NOT_COMPUTABLE}
+    median = float(statistics.median(v for _, _, v in chosen))
+    if median <= 0:
+        return {**out, "baseline": None, "rule": RULE_NOT_COMPUTABLE}
+    return {**out, "baseline": median, "rule": RULE_STANDARD}
 
 
 def get_vpi_metadata(vpi_ratio: float):

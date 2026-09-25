@@ -107,7 +107,7 @@ def test_baseline_scarta_i_video_troppo_vecchi():
 
 
 def test_baseline_preferisce_i_maturi_ma_ripiega_sui_recenti():
-    maturi = [_campione(f"m{i}", 1000, core.BASELINE_MIN_AGE_DAYS + 1) for i in range(2)]
+    maturi = [_campione(f"m{i}", 1000, core.V1_BASELINE_MIN_AGE_DAYS + 1) for i in range(2)]
     freschi = [_campione(f"f{i}", 10, 1) for i in range(4)]
     # 6 campioni: [10, 10, 10, 10, 1000, 1000] -> mediana 10.0
     assert core.baseline_from_samples(maturi + freschi) == (10.0, 6)

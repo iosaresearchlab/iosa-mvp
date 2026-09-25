@@ -1,0 +1,204 @@
+{
+ "window_utc": {
+  "start": "2026-09-25T14:54:13+00:00",
+  "end": "2026-09-25T15:03:47+00:00"
+ },
+ "countries": [
+  "IT",
+  "US",
+  "DE"
+ ],
+ "limit": 2000,
+ "seed": 20260925,
+ "counter": {
+  "charts": 127,
+  "channels": 6,
+  "playlist": 620,
+  "videos": 346
+ },
+ "counter_total": 1099,
+ "http_responses_by_endpoint": {
+  "chart": 127,
+  "channels": 6,
+  "playlistItems": 620,
+  "videos": 346
+ },
+ "http_status_tally": {
+  "chart:404": 1,
+  "chart:200": 126,
+  "channels:200": 6,
+  "playlistItems:200": 620,
+  "videos:200": 346
+ },
+ "census": {
+  "row": {
+   "day": "2026-09-25",
+   "started_at": "2026-09-25T14:54:13.041877+00:00",
+   "outcome": "ok",
+   "entries": 0,
+   "new_channels": 0,
+   "updated": 0,
+   "exits": 0,
+   "discards": {
+    "no_duration": 0,
+    "no_channel": 0
+   },
+   "notes": "slice order: caller rng; countries 3, categories 13; quota limit 2000",
+   "slices_ok": 38,
+   "slices_404": 1,
+   "slices_error": 0,
+   "videos_seen": 4564,
+   "channels_seen": 3900,
+   "quota_charts": 127,
+   "quota_channels": 0,
+   "quota_playlist": 0,
+   "quota_videos": 0,
+   "quota_total": 127,
+   "finished_at": "2026-09-25T14:54:18.786912+00:00"
+  },
+  "videos_in_snapshot": 4564,
+  "units": {
+   "charts": 127
+  }
+ },
+ "baselines_completed_batches": {
+  "batches": 6,
+  "channels": 300,
+  "videos": 349,
+  "units": {
+   "charts": 0,
+   "channels": 6,
+   "playlist": 620,
+   "videos": 346
+  },
+  "units_per_channel": 3.24,
+  "units_per_video": 2.785,
+  "rules": {
+   "standard": 311,
+   "not_computable": 38
+  }
+ },
+ "stopped": null,
+ "batches": [
+  {
+   "index": 0,
+   "channels": 50,
+   "videos": 58,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 94,
+    "videos": 46
+   },
+   "resolved": 58,
+   "rules": {
+    "standard": 51,
+    "not_computable": 7
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T14:55:14+00:00"
+  },
+  {
+   "index": 1,
+   "channels": 50,
+   "videos": 58,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 99,
+    "videos": 59
+   },
+   "resolved": 58,
+   "rules": {
+    "standard": 56,
+    "not_computable": 2
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T14:56:05+00:00"
+  },
+  {
+   "index": 2,
+   "channels": 50,
+   "videos": 58,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 109,
+    "videos": 63
+   },
+   "resolved": 58,
+   "rules": {
+    "standard": 50,
+    "not_computable": 8
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T14:57:11+00:00"
+  },
+  {
+   "index": 3,
+   "channels": 50,
+   "videos": 58,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 104,
+    "videos": 59
+   },
+   "resolved": 58,
+   "rules": {
+    "not_computable": 7,
+    "standard": 51
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T14:58:08+00:00"
+  },
+  {
+   "index": 4,
+   "channels": 50,
+   "videos": 57,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 107,
+    "videos": 60
+   },
+   "resolved": 57,
+   "rules": {
+    "standard": 51,
+    "not_computable": 6
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T14:59:09+00:00"
+  },
+  {
+   "index": 5,
+   "channels": 50,
+   "videos": 60,
+   "units": {
+    "charts": 0,
+    "channels": 1,
+    "playlist": 107,
+    "videos": 59
+   },
+   "resolved": 60,
+   "rules": {
+    "standard": 52,
+    "not_computable": 8
+   },
+   "unresolved": 0,
+   "playlist_missing": 0,
+   "stop_reason": null,
+   "at": "2026-09-25T15:03:47+00:00"
+  }
+ ]
+}

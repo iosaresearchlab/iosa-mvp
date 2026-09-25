@@ -2,6 +2,7 @@ import sys
 import asyncio
 import json
 import time
+import statistics
 import threading
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -28,7 +29,7 @@ import archivio_targhe
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
-from vpi_engine import esegui_un_ciclo, start_engine
+from vpi_engine import RunAlreadyExists, esegui_un_ciclo, reading_day, start_engine
 
 from log_iosa import configura, prendi
 
@@ -169,6 +170,12 @@ supabase = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# ingest_run is readable only with the service role (RLS, no policy).
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+supabase_service = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    supabase_service = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
 # Monitoraggio errori opzionale: attivo solo se SENTRY_DSN e' configurato.
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 if SENTRY_DSN:
@@ -204,8 +211,20 @@ def _giro_di_ingestione():
     try:
         esiti = esegui_un_ciclo()
         log.info("ingestione su richiesta conclusa: %s", esiti)
+    except RunAlreadyExists as e:
+        log.warning("reading refused: %s", e)
+    except Exception as e:
+        log.error("reading failed: %s", e)
     finally:
         _ingestione_in_corso = False
+
+
+def _ingest_run_for(day):
+    """The ingest_run row for a day, read with the service role (RLS: the
+    public key sees nothing in ingest_run)."""
+    res = (supabase_service.table("ingest_run").select("day, outcome, started_at, finished_at")
+           .eq("day", day.isoformat()).execute())
+    return (res.data or [None])[0]
 
 
 @app.post("/api/ingest/run")
@@ -230,9 +249,32 @@ def avvia_ingestione(background: BackgroundTasks,
         return {"stato": "gia_in_corso",
                 "dettaglio": "Un giro e' gia' in esecuzione: questa chiamata non ne avvia un altro."}
 
+    # One reading a day (01 section 4). Without this lock two close calls
+    # would double the quota spend. Any existing row for today answers 409,
+    # whatever its outcome: the engine refuses a second reading anyway.
+    if not supabase_service:
+        raise HTTPException(status_code=503,
+                            detail="SUPABASE_SERVICE_KEY non configurata: il lock giornaliero non e' verificabile.")
+    oggi = reading_day()
+    esistente = _ingest_run_for(oggi)
+    if esistente:
+        raise HTTPException(status_code=409,
+                            detail={"day": oggi.isoformat(), "outcome": esistente.get("outcome"),
+                                    "dettaglio": "Una lettura per questo giorno esiste gia'."})
+
     _ingestione_in_corso = True
     background.add_task(_giro_di_ingestione)
-    return {"stato": "avviato"}
+    return {"stato": "avviato", "day": oggi.isoformat()}
+
+
+@app.get("/api/ingest/status")
+def stato_ingestione():
+    """The latest ingest_run: how the audit is read without opening the database."""
+    if not supabase_service:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY non configurata.")
+    res = (supabase_service.table("ingest_run").select("*")
+           .order("day", desc=True).limit(1).execute())
+    return {"latest": (res.data or [None])[0]}
 
 ALLOWED_ORIGINS = [o for o in [
     FRONTEND_URL,
@@ -312,166 +354,247 @@ def read_root():
 # POSTS & FEED ENDPOINTS
 # ==============================================================================
 
+def _claim_lookup(token):
+    """The record a claim token names: posts first, then the v1 archive.
+
+    The v1 records left posts on 25/09/2026 (02 section 3.6); claim tokens
+    already sent must still resolve (08 T-20). claim_record_v1 returns the one
+    archived row with that token and nothing else. Both answers carry .data.
+    """
+    res = supabase.table("posts").select("*").eq("claim_token", token).execute()
+    if (res and res.data) or not token:
+        return res
+    return supabase.rpc("claim_record_v1", {"p_token": token}).execute()
+
+
+# What /api/posts returns. An explicit list, never "*". claim_token is in it:
+# it is the public identifier of a plaque, not a secret (decision 25/09/2026,
+# task-log). printify_product_id and comment_sent are internal bookkeeping.
+PUBLIC_POST_COLUMNS = (
+    "id,window_id,platform,external_post_id,author_handle,author_name,post_url,"
+    "content_text,category,engagement_score,baseline_score,vpi_ratio,vpi_level,"
+    "vpi_level_name,vpi_color,claim_token,created_at,country,subscribers,status,detected_at,"
+    "channel_id,channel_handle,format,entered_on,left_on,days_charting,countries,"
+    "categories,baseline_computed_at,baseline_samples,baseline_rule,"
+    "baseline_span_days,baseline_video_ids,auto_generated_channel,scale_version,"
+    "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
+    "vpi_max_on,views_max,views_final"
+)
+PRIVATE_POST_COLUMNS = ("printify_product_id", "comment_sent")
+
+
 @app.get("/api/posts")
 def get_posts(
-    min_vpi: float = 1.4,
+    min_vpi: float = 0,
     limit: int = 50,
     offset: int = 0,
     category: Optional[str] = None,
     country: Optional[str] = None,
-    platform: Optional[str] = None
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    format: Optional[str] = None,
 ):
-    """Serves real outliers (VPI >= min_vpi) to the Front-End feed."""
+    """v2 records. No VPI floor by default: the index is not censored from
+    below (01 section 7). min_vpi > 0 filters, and then excludes records
+    whose baseline was not computable (they have no VPI)."""
     try:
         if not supabase:
             return {"posts": [], "total": 0}
-
-        query = supabase.table("posts").select("*", count="exact").gte("vpi_ratio", min_vpi).eq("status", "ACTIVE")
-
+        query = (supabase.table("posts").select(PUBLIC_POST_COLUMNS, count="exact")
+                 .eq("method_version", "v2"))
+        if min_vpi and min_vpi > 0:
+            query = query.gte("vpi_ratio", min_vpi)
+        if status and status.upper() != "ALL":
+            query = query.eq("status", status.upper())
+        if format and format.upper() != "ALL":
+            query = query.eq("format", format.upper())
         if category and category != "ALL":
-            query = query.eq("category", category)
+            query = query.contains("categories", [category])
         if country and country != "ALL":
-            query = query.eq("country", country)
+            query = query.contains("countries", [country.upper()])
         if platform and platform != "ALL":
             query = query.eq("platform", platform.upper())
-
-        query = query.order("detected_at", desc=True).range(offset, offset + limit - 1)
-        res = query.execute()
-
-        return {
-            "posts": res.data or [],
-            "total": res.count if res.count is not None else len(res.data or [])
-        }
+        res = query.order("detected_at", desc=True).range(offset, offset + limit - 1).execute()
+        return {"posts": res.data or [],
+                "total": res.count if res.count is not None else len(res.data or [])}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
 # ==============================================================================
-# ANALYTICS ENDPOINTS
+# ANALYTICS ENDPOINTS - day 1 only, never pooled (01 section 4.2)
 # ==============================================================================
+#
+# Every cross-video figure is read at day_index = 1, the only index every
+# record has by construction. Records first seen after a gap
+# (entry_certain = false) are left out: these figures filter on the entry
+# date. And no figure is ever computed across baseline bands or across
+# formats: chart entry needs absolute views, so a pooled figure would move
+# with who happened to chart that day. Each cell carries its n.
+
+# Decade bands of the frozen baseline. The docs name the 100 and 100,000
+# edges (01 section 8); the intermediate edges are powers of ten.
+BASELINE_BANDS = (
+    (0, 100, "<100"),
+    (100, 1_000, "100-1k"),
+    (1_000, 10_000, "1k-10k"),
+    (10_000, 100_000, "10k-100k"),
+    (100_000, float("inf"), ">=100k"),
+)
+
+TIMEFRAMES = {"today": 0, "7d": 7, "30d": 30, "all": None}
+
+DAY1_POST_COLUMNS = (
+    "id, external_post_id, format, baseline_score, baseline_rule, country, countries, "
+    "category, categories, entered_on, age_at_first_obs_days, entry_certain, "
+    "method_version, status, content_text, author_name, author_handle, post_url, "
+    "vpi_max, vpi_max_on, days_charting"
+)
+
+
+def baseline_band(baseline):
+    if baseline is None:
+        return None
+    b = float(baseline)
+    for lo, hi, name in BASELINE_BANDS:
+        if lo <= b < hi:
+            return name
+    return None
+
+
+def _median(values):
+    return float(statistics.median(values)) if values else None
+
+
+def _since(timeframe):
+    if timeframe not in TIMEFRAMES:
+        raise HTTPException(status_code=400,
+                            detail=f"timeframe must be one of {sorted(TIMEFRAMES)}")
+    days = TIMEFRAMES[timeframe]
+    if days is None:
+        return None
+    return (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
+
+
+def _day1_rows(since=None, country=None, category=None, format=None):
+    """post_daily at day_index = 1, joined to its v2 record, certain entries only."""
+    rows, offset, page = [], 0, 1000
+    while True:
+        q = (supabase.table("post_daily")
+             .select(f"day, day_index, views, vpi_ratio, posts!inner({DAY1_POST_COLUMNS})")
+             .eq("day_index", 1)
+             .eq("posts.method_version", "v2")
+             .eq("posts.entry_certain", True))
+        if since:
+            q = q.gte("posts.entered_on", since)
+        if country and country != "ALL":
+            q = q.contains("posts.countries", [country.upper()])
+        if category and category != "ALL":
+            q = q.contains("posts.categories", [category])
+        if format and format != "ALL":
+            q = q.eq("posts.format", format.upper())
+        batch = q.range(offset, offset + page - 1).execute().data or []
+        rows.extend(batch)
+        if len(batch) < page:
+            return rows
+        offset += page
+
+
+def _cells(rows):
+    """[{baseline_band, format, n, median_vpi}] over rows that have a VPI."""
+    groups = {}
+    for r in rows:
+        p = r["posts"]
+        band = baseline_band(p.get("baseline_score"))
+        if band is None or r.get("vpi_ratio") is None:
+            continue
+        groups.setdefault((band, p["format"]), []).append(float(r["vpi_ratio"]))
+    order = [b[2] for b in BASELINE_BANDS]
+    return [{"baseline_band": band, "format": fmt, "n": len(v), "median_vpi": _median(v)}
+            for (band, fmt), v in sorted(groups.items(), key=lambda kv: (order.index(kv[0][0]), kv[0][1]))]
+
 
 @app.get("/api/analytics/top10")
 def get_top10_analytics(
     timeframe: str = "7d",
     country: Optional[str] = None,
     category: Optional[str] = None,
+    format: Optional[str] = None,
     platform: Optional[str] = None,
-    limit: int = 300
+    limit: int = 300,
 ):
-    """Returns top viral contents with highest VPI from DB for the specified timeframe (7d, 15d, 24h)."""
+    """Top VPI on the first day observed in Most Popular (01 section 4.2).
+
+    Not age-adjusted: age at first observation is disclosed with n. The
+    timeframe filters on entered_on, the day we first observed the video.
+    """
+    since = _since(timeframe)
     try:
         if not supabase:
-            return {"timeframe": timeframe, "top10": []}
-
-        if timeframe == "15d":
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
-        elif timeframe == "24h":
-            cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-        else:
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-
-        query = supabase.table("posts").select("*").gte("created_at", cutoff).eq("status", "ACTIVE")
-
-        if country and country != "ALL":
-            query = query.eq("country", country)
-        if category and category != "ALL":
-            query = query.eq("category", category)
-        if platform and platform != "ALL":
-            query = query.eq("platform", platform.upper())
-
-        fetch_limit = min(max(limit, 10), 1000)
-        query = query.order("vpi_ratio", desc=True).limit(fetch_limit)
-        res = query.execute()
-
+            return {"timeframe": timeframe, "day_index": 1, "n": 0, "top10": []}
+        rows = [r for r in _day1_rows(since, country, category, format)
+                if r.get("vpi_ratio") is not None]
+        rows.sort(key=lambda r: float(r["vpi_ratio"]), reverse=True)
+        ages = [r["posts"]["age_at_first_obs_days"] for r in rows
+                if r["posts"].get("age_at_first_obs_days") is not None]
+        top = rows[:min(max(limit, 10), 1000)]
         return {
             "timeframe": timeframe,
-            "top10": res.data or []
+            "day_index": 1,
+            "label": "VPI on the first day observed in Most Popular. Not age-adjusted.",
+            "n": len(rows),
+            "age_at_first_obs_days": {"min": min(ages) if ages else None,
+                                      "median": _median(ages),
+                                      "max": max(ages) if ages else None},
+            "top10": [{**r["posts"], "vpi_day1": float(r["vpi_ratio"]), "views_day1": r["views"],
+                       "baseline_band": baseline_band(r["posts"].get("baseline_score"))}
+                      for r in top],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+
 @app.get("/api/analytics/insights")
 def get_insights_analytics():
-    """Aggregates DB metrics by country, category, and macro-regions."""
+    """Day-1 VPI by country, category and macro-region, each by baseline band
+    and format, with n. Never pooled (01 section 4.2)."""
     return _statistiche_in_memoria("insights", _calcola_insights)
 
 
 def _calcola_insights():
     try:
         if not supabase:
-            return {"by_country": {}, "by_category": {}, "macro_regions": {}}
-
-        data = _fetch_all_rows("posts", "country, category, vpi_ratio", status="ACTIVE")
-
-        country_stats = {}
-        category_stats = {}
-        region_stats = {r: {"vpi_sum": 0.0, "count": 0} for r in MACRO_REGIONS}
-
-        country_to_region = {}
-        for region, countries in MACRO_REGIONS.items():
-            for c in countries:
-                country_to_region[c] = region
-
-        for item in data:
-            c = item.get("country", "OTHER")
-            cat = item.get("category", "Uncategorized")
-            vpi = float(item.get("vpi_ratio") or 1.0)
-
-            # Country aggregation
-            if c not in country_stats:
-                country_stats[c] = {"vpi_sum": 0.0, "count": 0}
-            country_stats[c]["vpi_sum"] += vpi
-            country_stats[c]["count"] += 1
-
-            # Category aggregation
-            if cat not in category_stats:
-                category_stats[cat] = {"vpi_sum": 0.0, "count": 0}
-            category_stats[cat]["vpi_sum"] += vpi
-            category_stats[cat]["count"] += 1
-
-            # Region aggregation
-            reg = country_to_region.get(c)
-            if reg:
-                region_stats[reg]["vpi_sum"] += vpi
-                region_stats[reg]["count"] += 1
-
-        by_country = {
-            c: {
-                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
-                "outlier_count": s["count"]
-            }
-            for c, s in country_stats.items()
-        }
-
-        by_category = {
-            cat: {
-                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
-                "outlier_count": s["count"]
-            }
-            for cat, s in category_stats.items()
-        }
-
-        macro_regions = {
-            reg: {
-                "avg_vpi": round(s["vpi_sum"] / s["count"], 2) if s["count"] > 0 else 0.0,
-                "outlier_count": s["count"]
-            }
-            for reg, s in region_stats.items()
-        }
-
+            return {"day_index": 1, "by_country": {}, "by_category": {}, "macro_regions": {}}
+        rows = _day1_rows()
+        country_to_region = {c: reg for reg, cs in MACRO_REGIONS.items() for c in cs}
+        by_country, by_category, by_region = {}, {}, {}
+        for r in rows:
+            p = r["posts"]
+            for c in p.get("countries") or []:
+                by_country.setdefault(c, []).append(r)
+            for k in p.get("categories") or []:
+                by_category.setdefault(k, []).append(r)
+            for reg in {country_to_region[c] for c in (p.get("countries") or []) if c in country_to_region}:
+                by_region.setdefault(reg, []).append(r)
         return {
-            "by_country": by_country,
-            "by_category": by_category,
-            "macro_regions": macro_regions
+            "day_index": 1,
+            "baseline_bands": [b[2] for b in BASELINE_BANDS],
+            "by_country": {k: _cells(v) for k, v in sorted(by_country.items())},
+            "by_category": {k: _cells(v) for k, v in sorted(by_category.items())},
+            "macro_regions": {k: _cells(v) for k, v in sorted(by_region.items())},
         }
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+
 @app.get("/api/analytics/keywords")
 def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
-    """Tokenizes video titles (VPI >= min_vpi) and computes frequency & viral velocity per word."""
+    """Title words of records with day-1 VPI >= min_vpi, per baseline band
+    and format, with n. Never pooled (01 section 4.2)."""
     return _statistiche_in_memoria(f"keywords:{min_vpi}:{limit}",
                                    lambda: _calcola_keywords(min_vpi, limit))
 
@@ -479,40 +602,26 @@ def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
 def _calcola_keywords(min_vpi: float, limit: int):
     try:
         if not supabase:
-            return {"keywords": []}
-
-        rows = _fetch_all_rows("posts", "content_text, vpi_ratio", status="ACTIVE")
-        data = [r for r in rows if float(r.get("vpi_ratio") or 0) >= min_vpi]
-
-        kw_stats = {}
-
-        for item in data:
-            title = item.get("content_text") or ""
-            vpi = float(item.get("vpi_ratio") or min_vpi)
-            
-            words = re.findall(r'\b[a-zA-Z0-9]{3,}\b', title.lower())
-            seen_in_title = set()
-            
-            for w in words:
-                if w not in STOP_WORDS and w not in seen_in_title:
-                    seen_in_title.add(w)
-                    if w not in kw_stats:
-                        kw_stats[w] = {"frequency": 0, "vpi_sum": 0.0}
-                    kw_stats[w]["frequency"] += 1
-                    kw_stats[w]["vpi_sum"] += vpi
-
-        result = []
-        for word, s in kw_stats.items():
-            avg_vpi = round(s["vpi_sum"] / s["frequency"], 2)
-            result.append({
-                "keyword": word,
-                "frequency": s["frequency"],
-                "viral_velocity": avg_vpi
-            })
-
-        result.sort(key=lambda x: (x["frequency"], x["viral_velocity"]), reverse=True)
-
-        return {"keywords": result[:limit]}
+            return {"day_index": 1, "min_vpi": min_vpi, "segments": []}
+        groups = {}
+        for r in _day1_rows():
+            p = r["posts"]
+            band = baseline_band(p.get("baseline_score"))
+            if band is None or r.get("vpi_ratio") is None or float(r["vpi_ratio"]) < min_vpi:
+                continue
+            groups.setdefault((band, p["format"]), []).append((p.get("content_text") or "", float(r["vpi_ratio"])))
+        order = [b[2] for b in BASELINE_BANDS]
+        segments = []
+        for (band, fmt), items in sorted(groups.items(), key=lambda kv: (order.index(kv[0][0]), kv[0][1])):
+            words = {}
+            for title, vpi in items:
+                for w in set(re.findall(r'\b[a-zA-Z0-9]{3,}\b', title.lower())) - STOP_WORDS:
+                    words.setdefault(w, []).append(vpi)
+            kws = sorted(({"keyword": w, "frequency": len(v), "median_vpi": _median(v)}
+                          for w, v in words.items()),
+                         key=lambda k: (k["frequency"], k["median_vpi"]), reverse=True)[:limit]
+            segments.append({"baseline_band": band, "format": fmt, "n": len(items), "keywords": kws})
+        return {"day_index": 1, "min_vpi": min_vpi, "segments": segments}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
@@ -579,7 +688,7 @@ async def get_trophy_preview(
 
         if supabase and claim_token:
             try:
-                res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                res = _claim_lookup(claim_token)
                 
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
@@ -713,7 +822,7 @@ async def initialize_claim_product(token: str):
         if not supabase:
             return {"status": "ready", "token": token}
 
-        db_res = supabase.table("posts").select("*").eq("claim_token", token).execute()
+        db_res = _claim_lookup(token)
         post_data = db_res.data[0] if db_res.data else None
 
         if not post_data:
@@ -744,7 +853,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
 
         if supabase and req.claimToken:
             try:
-                res = supabase.table("posts").select("*").eq("claim_token", req.claimToken).execute()
+                res = _claim_lookup(req.claimToken)
                 if res.data and len(res.data) > 0:
                     p = res.data[0]
                     raw_vpi = p.get("vpi_ratio", 8.7)
@@ -870,7 +979,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
         if supabase and claim_token:
             try:
-                db_res = supabase.table("posts").select("*").eq("claim_token", claim_token).execute()
+                db_res = _claim_lookup(claim_token)
                 if db_res.data and len(db_res.data) > 0:
                     p = db_res.data[0]
                     author = p.get("author_handle") or author

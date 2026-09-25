@@ -1,0 +1,7 @@
+# Test-only dependencies. Not installed on Render.
+#   pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+pytest>=8.0
+pytest-cov>=5.0
+responses>=0.25
+# tests/test_entries.py runs the Supabase migrations on a real PostgreSQL.
+psycopg[binary]>=3.2
