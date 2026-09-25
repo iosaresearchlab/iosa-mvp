@@ -51,7 +51,7 @@ STATE = Path(os.environ.get("T13_STATE", Path.home() / "t13_state.json"))
 # request is sent. Added after the first run lost a batch's count to a shell
 # timeout (see docs/t13-dry-run.md).
 CALL_LOG = Path(os.environ.get("T13_CALL_LOG", Path.home() / "t13_calls.log"))
-COUNTRIES = ["IT", "US", "DE"]
+COUNTRIES = [c for c in os.environ.get("T13_COUNTRIES", "IT,US,DE").split(",") if c]
 SEED = 20260925
 BUDGET_S = 90      # a batch takes ~60 s: it never straddles a 175 s shell limit
 
@@ -110,7 +110,7 @@ def census():
     import psycopg
     import vpi_engine as eng
     from quota import QuotaCounter
-    from tests.conftest import MIGRATIONS, POSTS_STUB, SUPABASE_STUB
+    from tests.conftest import LINKED_STUB, MIGRATIONS, POSTS_STUB, SUPABASE_STUB
     from tests.pg_client import PgClient
 
     if load():
@@ -125,6 +125,7 @@ def census():
     with conn.cursor() as cur:
         cur.execute(SUPABASE_STUB)
         cur.execute(POSTS_STUB)
+        cur.execute(LINKED_STUB)
         for f in MIGRATIONS:
             cur.execute(f.read_text(encoding="utf-8"))
     counter, tally = QuotaCounter(), Counter()

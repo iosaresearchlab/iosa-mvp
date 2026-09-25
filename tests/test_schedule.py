@@ -52,3 +52,51 @@ def test_public_columns_are_every_posts_column_but_the_private_ones(db):
     public = set(main.PUBLIC_POST_COLUMNS.split(","))
     assert public == schema - set(main.PRIVATE_POST_COLUMNS)
     assert set(main.PRIVATE_POST_COLUMNS) <= schema
+
+
+# --- day 0 is automatic -----------------------------------------------------------
+
+
+def _run_row(cur, day, outcome):
+    cur.execute("insert into ingest_run (day, started_at, outcome) values (%s, now(), %s)", (day, outcome))
+
+
+def test_day0_until_a_complete_reading_exists(db):
+    from tests.pg_client import PgClient
+    from vpi_engine import has_complete_reading_before
+    client = PgClient(db)
+    d0, d1, d2 = date(2026, 9, 25), date(2026, 9, 26), date(2026, 9, 27)
+    assert not has_complete_reading_before(client, d0)          # nothing yet: day 0
+    with db.cursor() as cur:
+        _run_row(cur, d0, "partial")
+    assert not has_complete_reading_before(client, d1)          # a partial day 0 is no reference
+    with db.cursor() as cur:
+        _run_row(cur, d1, "ok")
+    assert not has_complete_reading_before(client, d1)          # the day itself does not count
+    assert has_complete_reading_before(client, d2)
+
+
+def test_esegui_un_ciclo_forces_snapshot_only_on_day0(monkeypatch):
+    import vpi_engine
+    seen = {}
+
+    class _Res:
+        data = []
+
+    class _Q:
+        def __getattr__(self, name):
+            return lambda *a, **k: self
+
+        def execute(self):
+            return _Res()
+
+    class _C:
+        def table(self, name):
+            return _Q()
+
+    monkeypatch.setattr(vpi_engine, "create_client", lambda *a: _C())
+    monkeypatch.setattr(vpi_engine, "run_daily",
+                        lambda client, day, **kw: seen.update(kw) or {"outcome": "ok"})
+    monkeypatch.delenv("SNAPSHOT_ONLY", raising=False)
+    vpi_engine.esegui_un_ciclo()
+    assert seen["snapshot_only"] is True

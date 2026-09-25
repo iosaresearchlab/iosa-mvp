@@ -249,8 +249,12 @@ Render reactivated, `IOSA_ENGINE_MODE` left `off` so only the HTTP trigger
 runs the job.
 
 - **Closing check**: `GET /api/ingest/status` answers from the deployed
-  service; the pg_cron job is listed with the new schedule; a manual trigger
-  with `SNAPSHOT_ONLY=true` on one country returns 200.
+  service; the pg_cron job is listed with the new schedule; a
+  snapshot-only reading of one country, with the real API, against the test
+  database (as at T-13) ends `outcome='ok'` with the call log equal to the
+  counter. **Changed 25/09/2026 (Migert):** the one-country run was a manual
+  trigger on production; it would have written that day's `ingest_run` row
+  and refused day 0 the same night.
 - **Rollback**: disable the cron job, suspend Render.
 
 ### T-15 — day 0: snapshot only

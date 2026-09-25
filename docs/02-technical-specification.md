@@ -794,8 +794,13 @@ identical.
 
 **Phase B — day 0**
 8. `cron.job` to `59 23 * * *`, Render reactivated
-9. First run in **snapshot-only** mode (`SNAPSHOT_ONLY=true`). Expected
-   spend: 1,350 units
+9. First run in **snapshot-only** mode. Expected spend: 1,350 units.
+   **Correction, 25/09/2026:** snapshot-only is automatic, not an
+   environment flag to set on Render and then remember to unset. A reading
+   with no `ingest_run` of outcome `ok` on an earlier day has no reference,
+   so it is day 0 (`vpi_engine.has_complete_reading_before`). A partial day 0
+   is no reference, so the next night is day 0 again. `SNAPSHOT_ONLY=true`
+   still forces it.
 
 **Phase C — day 1 and the gate**
 10. Second full run, first v2 records

@@ -480,10 +480,23 @@ def reading_day(now: datetime | None = None):
     return (now.astimezone(timezone.utc) - READING_DAY_OFFSET).date()
 
 
+def has_complete_reading_before(client, day) -> bool:
+    """True when an ingest_run with outcome 'ok' exists for a day before `day`.
+
+    Without one there is no reference to compare against (01 section 4), so
+    the reading is day 0: census and permanent snapshot only. This makes day 0
+    automatic, with no environment flag to set and then remember to unset; a
+    partial day 0 is not a reference, so the next night is day 0 again.
+    """
+    res = client.table("ingest_run").select("*").in_("outcome", ["ok"]).execute()
+    return any(str(r["day"])[:10] < day.isoformat() for r in (res.data or []))
+
+
 def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
     """One daily reading for the reading day (UTC), configured from the environment.
 
-    SNAPSHOT_ONLY=true -> day 0. IOSA_COUNTRIES=IT,US,DE limits the countries
+    Day 0 (census only) when no complete reading exists before the reading
+    day; SNAPSHOT_ONLY=true forces it. IOSA_COUNTRIES=IT,US,DE limits the countries
     (dry run, T-13/T-14). QUOTA_MAX_DAILY lowers the brake, never raises it.
     Writes with the service role (SUPABASE_SERVICE_KEY): posts, trend_snapshot
     and ingest_run are not writable with the public key. con_scadenze is
@@ -494,8 +507,9 @@ def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
     raw = (os.getenv("IOSA_COUNTRIES") or "").strip()
     countries = [c.strip().upper() for c in raw.split(",") if c.strip()] or None
     day = reading_day()
+    snapshot_only = _env_flag("SNAPSHOT_ONLY") or not has_complete_reading_before(client, day)
     return run_daily(client, day, api_key=YOUTUBE_API_KEY, countries=countries,
-                     snapshot_only=_env_flag("SNAPSHOT_ONLY"))
+                     snapshot_only=snapshot_only)
 
 
 def start_engine():
