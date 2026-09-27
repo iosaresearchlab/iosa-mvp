@@ -75,9 +75,16 @@ says what to change, `08` says in what order and how each step is proved.
 formats, 6,138 records — 1,897 with a VPI, 205 `not_computable`, 4,036
 `quota_stop` (the brake fired at 9,500 units). All kept, none deleted.
 **From the next run (2026-09-27) the perimeter is long-form only and
-`quota_stop` is an incident, not a state.** Whether night 1 belongs to the
+`quota_stop` is an incident, not a state.** ~~Whether night 1 belongs to the
 published series is the owner's decision, later; nothing here assumes
-either way.
+either way.~~ **Decided the same day (Migert): nights 0 (25/09) and 1
+(26/09) are reference-only.** They stay in the database and remain
+reference states — they are what makes the next night's entries computable
+— but they are not part of the published series: night 1 mixed both formats
+and left two thirds of its entries without a VPI. The published series
+starts on the first run that passes `tests/check_run.py`; its date is set in
+`01` §1, `02` §6.5 and the site (`INDEX_START_DATE`) once it passes, and
+until then no record is published. Nothing is deleted.
 
 - Shorts are out of the measurement for now (`01` §1): a scope reduction
   forced by the quota, declared and provisional. The census is unchanged.

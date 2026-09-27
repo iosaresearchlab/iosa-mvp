@@ -77,6 +77,19 @@ VPI_SCALE = (
 )
 NO_LEVEL = (None, None, None)
 
+# The start of the published series (docs/01 section 1). Owner decision,
+# 27/09/2026: nights 0 (25/09) and 1 (26/09) stay in the database as
+# reference states and are not published. The series starts on the first run
+# that passes tests/check_run.py; the date is written here, in
+# frontend/src/lib/index-start.ts and in docs/01 section 1 in the same commit.
+# While it is None no record is published.
+INDEX_START_DATE = None
+
+
+def series_floor() -> str:
+    """The lowest entered_on any public read may return."""
+    return INDEX_START_DATE or "9999-12-31"
+
 _ISO_DURATION = re.compile(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?')
 
 

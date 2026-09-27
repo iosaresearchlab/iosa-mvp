@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import { ArrowLeft, Trophy, ExternalLink } from 'lucide-react';
 import { formatVPI, formatCount } from '@/lib/format';
 import { PAESI, CATEGORIE } from '@/lib/segments';
+import { SERIES_FLOOR } from '@/lib/index-start';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const supabase = createClient(
@@ -107,6 +108,7 @@ export default function LeaderboardPage() {
           .from('posts')
           .select('id,author_handle,content_text,format,claim_token,vpi_max,views_max,days_charting,entered_on')
           .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
           .not('vpi_max', 'is', null);
         const da = dataDa(giorni);
         if (da) q = q.gte('entered_on', da);

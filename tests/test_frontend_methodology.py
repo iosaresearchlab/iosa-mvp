@@ -103,6 +103,6 @@ def test_the_two_estimand_sentences_verbatim():
 
 def test_most_popular_population_start_date_and_reading_time():
     for needed in ("Most Popular", "34 countries", "23:59 UTC", "7 and 90 days", "frozen",
-                   "DATA_INIZIO_INDICE", "set by the project owner"):
+                   "INDEX_START_DATE", "set by the project owner"):
         assert needed in MODAL, needed
     assert "15-Day" not in MODAL and "15-day" not in MODAL

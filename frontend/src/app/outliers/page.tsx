@@ -9,6 +9,7 @@ import {
   slugCategoria,
   SITO,
 } from '@/lib/segments';
+import { SERIES_FLOOR } from '@/lib/index-start';
 
 export const revalidate = 3600;
 
@@ -28,6 +29,7 @@ async function conteggi(colonna: 'countries' | 'categories'): Promise<Conteggio>
     .from('posts')
     .select(colonna)
     .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
     .eq('status', 'ACTIVE');
 
   const out: Conteggio = {};
@@ -45,6 +47,7 @@ export default async function Outliers() {
       .from('posts')
       .select('id', { count: 'exact', head: true })
       .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
       .eq('status', 'ACTIVE'),
   ]);
 

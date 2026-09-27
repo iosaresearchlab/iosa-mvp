@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 import archivio_targhe
+import vpi_core
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
@@ -424,7 +425,8 @@ def get_posts(
         if not supabase:
             return {"posts": [], "total": 0}
         query = (supabase.table("posts").select(PUBLIC_POST_COLUMNS, count="exact")
-                 .eq("method_version", "v2"))
+                 .eq("method_version", "v2")
+                 .gte("entered_on", vpi_core.series_floor()))
         if min_vpi and min_vpi > 0:
             query = query.gte("vpi_ratio", min_vpi)
         if status and status.upper() != "ALL":
@@ -508,8 +510,8 @@ def _day1_rows(since=None, country=None, category=None, format=None):
              .eq("day_index", 1)
              .eq("posts.method_version", "v2")
              .eq("posts.entry_certain", True))
-        if since:
-            q = q.gte("posts.entered_on", since)
+        floor = vpi_core.series_floor()
+        q = q.gte("posts.entered_on", max(since, floor) if since else floor)
         if country and country != "ALL":
             q = q.contains("posts.countries", [country.upper()])
         if category and category != "ALL":

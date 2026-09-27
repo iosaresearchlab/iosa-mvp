@@ -425,7 +425,7 @@ own closing check above, and are reported as they do:
 | T-15 day 0 | tonight's 23:59 UTC reading | 26/09 00:10 UTC |
 | T-16 day 1 | the next night's reading | 27/09 (failed: brake; see T-16b) |
 | T-16b long-form perimeter | the 27/09 reading | 28/09 00:10 UTC |
-| T-17 day-1 audit, and the start date | T-16b, and Migert's decision on whether night 1 belongs to the series (it moves the start date) | 28/09 |
+| T-17 day-1 audit, and the start date | T-16b passing: the start date is that run's day (Migert, 27/09: nights 0 and 1 are reference-only) | 28/09 |
 | GATE-3 GO / NO-GO | T-17, decided by Migert | after T-17 |
 | T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | 27/09 |
 | T-22 three weeks | 21 readings | mid-October |

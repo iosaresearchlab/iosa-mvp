@@ -99,7 +99,7 @@ def test_posts_v2_only_and_no_vpi_floor_by_default(api):
     assert r.status_code == 200 and set(r.json()) == {"posts", "total"}
     q = db.last("posts")
     assert q.has("eq", "method_version", "v2")
-    assert not q.has("gte"), "min_vpi defaults to 0: no floor, not_computable records included"
+    assert not q.has("gte", "vpi_ratio"), "min_vpi defaults to 0: no floor, not_computable records included"
 
 
 def test_posts_filters(api):
@@ -157,9 +157,11 @@ def test_top10_ranks_by_day1_vpi_and_discloses_n_and_age(api):
 
 
 def test_top10_timeframe_all_has_no_date_filter_and_unknown_is_400(api):
+    """'all' adds no timeframe: the only floor is the series start."""
     client, db = api
     client.get("/api/analytics/top10?timeframe=all")
-    assert not db.last("post_daily").has("gte")
+    gtes = [a for n, a, _ in db.last("post_daily").calls if n == "gte"]
+    assert gtes == [("posts.entered_on", main.vpi_core.series_floor())]
     assert client.get("/api/analytics/top10?timeframe=15d").status_code == 400
 
 
@@ -334,3 +336,13 @@ def test_the_trigger_runs_with_the_engine_mode_off(api, monkeypatch):
     r = client.post("/api/ingest/run", headers=AUTH)
     assert r.status_code == 200 and r.json()["stato"] == "avviato" and ran == [1]
     main._ingestione_in_corso = False
+
+
+
+def test_public_reads_are_floored_at_the_series_start(api):
+    """Nights 0 and 1 are reference-only (27/09/2026): never in a public read."""
+    client, db = api
+    client.get("/api/posts")
+    assert db.last("posts").has("gte", "entered_on", main.vpi_core.series_floor())
+    client.get("/api/analytics/top10?timeframe=all")
+    assert db.last("post_daily").has("gte", "posts.entered_on", main.vpi_core.series_floor())
