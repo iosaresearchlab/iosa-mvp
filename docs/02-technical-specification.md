@@ -808,7 +808,12 @@ The public methodology text. **Rewrite entirely:**
   format, 34 countries and 13 categories *(was 12, `01` §1)*, one reading per day at 23:59 UTC,
   scale version and calibration date
 - add: **the index start date** (`01` §1), and that everything in the charts
-  before it is outside the measurement
+  before it is outside the measurement. *(27/09/2026: one constant,
+  `INDEX_START_DATE`, in `backend/vpi_core.py` and
+  `frontend/src/lib/index-start.ts`, equal to `01` §1
+  (`tests/test_index_start.py`). Every public read of `posts` is floored at
+  it; while it is unset nothing is published. The text states that the
+  readings of 25 and 26 September 2026 are reference states only.)*
 - add, verbatim, the two sentences that carry the estimand:
   *"VPI is cumulative and age-dependent. It is recalculated daily while the
   video remains in the observed Most Popular chart, and is interpreted together

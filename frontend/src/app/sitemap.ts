@@ -9,6 +9,7 @@ import {
   handleSemplice,
   SITO,
 } from '@/lib/segments';
+import { SERIES_FLOOR } from '@/lib/index-start';
 
 export const revalidate = 3600;
 
@@ -20,6 +21,7 @@ async function creatorDaIndicizzare(): Promise<string[]> {
     .from('posts')
     .select('author_handle')
     .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
     .eq('status', 'ACTIVE');
 
   const conteggio = new Map<string, number>();

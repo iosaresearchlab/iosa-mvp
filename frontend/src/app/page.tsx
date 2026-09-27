@@ -54,6 +54,7 @@ import {
   Trophy,
   TrendingUp,
 } from 'lucide-react';
+import { SERIES_FLOOR, INDEX_START_DATE } from '@/lib/index-start';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -146,7 +147,8 @@ export default function Home() {
       let query = supabase
         .from('posts')
         .select(CAMPI_HOME, { count: 'exact' })
-        .eq('method_version', 'v2');
+        .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR);
       if (vista === 'charting') query = query.eq('status', 'ACTIVE');
       const { data, error, count } = await query
         .order('engagement_score', { ascending: false })
@@ -406,6 +408,11 @@ export default function Home() {
             <strong className="text-amber-300">For now the index measures long-form videos only (over 3 minutes). Shorts are not measured.</strong>{' '}
             The daily API quota cannot cover a baseline for every Short that enters the charts, so
             Shorts are out of scope until the budget allows. The charts are still read in full.
+          </p>
+          <p className="text-xs text-amber-200/90 leading-relaxed mt-1">
+            {INDEX_START_DATE
+              ? `The published series starts on ${INDEX_START_DATE}.`
+              : 'The published series has not started yet: it starts with the first complete reading under this perimeter, and its date will be shown here.'}
           </p>
         </section>
 

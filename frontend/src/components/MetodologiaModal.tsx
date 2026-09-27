@@ -1,5 +1,6 @@
 import { Calculator } from 'lucide-react';
 import { LIVELLI, SOGLIE, SOGLIA_MINIMA } from '@/lib/vpi-scale';
+import { INDEX_START_DATE } from '@/lib/index-start';
 
 /**
  * Il corpo del popup "VPI Methodology Standard", riscritto per intero
@@ -7,13 +8,6 @@ import { LIVELLI, SOGLIE, SOGLIA_MINIMA } from '@/lib/vpi-scale';
  * insights; le soglie vengono da vpi-scale, che rispecchia VPI_SCALE in
  * backend/vpi_core.py.
  */
-
-/**
- * Data di inizio dell'indice (docs/01 §1): il primo giorno 1 riuscito. Si
- * scrive qui nel commit di T-17, insieme a docs/01. Finche' e' null il testo
- * lo dice senza inventare una data.
- */
-export const DATA_INIZIO_INDICE: string | null = null;
 
 export default function ContenutoMetodologia() {
   return (
@@ -61,9 +55,9 @@ export default function ContenutoMetodologia() {
             when the budget allows. The two formats are never compared or pooled.
           </p>
           <p>
-            {DATA_INIZIO_INDICE
-              ? `The index starts on ${DATA_INIZIO_INDICE}. Everything that was in the charts before that date is outside the measurement: we did not observe it arrive.`
-              : 'The index starts on its first complete day with records; the date is published here once that reading has run. Everything that was in the charts before it is outside the measurement: we did not observe it arrive.'}
+            {INDEX_START_DATE
+              ? `The index starts on ${INDEX_START_DATE}. The readings of 25 and 26 September 2026 are reference states, not part of the series. Everything that was in the charts before the start is outside the measurement: we did not observe it arrive.`
+              : 'The published series starts with the first complete reading under the current perimeter; its date is published here once that reading has passed its checks. The readings of 25 and 26 September 2026 are reference states only. Everything that was in the charts before the start is outside the measurement: we did not observe it arrive.'}
           </p>
         </div>
 

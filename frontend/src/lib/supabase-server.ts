@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { SERIES_FLOOR } from '@/lib/index-start';
 
 // Client per i componenti server. Usa la stessa chiave pubblica del client:
 // le policy RLS della tabella posts sono di sola lettura, quindi non c'e'
@@ -71,6 +72,7 @@ export async function outlierDi(
     .from('posts')
     .select(CAMPI)
     .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
     .eq('status', 'ACTIVE');
   const filtrata = colonna === 'author_handle'
     ? query.eq(colonna, valore)
@@ -92,6 +94,7 @@ export async function contaDi(
     .from('posts')
     .select('id', { count: 'exact', head: true })
     .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
     .eq('status', 'ACTIVE');
   const { count } = colonna === 'author_handle'
     ? await query.eq(colonna, valore)

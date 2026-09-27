@@ -64,8 +64,10 @@ is back-filled later.
   formats are not comparable and are never described as comparable.
 - **Night 1 is its own vintage.** Its 6,138 records (both formats: 1,897
   with a VPI, 205 `not_computable`, 4,036 `quota_stop`) are kept, none
-  deleted. Whether night 1 belongs to the published series is the owner's
-  decision (`README` correction log).
+  deleted. **Nights 0 and 1 are reference-only** (owner, 27/09/2026): they
+  remain reference states and are never published. The published series
+  starts on the first run under this perimeter that passes
+  `tests/check_run.py`.
 
 *(Corrected 25/09/2026: "12 categories" → **13**, the owner's figure, and
 the measured one. The census of 22/09 (§6) finds 13 categories that return
@@ -86,7 +88,10 @@ like any other. Its view count is cumulative and therefore includes the
 earlier period, which is one reason `age_at_first_obs_days` is published
 alongside every ranking.
 
-*(The start date is a placeholder until T-16 closes; it is replaced in the
+*(27/09/2026: the start date is the first run that passes
+`tests/check_run.py`, not night 1, which is a reference state only (see the
+limitation below). Until then no record is published: every public read is
+floored at `INDEX_START_DATE`. The start date is a placeholder until that run; it is replaced in the
 commit that records the day-1 audit, T-17. A reader who cannot tell what
 period the index covers cannot judge any figure in it.)*
 
