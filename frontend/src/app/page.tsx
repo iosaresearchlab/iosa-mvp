@@ -397,6 +397,18 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="pt-14 pb-5 px-3 md:px-8 max-w-6xl mx-auto space-y-2 flex-grow w-full">
         
+        {/* Perimeter notice: stated on the front page, not in a footnote (27/09/2026) */}
+        <section
+          data-perimeter-notice
+          className="border border-amber-500/50 bg-amber-950/40 rounded-xl p-3 px-4 font-sans"
+        >
+          <p className="text-xs md:text-sm text-amber-200 leading-relaxed">
+            <strong className="text-amber-300">For now the index measures long-form videos only (over 3 minutes). Shorts are not measured.</strong>{' '}
+            The daily API quota cannot cover a baseline for every Short that enters the charts, so
+            Shorts are out of scope until the budget allows. The charts are still read in full.
+          </p>
+        </section>
+
         {/* Top Section: WHO WE ARE */}
         <section className="bg-gradient-to-r from-cyan-950/60 via-black to-cyan-950/60 border border-cyan-500/30 rounded-xl p-3 px-4 shadow-md font-sans">
           <div className="flex items-center gap-2 mb-1">
@@ -757,7 +769,7 @@ export default function Home() {
               <Zap className="w-4 h-4 text-[#00E5FF] mb-1.5" />
               <h3 className="font-bold text-xs text-white mb-1 font-mono">1. One reading a day</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
-                Every day at 23:59 UTC we read every Most Popular category chart of 34 countries through the official YouTube Data API v3, Shorts and long-form alike. A video enters the index the first day we observe it in a chart.
+                Every day at 23:59 UTC we read every Most Popular category chart of 34 countries through the official YouTube Data API v3. For now a record opens only for long-form videos (over 3 minutes). A video enters the index the first day we observe it in a chart.
               </p>
             </div>
 

@@ -41,19 +41,23 @@ def at(n, hour=23):
 
 PUB = {  # publication of the charting videos
     "a": at(-30), "b": at(-20), "c": at(-25),
-    "n1": at(-1, 10), "n2": at(0, 8), "x": at(1),
+    "n1": at(-1, 10), "n2": at(0, 8), "x": at(1), "s1": at(0, 9), "y": at(2, 6),
 }
-CHANNEL = {"a": "UCold", "b": "UCold", "c": "UCold", "n1": "UCnew", "n2": "UCsmall", "x": "UCnew"}
+CHANNEL = {"a": "UCold", "b": "UCold", "c": "UCold", "n1": "UCnew", "n2": "UCsmall", "x": "UCnew",
+           "s1": "UCnew", "y": "UCnew"}
+# 01 section 1 (27/09/2026): only long-form opens a record. s1 is a Short.
+DURATION = {"s1": "PT45S"}
+LONG = "PT12M"
 
 
 class FakeYouTube:
     def __init__(self):
         self.charts = {}      # (country, cat) -> [(vid, views)] or an int status
         self.calls = []
-        # UCnew: 12 Shorts at 1,000 views, one every 5 days from 8 days before n1
+        # UCnew: 12 long-form at 1,000 views, one every 5 days from 8 days before n1
         self.uploads = {
-            "UCnew": [(f"up{i}", PUB["n1"] - timedelta(days=8 + 5 * i), "PT40S", 1000) for i in range(12)],
-            "UCsmall": [(f"sm{i}", PUB["n2"] - timedelta(days=10 + i), "PT40S", 50) for i in range(3)],
+            "UCnew": [(f"up{i}", PUB["n1"] - timedelta(days=8 + 5 * i), LONG, 1000) for i in range(12)],
+            "UCsmall": [(f"sm{i}", PUB["n2"] - timedelta(days=10 + i), LONG, 50) for i in range(3)],
             "UCold": [],
         }
         self.meta = {"UCnew": {"customUrl": "@newchan", "title": "New Channel"},
@@ -71,15 +75,22 @@ class FakeYouTube:
                 return (spec, {}, json.dumps({"error": {"errors": [{"reason": "quotaExceeded"}]}}))
             items = [{"id": v, "snippet": {"channelId": CHANNEL[v], "publishedAt": iso(PUB[v]),
                                            "title": f"title {v}", "channelTitle": CHANNEL[v]},
-                      "contentDetails": {"duration": "PT45S"},
+                      "contentDetails": {"duration": DURATION.get(v, LONG)},
                       "statistics": {"viewCount": str(views)}} for v, views in spec]
             return (200, {}, json.dumps({"items": items}))
         if ep == "channels":
-            items = [{"id": c, "snippet": self.meta[c], "statistics": {"subscriberCount": "5000"}}
+            items = [{"id": c, "snippet": self.meta[c], "statistics": {"subscriberCount": "5000"},
+                      "contentDetails": {"relatedPlaylists": {"uploads": "PL" + c}}}
                      for c in qs["id"].split(",") if c in self.meta]
             return (200, {}, json.dumps({"items": items}))
+        if ep == "playlists":
+            items = [{"id": pl, "contentDetails": {"itemCount": len(self.uploads.get(pl[2:], []))}}
+                     for pl in qs["id"].split(",")]
+            return (200, {}, json.dumps({"items": items}))
         if ep == "playlistItems":
-            ch = "UC" + qs["playlistId"][2:]
+            ch = qs["playlistId"][2:]
+            if ch in getattr(self, "fail_uploads", ()):
+                return (503, {}, "{}")
             items = [{"contentDetails": {"videoId": v, "videoPublishedAt": iso(p)}}
                      for v, p, _, _ in self.uploads.get(ch, [])]
             return (200, {}, json.dumps({"items": items}))
@@ -96,7 +107,7 @@ class FakeYouTube:
 def world(db):
     fake = FakeYouTube()
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        for ep in ("videos", "channels", "playlistItems"):
+        for ep in ("videos", "channels", "playlists", "playlistItems"):
             rsps.add_callback(responses.GET, f"https://www.googleapis.com/youtube/v3/{ep}", callback=fake)
         yield fake, PgClient(db), db
 
@@ -146,8 +157,10 @@ def test_four_days(world):
     r0 = ingest(db, 0)
     assert r0["outcome"] == "ok" and r0["quota_total"] == len(fake.calls) == 4
 
-    # --- day 1: two entries, one standard, one not computable
-    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 720), ("n2", 300)]}
+    # --- day 1: two entries, one standard, one not computable; a Short enters
+    # too and opens no record (the census still stores it)
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000), ("s1", 9000)],
+                   ("US", "10"): [("c", 720), ("n2", 300)]}
     run(client, fake, 1)
     p = posts(db)
     assert set(p) == {"n1", "n2"}
@@ -158,6 +171,9 @@ def test_four_days(world):
     assert daily(db, "n2") == [(day(1), 1, 300, None)]
     r1 = ingest(db, 1)
     assert r1["outcome"] == "ok" and r1["entries"] == 2 and r1["exits"] == 0
+    assert one(db, "select format from trend_snapshot where day = %s and video_id = 's1'", day(1)) == [("SHORT",)]
+    assert one(db, "select discards->>'out_of_perimeter_short', entering_channels, entering_long_channels, "
+                   "baselines_complete from ingest_run where day = %s", day(1)) == [("1", 2, 2, True)]
     assert r1["quota_total"] == len(fake.calls)
     row = one(db, """select platform, author_handle, auto_generated_channel, post_url, category,
                             country, countries, categories, age_at_first_obs_days, baseline_samples,
@@ -172,7 +188,7 @@ def test_four_days(world):
     # read, no exits. (A 403 stops the whole run, so with parallel
     # reads which slices got read first is not deterministic; the 403 path is
     # covered in test_census.py and test_quota.py.)
-    fake.charts = {("IT", "24"): [("a", 990), ("n1", 8000)], ("US", "10"): 503}
+    fake.charts = {("IT", "24"): [("a", 990), ("n1", 8000), ("s1", 9500)], ("US", "10"): 503}
     run(client, fake, 2)
     r2 = ingest(db, 2)
     assert r2["outcome"] == "partial" and r2["exits"] == 0
@@ -181,7 +197,7 @@ def test_four_days(world):
     assert posts(db)["n1"][11:13] == (8.0, day(2))   # peak observed
 
     # --- day 3: complete; reference is day 1 (day 2 was partial)
-    fake.charts = {("IT", "24"): [("a", 1000)], ("US", "10"): [("c", 730), ("x", 4000)]}
+    fake.charts = {("IT", "24"): [("a", 1000), ("s1", 9900)], ("US", "10"): [("c", 730), ("x", 4000)]}
     run(client, fake, 3)
     p = posts(db)
     assert p["x"][7:9] == (False, 2)                 # entry after a partial day: uncertain
@@ -215,22 +231,65 @@ def test_an_incomplete_day0_is_no_reference_and_says_to_rerun(world):
 
 
 def test_the_brake_records_the_entries_it_did_not_reach_without_a_vpi(world):
-    # GATE-2 (01 §2): valid records, baseline_rule = quota_stop, counted; the
-    # run ends partial, so no exit.
+    # GATE-2 (01 §2): valid records, baseline_rule = quota_stop, counted. Since
+    # 27/09/2026 the brake is an incident, and the census alone decides the
+    # outcome: this census was complete.
     fake, client, db = world
     fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
     run(client, fake, 0, snapshot_only=True)
     fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 720)]}
     run(client, fake, 1, limit=5)                    # 4 chart calls + 1 channels, then the brake
     r = ingest(db, 1)
-    assert r["outcome"] == "partial" and r["quota_total"] == 5 == len(fake.calls)
+    assert r["outcome"] == "ok" and r["quota_total"] == 5 == len(fake.calls)
+    assert one(db, "select baselines_complete from ingest_run where day = %s", day(1)) == [(False,)]
     p = posts(db)
     assert set(p) == {"n1"} and p["n1"][3] == "quota_stop"
     assert p["n1"][4] is None and p["n1"][5] is None             # no baseline, no VPI
     assert daily(db, "n1") == [(day(1), 1, 5000, None)]           # views still observed
-    assert "1 entries recorded without a VPI (quota_stop)" in r["notes"]
+    assert "INCIDENT: 1 entries recorded without a VPI (quota_stop)" in r["notes"]
     assert one(db, "select discards->>'quota_stop' from ingest_run where day = %s", day(1)) == [("1",)]
-    assert r["exits"] == 0
+
+
+def test_complete_census_incomplete_baselines_is_the_reference_and_closes_exits(world):
+    """02 section 4.6 (27/09/2026): census completeness and baseline
+    completeness are two states. A brake during the baselines leaves the
+    census complete: the day is the next reference, exits are closed, the
+    next day's entries are certain."""
+    fake, client, db = world
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 0, snapshot_only=True)
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 720), ("n2", 300)]}
+    run(client, fake, 1)
+    assert set(posts(db)) == {"n1", "n2"}
+    # day 2: n2 leaves every chart, x enters; the brake stops the baselines
+    fake.charts = {("IT", "24"): [("a", 960), ("n1", 6000)], ("US", "10"): [("c", 725), ("x", 4000)]}
+    run(client, fake, 2, limit=5)
+    r2 = ingest(db, 2)
+    assert r2["outcome"] == "ok" and r2["exits"] == 1
+    assert one(db, "select baselines_complete from ingest_run where day = %s", day(2)) == [(False,)]
+    p = posts(db)
+    assert p["n2"][0] == "CLOSED" and p["n2"][9] == day(2)       # exit observed
+    assert p["x"][3] == "quota_stop" and p["x"][7:9] == (True, 0)
+    # day 3: the reference is day 2, so y is certain, no gap
+    fake.charts = {("IT", "24"): [("a", 970), ("n1", 6500), ("y", 3000)], ("US", "10"): [("c", 726), ("x", 4100)]}
+    run(client, fake, 3)
+    p = posts(db)
+    assert p["y"][7:9] == (True, 0)                   # gap_days 0: the day before was the reference
+    assert "x" in p and p["x"][0] == "ACTIVE"                    # not re-entered, still charting
+
+
+def test_an_entry_whose_reads_fail_is_a_record_without_a_vpi_and_the_day_stays_the_reference(world):
+    fake, client, db = world
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 0, snapshot_only=True)
+    fake.fail_uploads = {"UCnew"}
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 720)]}
+    run(client, fake, 1)
+    r = ingest(db, 1)
+    assert r["outcome"] == "ok" and "1 entries recorded without a VPI after failed reads" in r["notes"]
+    p = posts(db)
+    assert p["n1"][3] == "read_failed" and p["n1"][4] is None and p["n1"][5] is None
+    assert one(db, "select baselines_complete from ingest_run where day = %s", day(1)) == [(False,)]
 
 
 def test_the_inventory_is_persisted_and_reused_the_next_day(world):

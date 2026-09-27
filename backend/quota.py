@@ -20,7 +20,7 @@ QUOTA_HARD_MAX = 9_500
 
 # the ingest_run column each endpoint is written to
 COLUMNS = {"charts": "quota_charts", "channels": "quota_channels",
-           "playlist": "quota_playlist", "videos": "quota_videos"}
+           "playlists": "quota_playlists", "playlist": "quota_playlist", "videos": "quota_videos"}
 
 
 class QuotaExhausted(Exception):

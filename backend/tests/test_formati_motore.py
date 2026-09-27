@@ -35,7 +35,10 @@ def _api(uploads, calls):
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         calls.append(ep)
         if ep == "channels":
-            return (200, {}, json.dumps({"items": [{"id": "UCx", "snippet": {}, "statistics": {}}]}))
+            return (200, {}, json.dumps({"items": [{"id": "UCx", "snippet": {}, "statistics": {},
+                                                    "contentDetails": {"relatedPlaylists": {"uploads": "UUx"}}}]}))
+        if ep == "playlists":
+            return (200, {}, json.dumps({"items": [{"id": "UUx", "contentDetails": {"itemCount": len(uploads)}}]}))
         if ep == "playlistItems":
             return (200, {}, json.dumps({"items": [
                 {"contentDetails": {"videoId": v, "videoPublishedAt": _iso(REF - timedelta(days=d))}}
@@ -50,7 +53,7 @@ def _api(uploads, calls):
 def _baselines(uploads, measured_formats=("SHORT", "LONG")):
     calls = []
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        for ep in ("channels", "playlistItems", "videos"):
+        for ep in ("channels", "playlists", "playlistItems", "videos"):
             rsps.add_callback(responses.GET, f"{bl.BASE}/{ep}", callback=_api(uploads, calls))
         measured = [{"video_id": f"m_{f}", "channel_id": "UCx", "format": f,
                      "published_at": _iso(REF)} for f in measured_formats]

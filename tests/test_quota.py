@@ -77,7 +77,10 @@ def test_one_counter_across_census_and_baseline_no_drift():
         if ep == "videos" and qs.get("chart") == "mostPopular":
             return (200, {}, json.dumps({"items": [chart_item("v" + qs["regionCode"])]}))
         if ep == "channels":
-            return (200, {}, json.dumps({"items": [{"id": "UCa", "snippet": {}, "statistics": {}}]}))
+            return (200, {}, json.dumps({"items": [{"id": "UCa", "snippet": {}, "statistics": {},
+                                                    "contentDetails": {"relatedPlaylists": {"uploads": "UUa"}}}]}))
+        if ep == "playlists":
+            return (200, {}, json.dumps({"items": [{"id": "UUa", "contentDetails": {"itemCount": 8}}]}))
         if ep == "playlistItems":
             items = [{"contentDetails": {"videoId": f"u{i}", "videoPublishedAt":
                      (now - timedelta(days=10 + i)).strftime("%Y-%m-%dT%H:%M:%SZ")}} for i in range(8)]
@@ -87,7 +90,7 @@ def test_one_counter_across_census_and_baseline_no_drift():
                                                 "statistics": {"viewCount": "5"}} for i in ids]}))
 
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        for ep in ("videos", "channels", "playlistItems"):
+        for ep in ("videos", "channels", "playlists", "playlistItems"):
             rsps.add_callback(responses.GET, f"https://www.googleapis.com/youtube/v3/{ep}", callback=api)
         counter = q.QuotaCounter(limit=1000)
         census.read_charts(["IT", "US", "DE"], ["24"], KEY, quota=counter)
@@ -95,8 +98,8 @@ def test_one_counter_across_census_and_baseline_no_drift():
             [{"video_id": "vIT", "channel_id": "UCa", "format": "SHORT",
               "published_at": now.strftime("%Y-%m-%dT%H:%M:%SZ")}], KEY, quota=counter)
     assert counter.total == len(seen) == 3 + 1 + 1 + 1
-    assert counter.as_ingest_run() == {"quota_charts": 3, "quota_channels": 1, "quota_playlist": 1,
-                                       "quota_videos": 1, "quota_total": 6}
+    assert counter.as_ingest_run() == {"quota_charts": 3, "quota_channels": 1, "quota_playlists": 0,
+                                       "quota_playlist": 1, "quota_videos": 1, "quota_total": 6}
     assert res["vIT"]["rule"] == "standard"
 
 
@@ -107,12 +110,18 @@ def test_the_brake_inside_baseline_resolves_nothing_and_sends_nothing_more():
     def api(request):
         seen.append(request.url)
         ep = urlparse(request.url).path.rsplit("/", 1)[-1]
+        qs = {k: v[0] for k, v in parse_qs(urlparse(request.url).query).items()}
         if ep == "channels":
-            return (200, {}, json.dumps({"items": []}))
+            return (200, {}, json.dumps({"items": [
+                {"id": c, "contentDetails": {"relatedPlaylists": {"uploads": "UU" + c[2:]}}}
+                for c in qs["id"].split(",")]}))
+        if ep == "playlists":
+            return (200, {}, json.dumps({"items": [
+                {"id": p, "contentDetails": {"itemCount": 100}} for p in qs["id"].split(",")]}))
         return (200, {}, json.dumps({"items": []}))
 
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        for ep in ("channels", "playlistItems", "videos"):
+        for ep in ("channels", "playlists", "playlistItems", "videos"):
             rsps.add_callback(responses.GET, f"https://www.googleapis.com/youtube/v3/{ep}", callback=api)
         counter = q.QuotaCounter(limit=3)
         measured = [{"video_id": f"m{i}", "channel_id": f"UC{i}", "format": "SHORT",

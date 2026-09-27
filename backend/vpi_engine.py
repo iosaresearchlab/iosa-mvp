@@ -227,6 +227,11 @@ WRITE_BATCH = 500
 
 QUOTA_STOP_RESULT = {"baseline": None, "samples": 0, "rule": "quota_stop",
                      "span_days": None, "video_ids": []}
+READ_FAILED_RESULT = {**QUOTA_STOP_RESULT, "rule": "read_failed"}
+
+# 01 section 1, 27/09/2026: the perimeter is long-form only, a temporary
+# scope reduction forced by the quota. The census is not affected.
+MEASURED_FORMATS = ("LONG",)
 
 
 class RunAlreadyExists(Exception):
@@ -327,11 +332,17 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
 
     snapshot_only=True is day 0: the snapshot is written as permanent, the
     archive of the population at the start, and nothing else (01 §4).
-    A partial run (census incomplete, 403, quota brake, unresolved baselines)
-    records the entries it observed and today's views, but never exits:
-    absence is not observable, and the day is no reference (01 §4). Entries
-    the quota brake did not reach are recorded without a VPI,
-    baseline_rule = 'quota_stop', and counted (01 §2).
+    Two completeness states, kept apart (02 section 4.6, 27/09/2026):
+      - the census: complete or not. It alone decides outcome ('ok' or
+        'partial'), so whether the day is the next reference, whether exits
+        are closed, and whether entries are certain. A partial census
+        observes presence, not absence (01 §4).
+      - the baselines: baselines_complete. It decides only each record,
+        through its baseline_rule. Entries the brake did not reach are
+        recorded without a VPI, 'quota_stop' (an incident, counted); entries
+        whose reads failed after the retries, 'read_failed'.
+    Perimeter (01 §1, 27/09/2026): only long-form entries (> 180 s) open a
+    record. The census still reads and stores every video, Shorts included.
     """
     countries = list(countries or census.TARGET_COUNTRIES)
     categories = list(categories or census.CATEGORY_MAP)
@@ -377,10 +388,17 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         # 3. entries: baseline computed now and frozen
         found = census.entries(client, day)
         measured, entry_of = [], {}
+        entering_all, entering_long = set(), set()
         for e in found:
             v = videos.get(e["video_id"])
             if v is None:
                 continue
+            entering_all.add(v["channel_id"])
+            if v["format"] not in MEASURED_FORMATS:
+                discards["out_of_perimeter_" + str(v["format"]).lower()] = \
+                    discards.get("out_of_perimeter_" + str(v["format"]).lower(), 0) + 1
+                continue
+            entering_long.add(v["channel_id"])
             if v["views"] is None:
                 discards["no_views"] = discards.get("no_views", 0) + 1
                 continue
@@ -394,6 +412,15 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         results, meta, unresolved, quota_stopped, stopped = {}, {}, [], [], None
         store = baseline_mod.SupabaseInventory(client)
         run_state = baseline_mod.new_run_state()
+        # how much of today's turnover the inventory already holds: no role
+        # in the budget; it tells when Shorts can come back (27/09/2026)
+        known_all = store.known(entering_all)
+        row.update({"entering_channels": len(entering_all),
+                    "entering_channels_in_inventory": len(known_all),
+                    "entering_long_channels": len(entering_long),
+                    "entering_long_in_inventory": len(known_all & entering_long)})
+        base_units_before = quota.total
+        breps = []
         for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
             batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
             if stopped:
@@ -404,21 +431,41 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
                 inventory=store, run_state=run_state, today=day)
             results.update(res)
             meta.update(brep["channels"])
+            breps.append(brep)
             if brep["stop_reason"]:
                 stopped = brep["stop_reason"]
                 quota_stopped.extend(brep.get("unresolved", []))
                 notes.append(f"baselines stopped: {stopped}")
             else:
                 unresolved.extend(brep.get("unresolved", []))
-        # 01 §2: entries the brake did not reach are valid records without a VPI
+        # 01 §2: entries the brake did not reach are valid records without a
+        # VPI; so are entries whose reads failed after the retries
         for vid in quota_stopped:
             results[vid] = QUOTA_STOP_RESULT
+        for vid in unresolved:
+            results[vid] = READ_FAILED_RESULT
         if quota_stopped:
             discards["quota_stop"] = len(quota_stopped)
-            notes.append(f"{len(quota_stopped)} entries recorded without a VPI (quota_stop)")
+            notes.append(f"INCIDENT: {len(quota_stopped)} entries recorded without a VPI (quota_stop)")
         if unresolved:
-            notes.append(f"{len(unresolved)} entries left without a baseline after transient "
-                         f"failures, not written")
+            discards["read_failed"] = len(unresolved)
+            notes.append(f"{len(unresolved)} entries recorded without a VPI after failed reads "
+                         f"(read_failed)")
+        base_units = quota.total - base_units_before
+        n_ch = len(channels)
+        agg = {k: sum(b.get(k, 0) for b in breps) for k in (
+            "quota_channels", "quota_playlists", "quota_playlist", "quota_videos",
+            "skipped_by_item_count", "videos_checked", "videos_skipped_other_format")}
+        notes.append(
+            f"baselines: {base_units} units for {n_ch} channels = "
+            f"{(base_units / n_ch) if n_ch else 0:.2f} per channel (channels {agg['quota_channels']}, "
+            f"itemCount {agg['quota_playlists']}, uploads {agg['quota_playlist']}, videos "
+            f"{agg['quota_videos']}); skipped by itemCount {agg['skipped_by_item_count']}; videos "
+            f"checked {agg['videos_checked']}, other-format not checked "
+            f"{agg['videos_skipped_other_format']}")
+        notes.append(f"entering channels in the inventory: {len(known_all)}/{len(entering_all)} all "
+                     f"formats, {len(known_all & entering_long)}/{len(entering_long)} long-form")
+        row["baselines_complete"] = not stopped and not unresolved
 
         records = [_record(vid, videos[vid], entry_of[vid], res, meta.get(videos[vid]["channel_id"], {}),
                            day, now_iso) for vid, res in sorted(results.items())]
@@ -442,10 +489,10 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
                                   {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
         row["updated"] = updated
 
-        # 5. exits: complete readings only
-        run_complete = cen["complete"] and not stopped and not unresolved
-        row["exits"] = census.close_exits(client, day, run_complete)
-        row["outcome"] = "ok" if run_complete else "partial"
+        # 5. exits: a complete census observes absence, whatever the baselines
+        census_complete = bool(cen["complete"])
+        row["exits"] = census.close_exits(client, day, census_complete)
+        row["outcome"] = "ok" if census_complete else "partial"
         row["discards"] = discards
         return row
     except Exception as e:

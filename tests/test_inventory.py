@@ -30,7 +30,7 @@ def m(vid, ch, pub, fmt="SHORT"):
 def run(channels, measured, store, run_state=None, today=None, **kw):
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         fake = FakeYouTube(channels, **kw)
-        for ep in ("channels", "playlistItems", "videos"):
+        for ep in ("channels", "playlists", "playlistItems", "videos"):
             rsps.add_callback(responses.GET, f"{bl.BASE}/{ep}", callback=fake)
         res, rep = bl.baselines_for_videos(measured, KEY, sleep=lambda s: None, inventory=store,
                                            run_state=run_state, today=today)
@@ -74,7 +74,7 @@ def test_more_than_150_uploads_keeps_the_three_page_cap_exactly():
     b = {"UCa": uploads("n", 20, NOW + DAY, every=0.05) + a["UCa"]}
     warm, cold, _, _, store = warm_and_cold(a, [m("x", "UCa", NOW)], b, [m("y", "UCa", NOW + DAY)])
     assert warm == cold
-    assert len(store.data["UCa"]["items"]) <= bl.INVENTORY_MAX and store.data["UCa"]["capped"]
+    assert len(store.data.get("UCa", {"items": {}})["items"]) <= bl.INVENTORY_MAX and store.data["UCa"]["capped"]
 
 
 def test_a_measured_video_needing_a_deeper_window_triggers_a_full_read():
@@ -193,7 +193,7 @@ def test_randomised_warm_equals_cold(seed):
                   m("zb", "UCa", NOW + DAY - rnd.randint(0, 5) * DAY)]
     warm, cold, _, _, store = warm_and_cold(a, measured_a, b, measured_b, unlisted=unlisted)
     assert warm == cold
-    assert len(store.data["UCa"]["items"]) <= bl.INVENTORY_MAX
+    assert len(store.data.get("UCa", {"items": {}})["items"]) <= bl.INVENTORY_MAX
 
 
 def test_declared_exception_an_old_video_reappearing_is_missed_until_a_full_read():

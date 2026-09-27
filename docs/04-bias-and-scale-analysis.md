@@ -46,6 +46,19 @@ construction lower, and we do not know by how much, because **the discards
 are counted nowhere**: the engine logs them per cycle and then the number is
 lost.
 
+### The perimeter: long-form only, for now *(27/09/2026)*
+
+From 27/09/2026 only long-form videos open a record (`01` §1): a scope
+reduction forced by the quota, declared, provisional. It is not a selection
+bias inside the long-form series: every long-form entry is measured, and VPI
+is never pooled across formats, so the long-form series is complete on its
+own perimeter. What it removes is the whole Shorts population, about two
+thirds of entering videos on night 1 (4,124 of 6,139). No figure about
+"videos" in general can be drawn from the index while this holds; every
+figure is a long-form figure and says so. The two formats are not
+comparable and are never presented as comparable (§3 below remains a
+historical analysis of v1 records).
+
 ### The second, subtler bias
 
 YouTube's documentation on Most Popular states that placement takes into

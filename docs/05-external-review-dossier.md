@@ -131,6 +131,15 @@ For a reviewer returning to this dossier, the design changed in five ways:
 
 *(Corrected 25/09/2026: 12 → 13, see `01` §1.)*
 
+**Limitation, 27/09/2026: long-form only, for now.** Only long-form videos
+(over 180 seconds) open a record; Shorts are out of the measurement until the
+quota allows them back. The census still reads every slice and stores every
+video. Night 1 (26/09) showed 5,822 entering channels a day at 3.87 units
+each against a 9,500-unit budget; 1,962 of them were long-form. Because VPI
+is never pooled across formats, the long-form series is complete on its own
+perimeter. Declared as a scope reduction forced by the budget, not a
+property of the method (`01` §1).
+
 **a) Entry into the chart is not observable; first observation is.** YouTube
 does not expose entry. Verified on 22/09/2026 by pulling every available API
 part (`snippet`, `contentDetails`, `statistics`, `status`, `topicDetails`,

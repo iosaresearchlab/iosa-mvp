@@ -283,6 +283,26 @@ Second full run. This is the first day of the index.
 - **Rollback**: the run is idempotent per day; delete the day's rows and
   re-run.
 
+*(27/09/2026: night 1, 26/09, failed this check: the brake fired at 9,500
+and 4,036 entries were written as `quota_stop`. It is kept as its own
+vintage. The check is re-run on the next run under the new perimeter, T-16b.)*
+
+### T-16b — long-form perimeter and the two completeness states *(27/09/2026)*
+Owner decision: only long-form entries open a record (`01` §1); census
+completeness decides the reference and the exits, baseline completeness
+only each record (`02` §4.6); uploads id from `channels.list`; videos.list
+on warm channels restricted to unknown or measured format.
+
+- **Closing check**: `python tests/check_run.py <day>` on the next real run
+  returns `VERDICT: PASS`: `quota_total ≤ 9,500` with the census complete and
+  `slices_error = 0`; **zero `quota_stop` records** (the acceptance
+  criterion); every entering record long-form with a baseline and a VPI or
+  `not_computable`; no Short record; units per channel in the notes.
+- **If the brake fires anyway**: an incident. Report the numbers and stop;
+  the brake is never disabled.
+- **Rollback**: `MEASURED_FORMATS = ("SHORT", "LONG")` restores both
+  formats; the migration's rollback restores the old state rule.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 
@@ -403,8 +423,9 @@ own closing check above, and are reported as they do:
 | Item | Needs | Earliest |
 |---|---|---|
 | T-15 day 0 | tonight's 23:59 UTC reading | 26/09 00:10 UTC |
-| T-16 day 1 | the next night's reading | 27/09 |
-| T-17 day-1 audit, and the start date | T-16 | 27/09 |
+| T-16 day 1 | the next night's reading | 27/09 (failed: brake; see T-16b) |
+| T-16b long-form perimeter | the 27/09 reading | 28/09 00:10 UTC |
+| T-17 day-1 audit, and the start date | T-16b, and Migert's decision on whether night 1 belongs to the series (it moves the start date) | 28/09 |
 | GATE-3 GO / NO-GO | T-17, decided by Migert | after T-17 |
 | T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | 27/09 |
 | T-22 three weeks | 21 readings | mid-October |

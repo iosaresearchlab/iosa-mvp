@@ -75,7 +75,8 @@ function dataDa(giorni: number | null): string | null {
 
 export default function LeaderboardPage() {
   const [periodo, setPeriodo] = useState<Periodo>('7d');
-  const [formato, setFormato] = useState<'ALL' | 'SHORT' | 'LONG'>('ALL');
+  // Never both formats in one ranking: VPI is not comparable across formats.
+  const [formato, setFormato] = useState<'SHORT' | 'LONG'>('LONG');
   const [paese, setPaese] = useState<string>('ALL');
   const [categoria, setCategoria] = useState<string>('ALL');
   const [risposta, setRisposta] = useState<Risposta | null>(null);
@@ -94,7 +95,7 @@ export default function LeaderboardPage() {
       setErrore(null);
       try {
         const params = new URLSearchParams({ timeframe: periodo, limit: '10' });
-        if (formato !== 'ALL') params.set('format', formato);
+        params.set('format', formato);
         if (paese !== 'ALL') params.set('country', paese);
         if (categoria !== 'ALL') params.set('category', categoria);
         const res = await fetch(`${BACKEND_URL}/api/analytics/top10?${params.toString()}`);
@@ -109,7 +110,7 @@ export default function LeaderboardPage() {
           .not('vpi_max', 'is', null);
         const da = dataDa(giorni);
         if (da) q = q.gte('entered_on', da);
-        if (formato !== 'ALL') q = q.eq('format', formato);
+        q = q.eq('format', formato);
         if (paese !== 'ALL') q = q.contains('countries', [paese]);
         if (categoria !== 'ALL') q = q.contains('categories', [categoria]);
         const { data: picco } = await q.order('vpi_max', { ascending: false }).limit(10);
@@ -160,11 +161,10 @@ export default function LeaderboardPage() {
               </button>
             ))}
           </div>
-          <select value={formato} onChange={(e) => setFormato(e.target.value as 'ALL' | 'SHORT' | 'LONG')}
+          <select value={formato} onChange={(e) => setFormato(e.target.value as 'SHORT' | 'LONG')}
             className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-gray-200">
-            <option value="ALL">Shorts and long-form</option>
-            <option value="SHORT">Shorts</option>
             <option value="LONG">Long-form</option>
+            <option value="SHORT">Shorts (not measured since 27 September)</option>
           </select>
           <select value={paese} onChange={(e) => setPaese(e.target.value)}
             className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-gray-200">
