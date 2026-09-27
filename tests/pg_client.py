@@ -78,9 +78,11 @@ class _Table:
                 cur.execute(q, vals)
                 return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
         if self.op == "select":
-            if self.cols != "*":
-                raise NotImplementedError("PgClient.select supports '*' only")
-            q = sql.SQL("select * from {}").format(sql.Identifier(self.name))
+            if self.cols == "*":
+                cols = sql.SQL("*")
+            else:
+                cols = sql.SQL(", ").join(sql.Identifier(c.strip()) for c in self.cols.split(","))
+            q = sql.SQL("select {} from {}").format(cols, sql.Identifier(self.name))
             vals = []
             if self.filters:
                 q += sql.SQL(" where ") + sql.SQL(" and ").join(

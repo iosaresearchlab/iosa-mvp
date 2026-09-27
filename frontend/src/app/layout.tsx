@@ -86,7 +86,7 @@ const DATI_STRUTTURATI = {
       "@id": `${SITE_URL}/#dataset`,
       name: "IOSA Viral Performance Index (VPI)",
       description:
-        "Continuously updated measurements of short-form videos against the median views of their own channel's recent videos of the same format, across 34 countries and 13 categories. Free to consult, no signup.",
+        "Daily measurements of long-form videos first observed in YouTube Most Popular, against the median views of their own channel's earlier videos of the same format, across 34 countries and 13 categories. Shorts are not measured for now. Free to consult, no signup.",
       url: SITE_URL,
       license: "https://creativecommons.org/licenses/by/4.0/",
       isAccessibleForFree: true,

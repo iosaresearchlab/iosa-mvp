@@ -158,8 +158,22 @@ will be higher; and the earlier reading stopped against quota exhaustion, so
 it is probably incomplete — which pushes the other way, making 75.8% a
 **lower bound** on overlap.
 
-**The 24-hour figure has not been measured.** It comes free from the day 0 /
-day 1 comparison and is the gate for the whole budget.
+~~**The 24-hour figure has not been measured.**~~ **Measured 27/09/2026**
+(`docs/night1-turnover.sql`), night 1 against day 0, a full 24 hours, both
+readings complete:
+
+```
+videos 26/09:                27,683    in both days: 21,544 (77.8%)
+entering videos:              6,139    (22.2%)
+  long-form                   2,015    from 1,962 channels
+  Shorts                      4,124    from 3,882 channels
+entering channels:            5,822    of 21,933
+```
+
+At night 1's baseline cost, 3.87 units per channel read cold, the whole
+turnover would need ~22,500 units against 9,500: this is why the perimeter
+became long-form only (`01` §1). Long-form alone: 1,962 × 3.87 + 1,370 =
+8,963.
 
 ---
 
@@ -245,8 +259,15 @@ Verified directly, 22 September 2026:
 
 `playlistItems` is the floor: **1 unit per channel**, not reducible.
 
-The uploads playlist ID does not need `channels.list`: it is deterministic,
-`UC…` → `UU…`. Verified working.
+~~The uploads playlist ID does not need `channels.list`: it is deterministic,
+`UC…` → `UU…`. Verified working.~~ *(27/09/2026: the convention is not
+documented, so the id is now read from `channels.list`, in the same call
+that already reads the snippet, at no extra cost. It held on all 2,000
+channels of night 1: `docs/itemcount-check-2026-09-27.json`.)*
+
+`playlists.list` **is** batchable, 50 ids per unit (`part=contentDetails`
+returns `itemCount`). Measured 27/09/2026 on night 1's channels: 40 calls
+for 2,000 playlists.
 
 View counts come free with the chart read: adding `statistics` to `part`
 returned `viewCount` for all 69,633 videos within the same 1,486 calls, at

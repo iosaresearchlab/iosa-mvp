@@ -31,7 +31,41 @@ The population:
 
 > **Videos — Shorts (≤180s) and long-form — FIRST OBSERVED in YouTube's
 > Most Popular charts, across 34 countries and 13 categories, starting from our
-> day 1.**
+> day 1.** *For now long-form only: see the limitation below (27/09/2026).*
+
+### Limitation of the population — long-form only, for now *(27/09/2026)*
+
+**For now the index does not measure Shorts.** From the run of 27/09/2026 a
+record opens only for a long-form video (over 180 seconds). A Short that
+enters the charts opens no record, receives no baseline and no VPI, and none
+is back-filled later.
+
+- **Why.** The quota. Night 1 (26/09) recorded 6,139 entering videos from
+  5,822 distinct channels. The brake fired at 9,500 units (1,370 census,
+  8,130 baselines, 2,102 channels resolved: 3.87 units per channel) and
+  4,036 entries were written without a VPI. A baseline read on a later day
+  would read other view counts and be a different estimator, so the missing
+  VPIs cannot be recovered. The coverage of the index must not be decided
+  nightly by the quota: a narrower perimeter that can be measured in full is
+  preferred to a wider one measured at random. 1,962 of the 5,822 entering
+  channels were long-form; at night 1's cost with an empty channel
+  inventory that is 1,962 × 3.87 + 1,370 = **8,963 units, under the 9,500
+  brake**. The inventory is a bonus, never an assumption of the budget.
+- **What stays.** The census reads all 414 category slices, all 34
+  countries, all 13 categories, unchanged, and stores every video it sees in
+  `trend_snapshot`, Shorts included: chart membership keeps its history.
+- **Provisional.** This is a scope reduction forced by the budget, not a
+  property of the method. The intent is to restore Shorts when the budget
+  allows; the run report carries the share of entering channels already in
+  the channel inventory, which says when that is. A restoration is declared
+  with its date, like this reduction.
+- **What it does not change.** VPI is never pooled across formats, so the
+  long-form series is complete and undistorted on its own perimeter. The two
+  formats are not comparable and are never described as comparable.
+- **Night 1 is its own vintage.** Its 6,138 records (both formats: 1,897
+  with a VPI, 205 `not_computable`, 4,036 `quota_stop`) are kept, none
+  deleted. Whether night 1 belongs to the published series is the owner's
+  decision (`README` correction log).
 
 *(Corrected 25/09/2026: "12 categories" → **13**, the owner's figure, and
 the measured one. The census of 22/09 (§6) finds 13 categories that return
@@ -136,6 +170,10 @@ recorded the same way, without a baseline and without a VPI, with
 `baseline_rule = quota_stop`: valid records, declared in the run report with
 their count. They are kept apart from `not_computable` because the reason is
 the budget, not the channel's data. *(Decided at GATE-2, 25/09/2026.)*
+*(27/09/2026: a `quota_stop` record is now an **incident**, not a state the
+index is expected to carry: the perimeter (§1) is sized so the brake does not
+fire. An entry whose reads fail after the retries is recorded the same way,
+`baseline_rule = read_failed`.)*
 
 ### Other criteria
 
@@ -215,6 +253,15 @@ is an entry we genuinely observed.)*
 5. **Gone** → record closed with `left_on`, only after a complete reading.
    Stays in the database forever.
 6. **Re-entries** → no new record, no baseline recomputation.
+
+**A quota stop is not a missed reading.** *(27/09/2026.)* What decides
+whether a day is the reference, whether exits are closed and whether its
+entries are certain is the census alone: if every slice was read, presence
+and absence were both observed. A run whose census was complete but whose
+baselines were stopped by the brake is a complete reading; the entries it
+did not reach are records without a VPI (`quota_stop`), and that is an
+incident, counted and reported. The completeness of the baselines decides
+only each record, through its own `baseline_rule`.
 
 **If a day's reading is missed, entry status becomes indeterminate.** The
 comparison still runs against the most recent **complete** reading rather
@@ -421,6 +468,18 @@ of each channel's uploads, and one read per channel per run), then the
 normal plan with the 9,500 brake active; entries a run cannot reach are
 `quota_stop` (§2). The perimeter is tuned afterwards, on costs measured in
 production.
+
+*27/09/2026, measured in production.* Night 1: 5,822 entering channels,
+3.87 units per channel, brake at 9,500, 4,036 entries without a VPI.
+Decision: the perimeter becomes long-form only (§1), with the census
+unchanged. Two read changes, each proved against the full read: videos.list
+on a channel already in the inventory checks only ids of unknown or measured
+format (exact, since a duration never changes); the uploads playlist id is
+taken from `channels.list`, never derived from the channel id. A third,
+choosing candidates spread across the window before `videos.list`, was
+proved to pick different samples than the rule and is not applied (§2 is
+closed). An `itemCount` pre-check was proved exact and measured not to pay
+(4 of 2,000 night-1 channels), and is off.
 
 ---
 

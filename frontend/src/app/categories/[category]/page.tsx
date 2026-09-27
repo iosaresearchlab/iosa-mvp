@@ -23,12 +23,12 @@ export async function generateMetadata({
   const posts = await outlierDi('category', nome, 1);
   const migliore = posts[0];
 
-  const titolo = `${nome} Shorts that broke out — IOSA viral outliers`;
+  const titolo = `${nome} videos that broke out — IOSA viral outliers`;
   const descrizione = migliore
-    ? `${nome} short videos outperforming their own channel baseline. Top measurement: ${
+    ? `${nome} long-form videos measured against their own channel baseline. Top measurement: ${
         migliore.author_handle ?? 'a channel'
       } at ${formatVPI(migliore.vpi_ratio)} its usual views.`
-    : `${nome} short videos outperforming their own channel baseline.`;
+    : `${nome} long-form videos measured against their own channel baseline.`;
 
   return {
     title: titolo,

@@ -18,13 +18,20 @@ the set a fresh read would give:
     are chosen again; a hidden view count is excluded and chosen again.
 
 Phases, each HTTP attempt marked on the run's QuotaCounter (1 unit each):
-  1. channels.list in blocks of 50 (part=snippet,statistics).
+  1. channels.list in blocks of 50 (part=snippet,statistics,contentDetails):
+     the uploads playlist id is the one the API returns, never derived from
+     the channel id (27/09/2026).
+  1b. playlists.list in blocks of 50 (part=contentDetails) for channels with
+     no inventory: itemCount. A channel with fewer than 5 uploads in total
+     cannot have 5 in-window samples: not_computable, nothing enumerated.
   2. playlistItems.list, one channel per call: a full read (from the newest,
      up to 3 pages, until the window is covered) for a channel never read or
      not read far enough back; otherwise a forward refresh from the newest,
      stopping at the first page holding an already-known video.
   3. videos.list in blocks of 50 over every candidate a fresh read would
-     consider: the in-window ids, plus all 150 most recent when the cap
+     consider: the in-window ids whose format is unknown or is a measured
+     format (a stored duration never changes, so a known other-format id
+     cannot become a sample), plus all 150 most recent when the cap
      truncates a window (contentDetails + statistics + status, 1 unit per
      call). Gone or not public -> removed; if that happens among the 150 most
      recent while the cap binds, the channel is read again from the newest.
@@ -56,11 +63,17 @@ class QuotaStop(Exception):
     """The API answered 403 or the brake fired: stop, the run is partial."""
 
 
-def uploads_playlist(channel_id: str) -> str:
-    """UC... -> UU...: the uploads playlist, without a channels.list part."""
-    if not channel_id.startswith("UC"):
-        raise ValueError(f"not a channel id: {channel_id!r}")
-    return "UU" + channel_id[2:]
+#: 01 section 2: at least 5 samples. A channel with fewer uploads in total
+#: cannot reach it, whatever the window.
+MIN_UPLOADS_TO_ENUMERATE = core.MIN_BASELINE_SAMPLES
+
+#: The itemCount probe (1b) is exact but, measured on night 1's real channels
+#: (docs/itemcount-check-2026-09-27.json), it does not pay: of 2,000 channels
+#: read, 4 had fewer than 5 uploads (all among the 187 not_computable-only
+#: channels, 0 among the 1,813 standard ones). It would cost ~0.02 units per
+#: cold channel to save ~2 units on 0.2% of them. Off; kept, tested, and
+#: switchable if the turnover changes.
+ITEM_COUNT_PROBE = False
 
 
 def _epoch(value) -> int:
@@ -91,6 +104,9 @@ class MemoryInventory:
     def load(self, channel_ids):
         return {c: copy.deepcopy(self.data[c]) for c in channel_ids if c in self.data}
 
+    def known(self, channel_ids):
+        return {c for c in channel_ids if c in self.data}
+
     def save(self, invs):
         self.data.update(copy.deepcopy(invs))
 
@@ -114,6 +130,15 @@ class SupabaseInventory:
                     "capped": bool(r.get("capped")), "ended": bool(r.get("ended")),
                     "refreshed_on": r.get("refreshed_on"),
                 }
+        return out
+
+    def known(self, channel_ids):
+        """The channels among channel_ids that have an inventory row."""
+        ids, out = sorted(set(channel_ids)), set()
+        for i in range(0, len(ids), self.batch):
+            rows = (self.client.table("channel_inventory").select("channel_id")
+                    .in_("channel_id", ids[i:i + self.batch]).execute().data) or []
+            out.update(r["channel_id"] for r in rows)
         return out
 
     def save(self, invs):
@@ -159,8 +184,9 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
     store = inventory if inventory is not None else MemoryInventory()
     run = run_state if run_state is not None else new_run_state()
     today = (today or datetime.now(timezone.utc).date()).isoformat()
-    report = {"quota_channels": 0, "quota_playlist": 0, "quota_videos": 0,
-              "channels": {}, "playlist_missing": 0, "errors": 0,
+    report = {"quota_channels": 0, "quota_playlists": 0, "quota_playlist": 0, "quota_videos": 0,
+              "channels": {}, "playlist_missing": 0, "errors": 0, "skipped_by_item_count": 0,
+              "videos_checked": 0, "videos_skipped_other_format": 0,
               "full_reads": 0, "forward_refreshes": 0, "cached_in_run": 0, "removed": 0,
               "stop_reason": None, "outcome": None, "unresolved": []}
 
@@ -198,6 +224,7 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
         by_channel.setdefault(m["channel_id"], []).append(m)
     channel_ids = sorted(by_channel)
     failed: set[str] = set()
+    skipped: set[str] = set()
     changed: dict[str, dict] = {}
     results: dict = {}
 
@@ -226,7 +253,7 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
         need_meta = [c for c in channel_ids if c not in run["meta"]]
         for i in range(0, len(need_meta), BLOCK):
             block = need_meta[i:i + BLOCK]
-            data = get("channels", {"part": "snippet,statistics",
+            data = get("channels", {"part": "snippet,statistics,contentDetails",
                                     "id": ",".join(block), "maxResults": BLOCK},
                        "quota_channels") or {}
             for c in block:
@@ -238,12 +265,42 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
                     "subscribers": int(subs) if subs is not None and not stats.get("hiddenSubscriberCount") else None,
                     "custom_url": snip.get("customUrl"),
                     "title": snip.get("title"),
+                    "uploads": ((it.get("contentDetails") or {}).get("relatedPlaylists") or {}).get("uploads"),
                 }
-        report["channels"] = {c: run["meta"].get(c, {}) for c in channel_ids}
+        report["channels"] = {c: {k: v for k, v in run["meta"].get(c, {}).items() if k != "uploads"}
+                              for c in channel_ids}
+
+        loaded = store.load([c for c in channel_ids if c not in run["inv"]])
+
+        # 1b. itemCount for channels we hold nothing about: fewer than 5
+        # uploads in total cannot give 5 samples (not_computable, exact)
+        for c in channel_ids:
+            if c not in run["inv"] and c not in loaded and not run["meta"].get(c, {}).get("uploads"):
+                report["playlist_missing"] += 1
+                skipped.add(c)
+        probe = [c for c in channel_ids if ITEM_COUNT_PROBE and c not in run["inv"] and c not in loaded
+                 and c not in skipped and "item_count" not in run["meta"].get(c, {})]
+        for i in range(0, len(probe), BLOCK):
+            block = probe[i:i + BLOCK]
+            owner_of = {run["meta"][c]["uploads"]: c for c in block}
+            data = get("playlists", {"part": "contentDetails", "id": ",".join(owner_of),
+                                     "maxResults": BLOCK}, "quota_playlists") or {}
+            if "_error" in data:
+                continue                        # no skip: enumerate as before
+            for it in data.get("items", []):
+                n = (it.get("contentDetails") or {}).get("itemCount")
+                if it.get("id") in owner_of and n is not None:
+                    run["meta"][owner_of[it["id"]]]["item_count"] = int(n)
+        for c in probe:
+            n = run["meta"][c].get("item_count")
+            if n is not None and n < MIN_UPLOADS_TO_ENUMERATE:
+                skipped.add(c)
+                report["skipped_by_item_count"] += 1
 
         # 2. uploads: once per run, full read or forward refresh
-        loaded = store.load([c for c in channel_ids if c not in run["inv"]])
         for ch in channel_ids:
+            if ch in skipped:
+                continue
             if ch in run["inv"]:
                 report["cached_in_run"] += 1
                 continue
@@ -254,7 +311,13 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
             full = (not known) or (not inv["capped"] and not inv["ended"]
                                    and (inv["covered_back_to"] is None
                                         or inv["covered_back_to"] > oldest_needed))
-            params = {"part": "contentDetails", "maxResults": BLOCK, "playlistId": uploads_playlist(ch)}
+            uploads_id = run["meta"].get(ch, {}).get("uploads")
+            if not uploads_id:
+                report["playlist_missing"] += 1
+                inv["ended"] = True
+                run["inv"][ch] = inv
+                continue
+            params = {"part": "contentDetails", "maxResults": BLOCK, "playlistId": uploads_id}
             oldest_read, token, overlap, pages = None, None, False, 0
             report["full_reads" if full else "forward_refreshes"] += 1
             for pages in range(1, core.BASELINE_PAGES_MAX + 1):
@@ -322,15 +385,25 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
             ids, owner, binding = set(), {}, set()
             for ch in chs:
                 if cap_binds(ch):
+                    # a removal of any format changes which 150 are the most
+                    # recent: every one is checked
                     binding.add(ch)
                     pool = [v for v, _ in _recent(run["inv"][ch])]
                 else:
-                    pool = [v for mm in by_channel[ch] for _, v, _ in window(mm)]
+                    fmts = {mm["format"] for mm in by_channel[ch]}
+                    pool = []
+                    for mm in by_channel[ch]:
+                        for _, v, f in window(mm):
+                            if f is None or f in fmts:
+                                pool.append(v)
+                            else:
+                                report["videos_skipped_other_format"] += 1
                 for v in pool:
                     owner[v] = ch
                     if v not in run["views"] and v not in run["checked"]:
                         ids.add(v)
             ids = sorted(ids)
+            report["videos_checked"] += len(ids)
             lost = set()
             for i in range(0, len(ids), BLOCK):
                 block = ids[i:i + BLOCK]
@@ -358,7 +431,7 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
                         lost.add(owner[v])
             return lost - failed
 
-        todo_ch = [c for c in channel_ids if c not in failed]
+        todo_ch = [c for c in channel_ids if c not in failed and c not in skipped]
         lost = verify(todo_ch)
         if lost:
             # the 150 most recent changed under a binding cap: read them again
@@ -367,7 +440,8 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
                 inv = run["inv"][ch]
                 kept = {v: x for v, x in inv["items"].items()}
                 inv["items"], inv["capped"] = {}, False
-                params = {"part": "contentDetails", "maxResults": BLOCK, "playlistId": uploads_playlist(ch)}
+                params = {"part": "contentDetails", "maxResults": BLOCK,
+                          "playlistId": run["meta"][ch]["uploads"]}
                 report["full_reads"] += 1
                 for pages in range(1, core.BASELINE_PAGES_MAX + 1):
                     token, oldest, _ = read_page(ch, inv, params, set())
@@ -389,6 +463,9 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
         # 4. per measured video: verified, public, same format, views readable
         for m in measured:
             if m["channel_id"] in failed:
+                continue
+            if m["channel_id"] in skipped:
+                results[m["video_id"]] = core.baseline_v2([], m["video_id"], m["published_at"])
                 continue
             cands = sorted((e, v) for e, v, f in window(m)
                            if f == m["format"] and run["views"].get(v) is not None)

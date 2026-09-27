@@ -32,8 +32,15 @@ class FakeYouTube:
     status: {(endpoint, key): [codes...]} scripted failures, consumed in order.
     """
 
-    def __init__(self, channels, status=None, missing_playlists=(), unlisted=()):
+    def __init__(self, channels, status=None, missing_playlists=(), unlisted=(), uploads_ids=None,
+                 item_counts=None):
         self.channels = channels
+        # the uploads playlist id the API returns (the code never derives it:
+        # test_the_uploads_playlist_is_the_one_the_api_returns)
+        self.uploads_ids = {c: "UU" + c[2:] for c in channels}
+        self.uploads_ids.update(uploads_ids or {})
+        self.owner_of = {u: c for c, u in self.uploads_ids.items()}
+        self.item_counts = item_counts or {}
         self.unlisted = set(unlisted)
         self.status = {k: list(v) for k, v in (status or {}).items()}
         self.missing = set(missing_playlists)
@@ -51,11 +58,17 @@ class FakeYouTube:
             return (scripted.pop(0), {}, json.dumps({"error": {"errors": [{"reason": "x"}]}}))
         if endpoint == "channels":
             items = [{"id": c, "snippet": {"customUrl": f"@{c}", "title": c},
-                      "statistics": {"subscriberCount": "1000"}}
+                      "statistics": {"subscriberCount": "1000"},
+                      "contentDetails": {"relatedPlaylists": {"uploads": self.uploads_ids[c]}}}
                      for c in q["id"].split(",") if c in self.channels]
             return (200, {}, json.dumps({"items": items}))
+        if endpoint == "playlists":
+            items = [{"id": pl, "contentDetails": {"itemCount": self.item_counts.get(
+                          self.owner_of[pl], len(self.channels[self.owner_of[pl]]))}}
+                     for pl in q["id"].split(",") if pl in self.owner_of and pl not in self.missing]
+            return (200, {}, json.dumps({"items": items}))
         if endpoint == "playlistItems":
-            ch = "UC" + q["playlistId"][2:]
+            ch = self.owner_of.get(q["playlistId"])
             if ch not in self.channels or q["playlistId"] in self.missing:
                 return (404, {}, "{}")
             ups = [u for u in self.channels[ch] if u[0] not in self.unlisted]
@@ -86,7 +99,7 @@ def yt():
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         def install(channels, **kw):
             fake = FakeYouTube(channels, **kw)
-            for ep in ("channels", "playlistItems", "videos"):
+            for ep in ("channels", "playlists", "playlistItems", "videos"):
                 rsps.add_callback(responses.GET, f"{bl.BASE}/{ep}", callback=fake)
             return fake
         yield install
@@ -117,7 +130,7 @@ def test_channels_list_in_blocks_of_50_without_the_uploads_part(yt):
     _, rep = run([measure(f"m{i}", c, NOW) for i, c in enumerate(chans)])
     calls = fake.of("channels")
     assert [len(q["id"].split(",")) for q in calls] == [50, 50, 20]
-    assert all(q["part"] == "snippet,statistics" for q in calls)
+    assert all(q["part"] == "snippet,statistics,contentDetails" for q in calls)
     assert rep["quota_channels"] == 3
 
 
@@ -129,12 +142,12 @@ def test_videos_list_in_blocks_of_50(yt):
     assert sum(sizes) == len({i for q in fake.of("videos") for i in q["id"].split(",")})
 
 
-def test_uploads_playlist_is_uc_to_uu(yt):
-    fake = yt({"UCabcdef": daily_uploads("a", 5)})
+def test_the_uploads_playlist_is_the_one_the_api_returns(yt):
+    """27/09/2026: UC->UU is not documented; the id comes from channels.list."""
+    fake = yt({"UCabcdef": daily_uploads("a", 8)}, uploads_ids={"UCabcdef": "UUnot-the-derived-one"})
     run([measure("m", "UCabcdef", NOW)])
-    assert fake.of("playlistItems")[0]["playlistId"] == "UUabcdef"
-    with pytest.raises(ValueError):
-        bl.uploads_playlist("XXabcdef")
+    assert fake.of("playlistItems")[0]["playlistId"] == "UUnot-the-derived-one"
+    assert not hasattr(bl, "uploads_playlist")
 
 
 def test_pagination_stops_at_three_pages(yt):
@@ -287,7 +300,7 @@ def test_403_stops_everything_and_resolves_nothing(yt):
 def test_every_http_attempt_is_counted(yt):
     fake = yt({"UCa": daily_uploads("a", 120), "UCb": daily_uploads("b", 30, every_days=3)})
     _, rep = run([measure("ma", "UCa", NOW), measure("mb", "UCb", NOW)])
-    total = rep["quota_channels"] + rep["quota_playlist"] + rep["quota_videos"]
+    total = rep["quota_channels"] + rep["quota_playlists"] + rep["quota_playlist"] + rep["quota_videos"]
     assert total == len(fake.calls)
 
 

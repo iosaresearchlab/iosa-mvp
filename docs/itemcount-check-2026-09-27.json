@@ -1,0 +1,15 @@
+{
+ "channels": 2000,
+ "with_uploads_id": 2000,
+ "with_item_count": 2000,
+ "uploads_id_not_UC_to_UU": 0,
+ "standard_channels": 1813,
+ "standard_with_itemcount_lt5": [],
+ "not_computable_only_channels": 187,
+ "not_computable_with_itemcount_lt5": 4,
+ "calls": {
+  "channels": 40,
+  "playlists": 40
+ },
+ "units": 80
+}

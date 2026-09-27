@@ -69,6 +69,29 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 27 September 2026 — perimeter: long-form only; the two completeness states (Migert)
+
+**Vintage boundary.** Night 1 (2026-09-26) is a distinct vintage: both
+formats, 6,138 records — 1,897 with a VPI, 205 `not_computable`, 4,036
+`quota_stop` (the brake fired at 9,500 units). All kept, none deleted.
+**From the next run (2026-09-27) the perimeter is long-form only and
+`quota_stop` is an incident, not a state.** Whether night 1 belongs to the
+published series is the owner's decision, later; nothing here assumes
+either way.
+
+- Shorts are out of the measurement for now (`01` §1): a scope reduction
+  forced by the quota, declared and provisional. The census is unchanged.
+- `02` §4.6 corrected: a quota stop is not a missed reading. The census
+  alone decides the reference, the exits and entry certainty; baseline
+  completeness decides only each record. Night 1's run report is re-labelled
+  `ok` under the corrected rule.
+- Reads: the uploads playlist id is read from `channels.list`, no longer
+  derived from the channel id; `videos.list` on warm channels checks only
+  unknown or measured-format ids (exact). Choosing candidates spread across
+  the window before `videos.list` was proved to be a different estimator
+  and is not applied. The `itemCount` skip was proved exact and measured not
+  to pay; it is off.
+
 ### 25 September 2026 — privacy, v1 archive, claim tokens (Migert)
 
 - `claims` was publicly readable (policy granted to PUBLIC) and would have

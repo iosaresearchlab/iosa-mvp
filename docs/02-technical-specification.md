@@ -156,6 +156,11 @@ alter table public.trend_snapshot enable row level security;
 -- no policy: only the service role writes here
 ```
 
+*(27/09/2026: not implemented. No code and no scheduled job deletes
+`trend_snapshot` rows; every row, Shorts included, is kept. As written below
+the rule would delete Shorts rows along with the rest after 7 days: whether
+to implement it waits for the owner.)*
+
 Retention **7 days** (1 would suffice; 7 gives slack if a reading is
 missed), day 0 excluded:
 
@@ -338,6 +343,14 @@ create table public.ingest_run (
   discards          jsonb,
   notes             text
 );
+-- 27/09/2026 (v2_perimeter_long_census_state):
+--   baselines_complete boolean    -- false when the brake fired or reads failed
+--   quota_playlists    int        -- playlists.list (itemCount), 0 while off
+--   entering_channels, entering_channels_in_inventory,
+--   entering_long_channels, entering_long_in_inventory  int
+--     the share of today's turnover already in channel_inventory: no role in
+--     the budget; it tells when Shorts can come back.
+-- notes carry the units per channel of the baselines, by endpoint.
 ```
 
 ### 3.5 Function for entries
@@ -475,6 +488,14 @@ Estimated effect: row from 759 to ~420 bytes, growth from 8 to ~4.5 MB/day,
 
 ### 4.2 `backend/vpi_engine.py`
 
+*27/09/2026 — perimeter.* `MEASURED_FORMATS = ("LONG",)`: only a long-form
+entry is measured and written; a Short entry is counted in
+`discards.out_of_perimeter_short` and nothing else. The census, the snapshot
+and the daily views of existing records (night 1's Shorts included) are
+unchanged. An entry whose reads fail after the retries is written as
+`read_failed` (no baseline, no VPI) rather than left out: the day stays the
+reference, so an entry not written would never be seen entering again.
+
 `CATEGORY_MAP`: remove `'19'` and `'27'`. 13 entries remain (`'29'` responds
 in 6 countries with 1 video: keep it, it costs 6 calls).
 
@@ -515,8 +536,8 @@ def close_exits(day, run_complete: bool) -> int
 **`close_exits()` never runs after a partial run.** Absence is not observable
 in an unfinished read: the videos stay open and that day is simply not an
 observation for them. `run_complete` is false as soon as the census stopped
-early (403) or the quota brake fired; the function then returns 0 without
-touching the database.
+early (403) ~~or the quota brake fired~~ *(27/09/2026: the census alone)*; the
+function then returns 0 without touching the database.
 
 Concurrency 8-12 threads. Measured: 1,486 calls in **112 seconds** for all
 544 slices; the 414 category slices alone cost **1,350**.
@@ -538,9 +559,20 @@ baselines. The channel's uploads are still read once per run.
 
 Three phases:
 
-1. **`channels.list` in blocks of 50** — `part=snippet,statistics`:
-   subscribers and `customUrl`. **1 unit per 50 channels.** The uploads
-   playlist is **not requested**: it is `UC…` → `UU…`. *Verified.*
+1. **`channels.list` in blocks of 50** — `part=snippet,statistics,contentDetails`:
+   subscribers, `customUrl` and the uploads playlist id. **1 unit per 50
+   channels.** *(Corrected 27/09/2026, owner: the uploads id is the one
+   `contentDetails.relatedPlaylists.uploads` returns. `UC…` → `UU…` is not
+   documented and is no longer used, although on night 1's 2,000 channels it
+   held for all of them: `docs/itemcount-check-2026-09-27.json`.)*
+   - **1b, off:** `playlists.list` in blocks of 50 (`part=contentDetails`)
+     for channels with no inventory: `itemCount < 5` cannot reach 5 samples,
+     so the channel is `not_computable` without being enumerated. Exact
+     (`tests/test_read_cost.py`, 60 randomised channel sets) but measured not
+     to pay on night 1's real channels: 4 of 2,000 had fewer than 5 uploads
+     (0 of the 1,813 with a standard record, so no false skip). ~0.02 units
+     per cold channel to save ~2 units on 0.2% of them. `ITEM_COUNT_PROBE`
+     in `baseline.py`, off.
 2. **`playlistItems.list`, one per channel, with pagination** —
    `part=contentDetails`, `maxResults=50`. Not batchable (*verified:
    HTTP 400*). Paginate until the oldest window of that channel's measured
@@ -548,7 +580,20 @@ Three phases:
    `videoPublishedAt`: **filter the window here, before spending the next
    call.**
 3. **`videos.list` in blocks of 50** — for the ids inside the window, to
-   read duration and views. Then, per measured video: keep the samples of
+   read duration and views. *(27/09/2026: on a channel already in the
+   inventory, ids whose stored format is neither unknown nor a measured
+   format are not checked: a duration never changes, so a known Short cannot
+   become a long-form sample. Exact: same baseline and same ids as a cold
+   read, `tests/test_read_cost.py` and the 300 randomised histories of
+   `tests/test_inventory.py`. When the 150-upload cap binds, every one of
+   the 150 is still checked. Worst case, a cold channel, is the previous
+   behaviour.)*
+   *(27/09/2026, not applied: choosing candidates spread across the window
+   before `videos.list`, fetching 50 at a time and stopping at 20 of the
+   right format. It picks the 20 among the spread subset instead of evenly
+   over all same-format videos in the window, so it returns different
+   sample ids and in general a different baseline: a different estimator.
+   Counterexample in `tests/test_read_cost.py`.)* Then, per measured video: keep the samples of
    **the same format**, and if more than 20 remain take 20 **chosen evenly
    across the window**, not the most recent.
 
@@ -639,12 +684,25 @@ class QuotaCounter:
 **Brake**: `QUOTA_MAX_DAILY` (default **9,500**). On reaching the ceiling the
 run stops cleanly: the entries it did not reach are written without a
 baseline and without a VPI, `baseline_rule = 'quota_stop'` (`01` §2), their
-count is in the run report, and the run ends with `outcome='partial'`. It
+count is in the run report. ~~and the run ends with `outcome='partial'`.~~
+**Corrected 27/09/2026:** census completeness and baseline completeness are
+two states. `outcome` is the census alone (`ok` when every slice was read,
+else `partial`): it decides the next reference, the exits and the certainty
+of entries. `baselines_complete` is false when the brake fired or reads
+failed; it decides nothing beyond each record's own `baseline_rule`. The
+first version made a brake-stopped run partial although its census was
+complete, which with night 1's turnover would have made every day partial:
+no reference after day 0, every later entry uncertain, no exit ever closed.
+`01` §4 speaks of a missed reading; a quota stop is not one. Night 1's row
+is re-labelled `ok` (migration `v2_perimeter_long_census_state`). A
+`quota_stop` record is now an incident, reported in the notes as such. It
 never hits the 403; a 403 during the baselines is treated the same way.
 *(Changed at GATE-2: the first version deferred them with a
 `baseline_delayed` flag that no table defined.)* A transient failure (5xx,
-network) is different: those entries are not written and return as
-uncertain entries after the next complete run.
+network) is different: ~~those entries are not written and return as
+uncertain entries after the next complete run.~~ *(27/09/2026: they are
+written as `read_failed`, no baseline and no VPI, because the day now stays
+the reference and an entry not written would not return.)*
 
 ### 4.7 Other scripts
 
