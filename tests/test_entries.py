@@ -240,8 +240,8 @@ def test_close_exits_closes_only_v2_records_absent_today(db):
     assert close(db, d(4)) == 1
     assert closed(db) == [("p", "CLOSED", d(4), 3), ("q", "ACTIVE", None, None)]
     with db.cursor() as cur:  # the v1 archive is never touched
-        cur.execute("select count(*) from posts_v1 where status <> 'ACTIVE'")
-        assert cur.fetchone()[0] == 0
+        cur.execute("select count(*), count(*) filter (where method_version = 'v1') from posts_v1")
+        assert cur.fetchone() == (2, 2)
 
 
 def test_close_exits_refuses_when_the_day_is_already_known_partial(db):
@@ -275,8 +275,8 @@ def test_close_exits_is_not_callable_by_the_public_api_roles(db):
 def test_rows_existing_before_v2_are_archived_as_v1(db):
     """Flagged v1 (T-05), then moved out of posts into posts_v1 (02 §3.6)."""
     with db.cursor() as cur:
-        cur.execute("select external_post_id, method_version from posts_v1 order by 1")
-        assert cur.fetchall() == [("v1_old_a", "v1"), ("v1_old_b", "v1")]
+        cur.execute("select author_handle, method_version from posts_v1 order by 1")
+        assert cur.fetchall() == [("@a", "v1"), ("@b", "v1")]
         cur.execute("select count(*) from posts")
         assert cur.fetchone() == (0,)
 

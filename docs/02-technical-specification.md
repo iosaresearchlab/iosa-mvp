@@ -453,6 +453,23 @@ migration before the delete.
   claim page and the checkout, so a v1 claim token still resolves (`08`
   T-20). Lookup by token only: the archive cannot be listed.
 
+**Reduced, 28/09/2026 (decision by Migert).** The v1 claim pages must keep
+working — 226 contacts in `outreach` hold those tokens — and nothing else
+reads the archive. Every column of all 28,917 rows, and `posts_v1_links`,
+were exported first to Storage (private bucket `archivio`,
+`posts_v1/posts_v1.jsonl.gz` and `posts_v1/posts_v1_links.jsonl.gz`, one
+`to_jsonb(row)::text` line per row), read back and checked against the
+table's md5; then `posts_v1` was rebuilt with the 16 columns the code reads
+from a v1 record (`tests/test_v1_slim.py` derives the list from
+`backend/main.py` and the claim page and fails if it changes): `id`,
+`claim_token`, `platform`, `author_handle`, `content_text`,
+`engagement_score`, `baseline_score`, `vpi_ratio`, `vpi_level_name`,
+`vpi_max`, `views_max`, `days_charting`, `created_at`, `detected_at`,
+`entered_on`, `method_version`. Migration `v2_v1slim_reduce`; `posts_v1`
+17.9 → 8.9 MB. `posts_v1_links` and `outreach` unchanged. Access unchanged:
+lookup by token only, the table and the bucket cannot be listed with the
+public key (`tests/check_v1_claim.py`).
+
 ### 3.7 Storage optimisation
 
 Measured: **759 bytes per row**. At the projected growth (~5,000 new records

@@ -82,6 +82,11 @@ day), read back and verified, and only then deleted (`02` §3.1; `01` §1 and
 §4 no longer say the day-0 snapshot is kept permanently). This supersedes
 "day 0's snapshot is kept permanently" in the 25 September entries below.
 
+**`posts_v1` reduced to what the v1 claim reads.** Every column exported to
+Storage and verified first; the table keeps the 16 columns the claim page,
+the plaque and the order flow read from a v1 record, so the claim links
+already sent keep working (`02` §3.6).
+
 ### 27 September 2026 — perimeter: long-form only; the two completeness states (Migert)
 
 **Vintage boundary.** Night 1 (2026-09-26) is a distinct vintage: both

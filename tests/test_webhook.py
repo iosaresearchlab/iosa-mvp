@@ -77,7 +77,7 @@ def test_a_different_session_is_a_new_order(hook):
 def test_a_v1_token_orders_without_writing_the_archive(hook):
     client, db, orders, payload = hook
     with db.cursor() as cur:
-        cur.execute("select claim_token, md5(to_jsonb(v)::text) from posts_v1 v where external_post_id = 'v1_old_a'")
+        cur.execute("select claim_token, md5(to_jsonb(v)::text) from posts_v1 v where author_handle = '@a'")
         token, before = cur.fetchone()
     payload[0] = event(token=token)
     assert post(client) == {"status": "success"}
