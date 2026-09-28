@@ -175,7 +175,11 @@ A failure at any step deletes nothing for that day and stops before every
 later day; the run notes it (`RETENTION FAILED`) and keeps its outcome. The
 purge runs only after a complete census, so the day it runs on is the next
 reference. Destination: Storage, not the Render filesystem (the free tier
-has no persistent disk) and not git. The functions are executable by the
+has no persistent disk) and not git. Storage on the free tier: **1 GB, 50 MB
+per file**; measured 1,227,592 bytes for the 27,593 rows of 2026-09-25, so
+**~1.2 MB a day, ~450 MB a year**; with the plaques and the `posts_v1`
+archive (§3.6, 5.8 MB) the 1 GB lasts about two years. The nightly check
+fails above 800 MB. The functions are executable by the
 service role only; nothing public reads `trend_snapshot` or its archive.
 What open records need stays in `posts`, `post_daily` and `ingest_run`.
 
@@ -472,6 +476,10 @@ public key (`tests/check_v1_claim.py`).
 
 ### 3.7 Storage optimisation
 
+*(28/09/2026: not implemented, and not a pending task. Its estimate is
+superseded by the measured figures in §3.8, and the choice it anticipated —
+how to live within the free tier — is the owner's, §3.8.)*
+
 Measured: **759 bytes per row**. At the projected growth (~5,000 new records
 a day plus the series) that is **~8 MB a day, 240 a month**. The free tier
 gives 500 MB, 21 already used: **it fills up in two months.**
@@ -497,6 +505,46 @@ remains for the current window, which is the one that matters.
 
 Estimated effect: row from 759 to ~420 bytes, growth from 8 to ~4.5 MB/day,
 **from 240 to ~135 MB a month**. The free tier then lasts beyond a year.
+
+### 3.8 Known operating constraint: database size *(measured 28/09/2026)*
+
+The Supabase free tier holds **500 MB**. Records are never deleted, by
+design (`01` §3): `posts` grows with every day of the index and nothing in
+this specification makes room for it. The snapshot retention (§3.1) caps
+`trend_snapshot`; it does not touch this.
+
+Measured with `docs/db-growth.sql` on the reading of 2026-09-27, the first
+day of the series (bytes per row = total relation size, heap + toast +
+indexes, over rows):
+
+| table | bytes per row | rows per day | MiB per day |
+|---|---|---|---|
+| `posts` | 2,281 | 1,950 records | 4.24 |
+| `post_daily` | 183 | 6,928 (one per active record) | 1.21 |
+| `channel_inventory` | 2,726 | 1,712 channels not already in it | 4.45 |
+| `trend_snapshot` | 221 | 27,618 | 5.82, until the table holds 7 days |
+
+- `posts` alone: **~1.5 GiB a year** (1.6 GB), never reclaimable.
+- Database after the 28/09 operations: **68.7 MiB** (72,084,627 bytes;
+  77.2 MiB before, 8.5 MiB returned by the `posts_v1` reduction, §3.6).
+- Growth: **15.7 MiB a day** until `trend_snapshot` holds 7 days (4 more
+  readings), then **9.9 MiB a day**.
+- Runway from 28/09/2026: the nightly check's 400 MiB alarm in **~31 days**,
+  the 500 MB limit in **~41 days** (about six weeks, early November); `posts`
+  alone would fill it in ~102 days. The free tier holds roughly two months of
+  the index at this rate — measured, between six weeks with every table and
+  three months if `posts` were the only one growing.
+- These are one day's rates. Two of them move: `post_daily` grows with the
+  number of active records (+790 on 27/09: 1,950 entries, 1,160 exits), and
+  the new rows of `channel_inventory` should fall as the share of entering
+  channels already in it rises (186 of 1,898 on 27/09). Re-measure with the
+  script, not by extrapolation.
+
+**Whose decision.** The choice between a larger tier and a smaller scope is
+the owner's, and he takes it as the limit approaches. Nothing is engineered
+around it in the meantime, and **records are never deleted to make room**.
+The nightly check (`tests/check_run.sql`) carries the database size and fails
+above 400 MiB, so the approach of the limit is reported, not discovered.
 
 ---
 
