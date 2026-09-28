@@ -8,7 +8,7 @@
  * docs/01 §1 nello stesso commit (tests/test_index_start.py li confronta).
  * Finche' e' null nessun record e' pubblicato.
  */
-export const INDEX_START_DATE: string | null = null;
+export const INDEX_START_DATE: string | null = '2026-09-27';
 
 /** Il limite inferiore di entered_on per ogni lettura pubblica di posts. */
 export const SERIES_FLOOR: string = INDEX_START_DATE ?? '9999-12-31';

@@ -75,8 +75,8 @@ data: 12 in all 34 countries, Nonprofits & Activism (29) in 6; that is the
 414 category slices of §5, 34 × 12 + 6. "12" counted the categories with
 usable volume, not the ones we read.)*
 
-**The series begins on day 1.** The index starts on `YYYY-MM-DD` (to be fixed
-at the first successful day-1 run — T-16). Everything present in YouTube's
+**The series begins on day 1.** The index starts on `2026-09-27` (the first
+run under the long-form perimeter that passed `tests/check_run.py`, T-16b). Everything present in YouTube's
 Most Popular charts before that date is outside the measurement: we did not
 observe it arrive, so we do not measure it.
 

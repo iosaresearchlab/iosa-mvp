@@ -318,10 +318,12 @@ The numbers that decide whether this is a measurement or not:
 - **Closing check**: a written audit committed to
   `docs/09-day1-audit.md`, containing every figure above, computed by a
   script committed alongside it. No figure estimated.
-- **Same commit: the start date.** The `YYYY-MM-DD` placeholder in `01` §1 is
-  replaced with the date of the first successful day-1 run (T-16), and the
-  same date is written into the text that `02` §6.5 prescribes for the public
-  methodology page. `grep -rn "YYYY-MM-DD" docs/` returns nothing. The
+- **Same commit: the start date.** The date placeholder in `01` §1 (four
+  Ys, two Ms, two Ds) is replaced with the date of the first successful
+  day-1 run (T-16; since 27/09/2026 T-16b), and the same date is written into
+  the text that `02` §6.5 prescribes for the public methodology page. A grep
+  of `docs/` for the placeholder returns nothing. *(Done 28/09/2026:
+  2026-09-27.)* The
   claude.ai project description must state the date too: Migert pastes it,
   since no session can edit it — the check is his confirmation.
 
