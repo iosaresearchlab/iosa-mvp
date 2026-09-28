@@ -129,14 +129,14 @@ Next.js, `frontend/src`, 4,029 lines.
 
 ## 3. Database
 
-### 3.1 New table `trend_snapshot` — a working buffer, plus the day-0 archive
+### 3.1 New table `trend_snapshot` — a working buffer, kept 7 days
 
 **A working buffer: it is the reference point for "absent yesterday".** The
 research data lives in the series and the records, which are never deleted.
-The one exception is **day 0**: its rows are written with `permanent = true`
-and are never deleted. They are the reference state of the population at the
-start of the index (`01` §4) — a scientific record, never part of the
-metrics.
+Snapshot rows are working data, day 0 included *(owner decision 28/09/2026:
+once the first day has been analysed and the system is in steady state, day
+0 is a day like any other; the `permanent` column, which existed only to
+exempt it, is dropped)*.
 
 ```sql
 create table public.trend_snapshot (
@@ -148,7 +148,6 @@ create table public.trend_snapshot (
   views         numeric,
   countries     text[] not null,
   categories    text[] not null,
-  permanent     boolean not null default false,  -- true only for day 0
   primary key (day, video_id)
 );
 create index trend_snapshot_day_idx on public.trend_snapshot (day);
@@ -156,17 +155,33 @@ alter table public.trend_snapshot enable row level security;
 -- no policy: only the service role writes here
 ```
 
-*(27/09/2026: not implemented. No code and no scheduled job deletes
-`trend_snapshot` rows; every row, Shorts included, is kept. As written below
-the rule would delete Shorts rows along with the rest after 7 days: whether
-to implement it waits for the owner.)*
+**Retention: 7 days, no exception** (implemented 28/09/2026,
+`backend/retention.py`, migration `v2_ret1_snapshot_retention`). The window
+is the reading day and the six before it; every older day is removed, one
+day at a time, in this order and never another:
 
-Retention **7 days** (1 would suffice; 7 gives slack if a reading is
-missed), day 0 excluded:
+1. export the day's rows, every column, one `to_jsonb(row)::text` line each,
+   in `video_id` order (`snapshot_export`);
+2. write them gzip-compressed to Supabase Storage, private bucket
+   `archivio`, one file per day: `trend_snapshot/<day>.jsonl.gz`;
+3. read the stored file back and check it line for line against the export;
+4. only then delete, through `purge_snapshot_day(day, keep_from, rows, md5)`,
+   which deletes only when the row count and the md5 of the file read back
+   equal those of the rows in the table, and refuses a day inside the window
+   (against the caller's window and the database clock) and the reference —
+   the last complete reading — whatever its age.
 
-```sql
-delete from trend_snapshot where day < current_date - 7 and permanent = false;
-```
+A failure at any step deletes nothing for that day and stops before every
+later day; the run notes it (`RETENTION FAILED`) and keeps its outcome. The
+purge runs only after a complete census, so the day it runs on is the next
+reference. Destination: Storage, not the Render filesystem (the free tier
+has no persistent disk) and not git. The functions are executable by the
+service role only; nothing public reads `trend_snapshot` or its archive.
+What open records need stays in `posts`, `post_daily` and `ingest_run`.
+
+The table holds the last 7 days; every earlier day is in the archive, and
+each of its lines restores one row with
+`insert into trend_snapshot select * from jsonb_populate_record(null::trend_snapshot, <line>::jsonb)`.
 
 ### 3.1.1 No day-0 exclusion list *(removed 25/09/2026, GATE-1)*
 
@@ -174,14 +189,13 @@ A `day0_pending` table was added at T-06 and dropped at GATE-1. Once the
 reference for every day became the last complete reading (§3.5), it excluded
 nothing: a day-0 video still charting is in the reference snapshot and is
 excluded by the ordinary test; one that leaves and returns is an entry we
-genuinely observed. The permanent day-0 snapshot stays — that is the archive,
-not a mechanism.
+genuinely observed.
 
 **Day 0 must still be complete.** An incomplete day 0 is not a reference, so
 it cannot produce false entries: day 1 would simply find no reference and
-record nothing. But the day-0 snapshot is the permanent record of the
-population at the start, and an incomplete one is a hole in it. On a partial
-day 0: delete that day's snapshot rows and re-run day 0 before day 1.
+record nothing, and the next reading is day 0 again (`vpi_engine`,
+`has_complete_reading_before`). Its rows leave the table after 7 days like
+every other day's.
 
 ### 3.1.2 New table `channel_inventory` *(GATE-2, 25/09/2026)*
 

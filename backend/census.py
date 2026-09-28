@@ -244,10 +244,11 @@ def _merge(videos, item, country, category, discards):
         v["views"] = views
 
 
-def save_snapshot(client, day: date, videos: dict, *, permanent=False) -> int:
+def save_snapshot(client, day: date, videos: dict) -> int:
     """Write the day's snapshot, every video seen, ingested or not.
 
-    permanent=True only for day 0 (02 section 3.1).
+    Working data, kept 7 days like every other day, day 0 included
+    (02 section 3.1, retention.py).
     """
     rows = [{
         "day": day.isoformat(),
@@ -258,7 +259,6 @@ def save_snapshot(client, day: date, videos: dict, *, permanent=False) -> int:
         "views": v["views"],
         "countries": sorted(v["countries"]),
         "categories": sorted(v["categories"], key=int),
-        "permanent": permanent,
     } for vid, v in sorted(videos.items())]
     for i in range(0, len(rows), SNAPSHOT_BATCH):
         client.table("trend_snapshot").upsert(rows[i:i + SNAPSHOT_BATCH]).execute()

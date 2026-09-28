@@ -219,6 +219,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
 
 import census  # noqa: E402
 import baseline as baseline_mod  # noqa: E402
+import retention  # noqa: E402
 from quota import QuotaCounter  # noqa: E402
 
 BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
@@ -327,11 +328,15 @@ def _is_unique_violation(exc):
 
 def run_daily(client, day, *, api_key, countries=None, categories=None,
               snapshot_only=False, quota=None, session=None, rng=None,
-              sleep=time.sleep, now=None) -> dict:
+              sleep=time.sleep, now=None, storage=None) -> dict:
     """One daily reading. Returns the ingest_run row written for the day.
 
-    snapshot_only=True is day 0: the snapshot is written as permanent, the
-    archive of the population at the start, and nothing else (01 §4).
+    snapshot_only=True is day 0: the snapshot and nothing else (01 §4).
+    After a complete census, the snapshot retention (02 section 3.1): every
+    day older than the 7-day window is archived to Storage, verified, then
+    deleted (retention.py). storage=None means Supabase Storage from the
+    environment. A retention failure is noted and deletes nothing more; it
+    never changes the reading's outcome.
     Two completeness states, kept apart (02 section 4.6, 27/09/2026):
       - the census: complete or not. It alone decides outcome ('ok' or
         'partial'), so whether the day is the next reference, whether exits
@@ -376,11 +381,13 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         discards = dict(cen["discards"])
         if cen["stop_reason"]:
             notes.append(f"census stopped: {cen['stop_reason']}")
-        census.save_snapshot(client, day, videos, permanent=snapshot_only)
+        census.save_snapshot(client, day, videos)
 
         if snapshot_only:
             if not cen["complete"]:
-                notes.append("day 0 incomplete: delete this day's snapshot and re-run day 0")
+                notes.append("day 0 incomplete: not a reference, the next reading is day 0 again")
+            else:
+                _retention(client, day, notes, storage)
             row["outcome"] = "ok" if cen["complete"] else "partial"
             row["discards"] = discards
             return row
@@ -492,6 +499,8 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         # 5. exits: a complete census observes absence, whatever the baselines
         census_complete = bool(cen["complete"])
         row["exits"] = census.close_exits(client, day, census_complete)
+        if census_complete:
+            _retention(client, day, notes, storage)
         row["outcome"] = "ok" if census_complete else "partial"
         row["discards"] = discards
         return row
@@ -504,6 +513,16 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         row["finished_at"] = datetime.now(timezone.utc).isoformat()
         row["notes"] = "; ".join(notes)
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
+
+
+def _retention(client, day, notes, storage=None):
+    """Snapshot retention after a complete census. Never raises."""
+    try:
+        store = storage if storage is not None else retention.SupabaseStorage.from_env()
+        notes.append(retention.note(day, retention.purge(client, store, day)))
+    except Exception as e:
+        notes.append(f"RETENTION FAILED: {type(e).__name__}: {str(e)[:300]}; "
+                     "no day deleted after the failure")
 
 
 def _env_flag(name):
@@ -531,7 +550,7 @@ def has_complete_reading_before(client, day) -> bool:
     """True when an ingest_run with outcome 'ok' exists for a day before `day`.
 
     Without one there is no reference to compare against (01 section 4), so
-    the reading is day 0: census and permanent snapshot only. This makes day 0
+    the reading is day 0: census and snapshot only. This makes day 0
     automatic, with no environment flag to set and then remember to unset; a
     partial day 0 is not a reference, so the next night is day 0 again.
     """

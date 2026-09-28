@@ -20,6 +20,7 @@ psycopg = pytest.importorskip("psycopg")
 
 import quota as q  # noqa: E402
 import vpi_engine as eng  # noqa: E402
+import retention  # noqa: E402
 from tests.pg_client import PgClient  # noqa: E402
 
 KEY = "test-key-not-real"
@@ -112,11 +113,12 @@ def world(db):
         yield fake, PgClient(db), db
 
 
-def run(client, fake, n, *, snapshot_only=False, limit=None):
+def run(client, fake, n, *, snapshot_only=False, limit=None, storage=None):
     fake.calls = []
     row = eng.run_daily(client, day(n), api_key=KEY, countries=COUNTRIES, categories=CATS,
                         snapshot_only=snapshot_only, quota=q.QuotaCounter(limit=limit or 9500),
-                        rng=random.Random(n), sleep=lambda s: None, now=at(n))
+                        rng=random.Random(n), sleep=lambda s: None, now=at(n),
+                        storage=storage if storage is not None else retention.MemoryStorage())
     return row
 
 
@@ -149,10 +151,10 @@ def ingest(db, n):
 def test_four_days(world):
     fake, client, db = world
 
-    # --- day 0: snapshot only, permanent, no records
+    # --- day 0: snapshot only, no records
     fake.charts = {("IT", "24"): [("a", 900), ("b", 800)], ("US", "10"): [("c", 700)]}
     run(client, fake, 0, snapshot_only=True)
-    assert one(db, "select count(*), bool_and(permanent) from trend_snapshot where day = %s", day(0)) == [(3, True)]
+    assert one(db, "select count(*) from trend_snapshot where day = %s", day(0)) == [(3,)]
     assert posts(db) == {}
     r0 = ingest(db, 0)
     assert r0["outcome"] == "ok" and r0["quota_total"] == len(fake.calls) == 4
@@ -223,7 +225,7 @@ def test_an_incomplete_day0_is_no_reference_and_says_to_rerun(world):
     fake.charts = {("IT", "24"): [("a", 1)], ("US", "10"): 403}
     run(client, fake, 0, snapshot_only=True)
     assert ingest(db, 0)["outcome"] == "partial"
-    assert "re-run day 0" in ingest(db, 0)["notes"]
+    assert "the next reading is day 0 again" in ingest(db, 0)["notes"]
     # had day 1 run anyway: no reference, so no entry is manufactured
     fake.charts = {("IT", "24"): [("a", 2), ("n1", 5000)], ("US", "10"): [("c", 700)]}
     run(client, fake, 1)
@@ -324,3 +326,21 @@ def test_every_posts_row_carries_method_version_v2_explicitly(world, monkeypatch
     fake.charts = {("IT", "24"): [("a", 900), ("n1", 5000), ("n2", 10)]}
     run(client, fake, 1)
     assert len(written) == 2 and all(r["method_version"] == "v2" for r in written)
+
+
+def test_the_retention_runs_after_a_complete_census_only(world, monkeypatch):
+    # 02 §3.1 (28/09/2026): the purge follows a complete census, day 0
+    # included, so the day it runs on is the next reference; a partial
+    # census purges nothing.
+    fake, client, db = world
+    calls = []
+    monkeypatch.setattr(eng, "_retention", lambda c, d, notes, s=None: calls.append(d))
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 0, snapshot_only=True)
+    assert calls == [day(0)]
+    fake.charts = {("IT", "24"): [("a", 950)], ("US", "10"): 403}
+    run(client, fake, 1)
+    assert ingest(db, 1)["outcome"] == "partial" and calls == [day(0)]
+    fake.charts = {("IT", "24"): [("a", 990)], ("US", "10"): [("c", 800)]}
+    run(client, fake, 2)
+    assert ingest(db, 2)["outcome"] == "ok" and calls == [day(0), day(2)]

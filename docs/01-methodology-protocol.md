@@ -80,8 +80,10 @@ run under the long-form perimeter that passed `tests/check_run.py`, T-16b). Ever
 Most Popular charts before that date is outside the measurement: we did not
 observe it arrive, so we do not measure it.
 
-The day-0 snapshot is retained permanently as the reference state of the
-population at the start, and produces no records for that period. A day-0
+The day-0 snapshot is the reference state of the population at the start,
+and produces no records for that period. Like every snapshot it is working
+data, kept 7 days in the database and archived after that (owner decision
+28/09/2026, `02` §3.1). A day-0
 video becomes eligible only once we have observed it absent from all charts;
 if it later returns, that return is an entry we did observe and is measured
 like any other. Its view count is cumulative and therefore includes the
@@ -236,8 +238,9 @@ is computed.** Cost: 1,486 units.
 
 Videos already in the chart on day 0 do not enter the index while they
 remain in it: we could not say when they entered. **Day 0's snapshot is
-retained permanently as the reference state of the population**; it never
-enters the metrics. **A day-0 video becomes eligible again only once we have
+the reference state of the population**; it never enters the metrics. *(Kept
+7 days like every snapshot, then archived: owner decision 28/09/2026, `02`
+§3.1.)* **A day-0 video becomes eligible again only once we have
 observed it absent from all charts**: if it later returns, we observed that
 entry, and it is recorded like any other. *(Made explicit 25/09/2026. No
 separate exclusion list is kept: the reference for every day is the last

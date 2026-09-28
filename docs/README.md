@@ -69,6 +69,19 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 28 September 2026 — GATE-3, snapshot retention (Migert)
+
+**GATE-3: GO**, on `09-day1-audit.md`, no condition attached.
+
+**Snapshot retention: 7 days, no exception for day 0.** Once the first day
+has been analysed and the system is in steady state, day 0 is a day like any
+other: snapshots are working data, not an archive. The `permanent` column
+existed only to exempt day 0 and is dropped. Every day leaving the window is
+exported to Supabase Storage (private bucket `archivio`, one gzip file per
+day), read back and verified, and only then deleted (`02` §3.1; `01` §1 and
+§4 no longer say the day-0 snapshot is kept permanently). This supersedes
+"day 0's snapshot is kept permanently" in the 25 September entries below.
+
 ### 27 September 2026 — perimeter: long-form only; the two completeness states (Migert)
 
 **Vintage boundary.** Night 1 (2026-09-26) is a distinct vintage: both

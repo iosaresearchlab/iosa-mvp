@@ -68,9 +68,9 @@ create table public.posts (
 );
 """
 
-# Supabase-only objects some migrations use: the API roles, and pg_cron,
-# which does not exist on a plain PostgreSQL (same call signature for
-# alter_job).
+# Supabase-only objects some migrations use, none of which exists on a plain
+# PostgreSQL: the API roles, pg_cron (same call signature for alter_job) and
+# storage.buckets (the columns the migrations write).
 SUPABASE_STUB = """
 do $r$ begin
   create role anon; create role authenticated; create role service_role;
@@ -94,6 +94,9 @@ returns bigint language sql as
    on conflict (jobname) do update set schedule = excluded.schedule,
      command = excluded.command, active = true
    returning jobid';
+create schema storage;
+create table storage.buckets (id text primary key, name text not null,
+  public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
 """
 
 # Tables that reference posts in production, with their foreign keys as read

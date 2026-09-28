@@ -17,9 +17,6 @@ docs/02-technical-specification.md sections 3.1, 3.1.1, 3.5, 3.6, 4.3.
 
 from datetime import date, timedelta
 
-# 02 §3.1: retention, day 0 excluded. The cutoff is a parameter here so the
-# test does not depend on today's date.
-RETENTION = "delete from trend_snapshot where day < %s and permanent = false"
 
 D0 = date(2026, 10, 1)
 
@@ -29,14 +26,14 @@ def d(n):
     return D0 + timedelta(days=n)
 
 
-def snap(conn, day, ids, permanent=False, run="ok"):
+def snap(conn, day, ids, run="ok"):
     """The day's snapshot and, unless run is None, its ingest_run row."""
     with conn.cursor() as cur:
         cur.executemany(
             "insert into trend_snapshot (day, video_id, channel_id, format, "
-            "views, countries, categories, permanent) "
-            "values (%s, %s, 'UCfixture', 'SHORT', 1000, '{IT}', '{24}', %s)",
-            [(day, v, permanent) for v in ids],
+            "views, countries, categories) "
+            "values (%s, %s, 'UCfixture', 'SHORT', 1000, '{IT}', '{24}')",
+            [(day, v) for v in ids],
         )
         if run is not None:
             cur.execute(
@@ -46,8 +43,8 @@ def snap(conn, day, ids, permanent=False, run="ok"):
 
 
 def day0(conn, ids):
-    """What the day-0 run does: a permanent snapshot, a complete run."""
-    snap(conn, d(0), ids, permanent=True)
+    """What the day-0 run does: a snapshot, a complete run."""
+    snap(conn, d(0), ids)
 
 
 def entries(conn, day):
@@ -70,7 +67,7 @@ def record(conn, video_id):
 def test_day0_with_no_previous_snapshot_produces_no_entries(db):
     # Even before the list is seeded: with nothing to compare against, no
     # entry is observable (01 §4, "Day 0 — snapshot only").
-    snap(db, d(0), ["a", "b"], permanent=True)
+    snap(db, d(0), ["a", "b"])
     assert entries(db, d(0)) == {}
 
 
@@ -124,9 +121,10 @@ def test_day0_video_still_present_never_produces_a_record(db):
     for n in range(1, 10):
         snap(db, d(n), ["a"])
         assert entries(db, d(n)) == {}, f"day {n}"
-    # past the 7-day buffer, and after retention ran
+    # past the 7-day window, after the retention removed every older day,
+    # day 0 included (02 §3.1, 28/09/2026; the purge is test_retention.py)
     with db.cursor() as cur:
-        cur.execute(RETENTION, (d(9) - timedelta(days=7),))
+        cur.execute("delete from trend_snapshot where day < %s", (d(9) - timedelta(days=6),))
     snap(db, d(10), ["a"])
     assert entries(db, d(10)) == {}
 
@@ -155,16 +153,13 @@ def test_day0_video_left_unread_by_a_partial_run_is_not_an_entry(db):
     assert entries(db, d(2)) == {}
 
 
-def test_retention_keeps_day0_and_drops_old_working_rows(db):
-    day0(db, ["a"])
-    for n in range(1, 11):
-        snap(db, d(n), ["a"])
+def test_trend_snapshot_has_no_permanent_column(db):
+    # 02 §3.1, 28/09/2026: day 0 is a day like any other; the retention
+    # itself is tested in test_retention.py.
     with db.cursor() as cur:
-        cur.execute(RETENTION, (d(10) - timedelta(days=7),))
-        cur.execute("select day, permanent from trend_snapshot order by day")
-        rows = cur.fetchall()
-    assert rows[0] == (d(0), True)
-    assert [r[0] for r in rows[1:]] == [d(n) for n in range(3, 11)]
+        cur.execute("select count(*) from information_schema.columns "
+                    "where table_name = 'trend_snapshot' and column_name = 'permanent'")
+        assert cur.fetchone() == (0,)
 
 
 # --- T-07: the partial-reading rule ---------------------------------------
