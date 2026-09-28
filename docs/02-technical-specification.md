@@ -814,6 +814,8 @@ The public methodology text. **Rewrite entirely:**
   (`tests/test_index_start.py`). Every public read of `posts` is floored at
   it; while it is unset nothing is published. The text states that the
   readings of 25 and 26 September 2026 are reference states only.)*
+  *(28/09/2026: set to **2026-09-27**, the first run that passed
+  `tests/check_run.py`.)*
 - add, verbatim, the two sentences that carry the estimand:
   *"VPI is cumulative and age-dependent. It is recalculated daily while the
   video remains in the observed Most Popular chart, and is interpreted together

@@ -83,7 +83,7 @@ NO_LEVEL = (None, None, None)
 # that passes tests/check_run.py; the date is written here, in
 # frontend/src/lib/index-start.ts and in docs/01 section 1 in the same commit.
 # While it is None no record is published.
-INDEX_START_DATE = None
+INDEX_START_DATE = "2026-09-27"   # the run of 27/09 passed tests/check_run.py
 
 
 def series_floor() -> str:
