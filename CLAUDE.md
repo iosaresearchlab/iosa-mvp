@@ -75,6 +75,15 @@ documentation reads the way it does.
   without VPIs to protect a small read-timing difference, and never present
   that trade as neutral. The late read is recorded (`reprocessed_at`,
   `baseline_computed_at`), not avoided.
+- **The claude.ai project description and instructions are
+  release-independent.** *(Standing rule, Migert, 29/09/2026.)* Their text
+  lives in `docs/06-claude-project-settings.md` and carries concepts, rules
+  and where things live — never a value that lives in code, configuration,
+  the methodology document or a measurement. A value changes in its own file;
+  those two texts do not change with it.
+- **No change to the way of working without Migert's explicit agreement**
+  *(standing rule, 29/09/2026)*: branches, workflow, tooling. Propose it,
+  wait for a yes.
 - **No night is unrecoverable.** A complete census on disk is never bought
   again; whatever broke after it is finished from the snapshot
   (`reprocess_day`). The second attempt fires whenever the day is not
@@ -109,8 +118,16 @@ git. Names only: `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`,
 
 ## 5. Git
 
-- Work on a feature branch, never directly on `main`. Pushing to `main`
-  triggers a Vercel rebuild, and the project is currently frozen.
+- **First step of every session:** check `git config user.email`. If it is
+  not `iosa.research.lab@gmail.com`, set the project identity in this
+  repository: `git config user.name "IOSA Research Lab"` and
+  `git config user.email "iosa.research.lab@gmail.com"`. Past commits are
+  never rewritten.
+- **One line of development: `main`.** Commit and push directly to `main`.
+  Never create a branch unless Migert asks for one.
+- **Never push between 23:30 and 01:15 UTC or between 08:00 and 09:00 UTC.**
+  A push redeploys Render, and a redeploy kills a reading (or the morning
+  pass) in progress.
 - One task, one commit, with the task ID in the subject line.
 - A failing check is never committed as a closed task.
 - End commit messages with the attribution lines the session is given.

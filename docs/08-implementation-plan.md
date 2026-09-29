@@ -47,7 +47,7 @@ good intentions.
 
 ### T-01 — test and CI scaffolding
 Create `tests/` and a GitHub Actions workflow that runs on every push to
-`docs/methodology-v2` and on pull requests: install `backend/requirements.txt`,
+`main` and on pull requests: install `backend/requirements.txt`,
 run `pytest -q`, run `npm ci && npm run build` in `frontend/`.
 
 - **Files**: `.github/workflows/ci.yml`, `tests/__init__.py`,
