@@ -344,3 +344,34 @@ def test_the_retention_runs_after_a_complete_census_only(world, monkeypatch):
     fake.charts = {("IT", "24"): [("a", 990)], ("US", "10"): [("c", 800)]}
     run(client, fake, 2)
     assert ingest(db, 2)["outcome"] == "ok" and calls == [day(0), day(2)]
+
+
+def test_the_snapshot_statistics_are_refreshed_before_the_entries_are_read(world, monkeypatch):
+    # INC-1 (reading of 2026-09-28): entries_of_day planned on stale
+    # statistics hit the 8 s statement timeout.
+    fake, client, db = world
+    calls = []
+    real_rpc = client.rpc
+
+    def rpc(fn, params):
+        calls.append(fn)
+        return real_rpc(fn, params)
+    monkeypatch.setattr(client, "rpc", rpc)
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    run(client, fake, 0, snapshot_only=True)
+    assert calls[0] == "analyze_snapshot"
+    calls.clear()
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000)], ("US", "10"): [("c", 800)]}
+    run(client, fake, 1)
+    assert calls.index("analyze_snapshot") < calls.index("entries_of_day")
+    assert ingest(db, 1)["outcome"] == "ok"
+
+
+def test_the_entry_query_has_its_index_and_the_analyze_is_service_role_only(db):
+    with db.cursor() as cur:
+        cur.execute("select indexdef from pg_indexes where indexname = 'posts_external_post_id_idx'")
+        assert "(external_post_id)" in cur.fetchone()[0]
+        cur.execute("select has_function_privilege('anon', 'public.analyze_snapshot()', 'execute'), "
+                    "has_function_privilege('authenticated', 'public.analyze_snapshot()', 'execute'), "
+                    "has_function_privilege('service_role', 'public.analyze_snapshot()', 'execute')")
+        assert cur.fetchone() == (False, False, True)

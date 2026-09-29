@@ -382,6 +382,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         if cen["stop_reason"]:
             notes.append(f"census stopped: {cen['stop_reason']}")
         census.save_snapshot(client, day, videos)
+        _analyze_snapshot(client, notes)
 
         if snapshot_only:
             if not cen["complete"]:
@@ -513,6 +514,20 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         row["finished_at"] = datetime.now(timezone.utc).isoformat()
         row["notes"] = "; ".join(notes)
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
+
+
+def _analyze_snapshot(client, notes):
+    """Fresh statistics on trend_snapshot before entries_of_day (INC-1).
+
+    The day's rows were just written; planned on stale statistics the entry
+    query could exceed the API's 8 s statement timeout (reading of
+    2026-09-28). A failure here is noted and never fatal: the index on
+    posts(external_post_id) keeps the query fast without it.
+    """
+    try:
+        client.rpc("analyze_snapshot", {}).execute()
+    except Exception as e:
+        notes.append(f"analyze_snapshot failed: {type(e).__name__}: {str(e)[:200]}")
 
 
 def _retention(client, day, notes, storage=None):
