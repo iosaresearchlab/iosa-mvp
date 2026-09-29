@@ -39,8 +39,8 @@ def fill(db, days, ids=("a", "b", "c"), run="ok"):
                 "'2025-12-01T10:00:00Z', %s, '{IT,US}', '{24,10}')",
                 [(d(n), f"{v}{n}", 1000 + n) for v in ids])
             if run:
-                cur.execute("insert into ingest_run (day, started_at, outcome) "
-                            "values (%s, now(), %s)", (d(n), run))
+                cur.execute("insert into ingest_run (day, started_at, finished_at, outcome, census_complete) "
+                            "values (%s, now(), now(), %s, %s)", (d(n), run, run == "ok"))
 
 
 def days_left(db):
@@ -163,7 +163,8 @@ def test_the_database_refuses_a_day_inside_the_window(db):
     with db.cursor() as cur:
         cur.execute("insert into trend_snapshot (day, video_id, channel_id, format, countries, "
                     "categories) values (%s, 'z', 'UCz', 'LONG', '{IT}', '{24}')", (today - timedelta(days=3),))
-        cur.execute("insert into ingest_run (day, started_at, outcome) values (%s, now(), 'ok')", (today,))
+        cur.execute("insert into ingest_run (day, started_at, finished_at, outcome, census_complete) "
+                    "values (%s, now(), now(), 'ok', true)", (today,))
         cur.execute("select md5(string_agg(to_jsonb(s)::text, '|' order by s.video_id)) "
                     "from trend_snapshot s where day = %s", (today - timedelta(days=3),))
         h = cur.fetchone()[0]

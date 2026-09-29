@@ -5,7 +5,7 @@ import time
 import statistics
 import threading
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 # Force ProactorEventLoop policy on Windows to allow Playwright subprocesses
@@ -30,7 +30,8 @@ import vpi_core
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
-from vpi_engine import RunAlreadyExists, esegui_un_ciclo, reading_day, start_engine
+from vpi_engine import (ReprocessRefused, RunAlreadyExists, esegui_un_ciclo, reading_day,
+                        riprendi_un_giorno, start_engine)
 
 from log_iosa import configura, prendi
 
@@ -243,10 +244,36 @@ def _giro_di_ingestione():
         _ingestione_in_corso = False
 
 
+def _ripresa_di_un_giorno(day):
+    """reprocess_day in the background, with the same keepalive as a reading."""
+    global _ingestione_in_corso
+    stop = threading.Event()
+    url = (os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    if url:
+        threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
+    try:
+        esiti = riprendi_un_giorno(day)
+        log.info("reprocess_day %s concluso: %s", day, esiti.get("notes", "")[-300:])
+    except ReprocessRefused as e:
+        log.warning("reprocess_day refused: %s", e)
+    except Exception as e:
+        log.error("reprocess_day failed: %s", e)
+    finally:
+        stop.set()
+        _ingestione_in_corso = False
+
+
+def _resumable(row) -> bool:
+    """A finished reading whose census is complete and whose processing failed:
+    the second attempt resumes it from the snapshot (INC-1b)."""
+    return bool(row and row.get("census_complete") is True and row.get("outcome") == "failed"
+                and row.get("finished_at"))
+
+
 def _ingest_run_for(day):
     """The ingest_run row for a day, read with the service role (RLS: the
     public key sees nothing in ingest_run)."""
-    res = (supabase_service.table("ingest_run").select("day, outcome, started_at, finished_at")
+    res = (supabase_service.table("ingest_run").select("day, outcome, started_at, finished_at, census_complete")
            .eq("day", day.isoformat()).execute())
     return (res.data or [None])[0]
 
@@ -281,6 +308,14 @@ def avvia_ingestione(background: BackgroundTasks,
                             detail="SUPABASE_SERVICE_KEY non configurata: il lock giornaliero non e' verificabile.")
     oggi = reading_day()
     esistente = _ingest_run_for(oggi)
+    if _resumable(esistente):
+        # The census of the day is complete and already paid for: the second
+        # attempt resumes the processing from the snapshot instead of
+        # answering "already read" (owner decision 29/09/2026).
+        _ingestione_in_corso = True
+        background.add_task(_ripresa_di_un_giorno, oggi)
+        return {"stato": "ripresa", "day": oggi.isoformat(),
+                "dettaglio": "Censimento completo, elaborazione fallita: ripresa dallo snapshot."}
     if esistente:
         raise HTTPException(status_code=409,
                             detail={"day": oggi.isoformat(), "outcome": esistente.get("outcome"),
@@ -289,6 +324,31 @@ def avvia_ingestione(background: BackgroundTasks,
     _ingestione_in_corso = True
     background.add_task(_giro_di_ingestione)
     return {"stato": "avviato", "day": oggi.isoformat()}
+
+
+@app.post("/api/ingest/reprocess/{day}")
+def riprendi_giorno(day: str, background: BackgroundTasks,
+                    authorization: Optional[str] = Header(default=None)):
+    """reprocess_day for a given day (INC-1b): the processing of a day whose
+    census is complete, from its stored snapshot. Same token as the reading.
+    The checks that make it refuse run in the engine; here only the lock."""
+    global _ingestione_in_corso
+    if not INGEST_TRIGGER_TOKEN:
+        raise HTTPException(status_code=503,
+                            detail="INGEST_TRIGGER_TOKEN non configurato: endpoint disattivato.")
+    atteso = f"Bearer {INGEST_TRIGGER_TOKEN}"
+    if not authorization or not secrets.compare_digest(authorization.strip(), atteso):
+        raise HTTPException(status_code=401, detail="Token non valido.")
+    try:
+        giorno = date.fromisoformat(day)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Giorno non valido (YYYY-MM-DD).")
+    if _ingestione_in_corso:
+        return {"stato": "gia_in_corso",
+                "dettaglio": "Un giro e' gia' in esecuzione: questa chiamata non ne avvia un altro."}
+    _ingestione_in_corso = True
+    background.add_task(_ripresa_di_un_giorno, giorno)
+    return {"stato": "avviato", "day": giorno.isoformat()}
 
 
 @app.get("/api/ingest/status")
@@ -402,7 +462,7 @@ PUBLIC_POST_COLUMNS = (
     "categories,baseline_computed_at,baseline_samples,baseline_rule,"
     "baseline_span_days,baseline_video_ids,auto_generated_channel,scale_version,"
     "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
-    "vpi_max_on,views_max,views_final"
+    "vpi_max_on,views_max,views_final,reprocessed_at"
 )
 PRIVATE_POST_COLUMNS = ("printify_product_id", "comment_sent")
 

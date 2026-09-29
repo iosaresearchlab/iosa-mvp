@@ -346,3 +346,43 @@ def test_public_reads_are_floored_at_the_series_start(api):
     assert db.last("posts").has("gte", "entered_on", main.vpi_core.series_floor())
     client.get("/api/analytics/top10?timeframe=all")
     assert db.last("post_daily").has("gte", "posts.entered_on", main.vpi_core.series_floor())
+
+
+# --- INC-1b: the second attempt resumes a day whose census is complete ----------
+
+
+def test_the_second_attempt_resumes_a_complete_census_whose_processing_failed(api, monkeypatch):
+    client, db = api
+    today = main.reading_day()
+    db.data["ingest_run"] = [{"day": today.isoformat(), "outcome": "failed", "census_complete": True,
+                              "finished_at": "2026-09-29T00:00:08+00:00"}]
+    resumed = []
+    monkeypatch.setattr(main, "_ripresa_di_un_giorno", lambda d: resumed.append(d))
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("the census is not bought again"))
+    r = client.post("/api/ingest/run", headers=AUTH)
+    assert r.status_code == 200 and r.json()["stato"] == "ripresa" and resumed == [today]
+    main._ingestione_in_corso = False
+
+
+@pytest.mark.parametrize("row", [
+    {"outcome": "failed", "census_complete": False, "finished_at": "x"},    # census incomplete
+    {"outcome": "failed", "census_complete": True, "finished_at": None},    # still running
+    {"outcome": "ok", "census_complete": True, "finished_at": "x"},         # done
+])
+def test_anything_else_for_today_is_still_409(api, monkeypatch, row):
+    client, db = api
+    db.data["ingest_run"] = [{"day": main.reading_day().isoformat(), **row}]
+    monkeypatch.setattr(main, "_ripresa_di_un_giorno", lambda d: pytest.fail("must not resume"))
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("must not run"))
+    assert client.post("/api/ingest/run", headers=AUTH).status_code == 409
+
+
+def test_reprocess_endpoint_needs_the_token_and_a_date(api, monkeypatch):
+    client, _ = api
+    started = []
+    monkeypatch.setattr(main, "_ripresa_di_un_giorno", lambda d: started.append(d))
+    assert client.post("/api/ingest/reprocess/2026-09-28").status_code == 401
+    assert client.post("/api/ingest/reprocess/yesterday", headers=AUTH).status_code == 400
+    r = client.post("/api/ingest/reprocess/2026-09-28", headers=AUTH)
+    assert r.status_code == 200 and started == [date(2026, 9, 28)]
+    main._ingestione_in_corso = False

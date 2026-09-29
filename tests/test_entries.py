@@ -37,8 +37,9 @@ def snap(conn, day, ids, run="ok"):
         )
         if run is not None:
             cur.execute(
-                "insert into ingest_run (day, started_at, outcome) values (%s, now(), %s)",
-                (day, run),
+                "insert into ingest_run (day, started_at, finished_at, outcome, census_complete) "
+                "values (%s, now(), now(), %s, %s)",
+                (day, run, run == "ok"),
             )
 
 
@@ -285,3 +286,23 @@ def test_the_day0_list_no_longer_exists(db):
     with db.cursor() as cur:
         cur.execute("select to_regclass('public.day0_pending')")
         assert cur.fetchone() == (None,)
+
+
+def test_the_reprocess_trigger_is_not_callable_by_any_api_role(db):
+    # INC-1c: it reads the trigger token from the Vault
+    with db.cursor() as cur:
+        for role in ("anon", "authenticated", "service_role"):
+            cur.execute("select has_function_privilege(%s, 'public.chiedi_ripresa_di_un_giorno(date)', 'execute')",
+                        (role,))
+            assert cur.fetchone() == (False,), role
+
+
+def test_a_complete_census_whose_processing_failed_is_the_reference(db):
+    # INC-1b (owner decision 29/09/2026): the census, not the outcome
+    day0(db, ["a"])
+    snap(db, d(1), ["a", "b"], run=None)
+    with db.cursor() as cur:
+        cur.execute("insert into ingest_run (day, started_at, finished_at, outcome, census_complete) "
+                    "values (%s, now(), now(), 'failed', true)", (d(1),))
+    snap(db, d(2), ["a", "b", "c"])
+    assert entries(db, d(2)) == {"c": (0, True)}
