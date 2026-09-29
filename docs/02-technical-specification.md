@@ -129,14 +129,14 @@ Next.js, `frontend/src`, 4,029 lines.
 
 ## 3. Database
 
-### 3.1 New table `trend_snapshot` — a working buffer, plus the day-0 archive
+### 3.1 New table `trend_snapshot` — a working buffer, kept 7 days
 
 **A working buffer: it is the reference point for "absent yesterday".** The
 research data lives in the series and the records, which are never deleted.
-The one exception is **day 0**: its rows are written with `permanent = true`
-and are never deleted. They are the reference state of the population at the
-start of the index (`01` §4) — a scientific record, never part of the
-metrics.
+Snapshot rows are working data, day 0 included *(owner decision 28/09/2026:
+once the first day has been analysed and the system is in steady state, day
+0 is a day like any other; the `permanent` column, which existed only to
+exempt it, is dropped)*.
 
 ```sql
 create table public.trend_snapshot (
@@ -148,7 +148,6 @@ create table public.trend_snapshot (
   views         numeric,
   countries     text[] not null,
   categories    text[] not null,
-  permanent     boolean not null default false,  -- true only for day 0
   primary key (day, video_id)
 );
 create index trend_snapshot_day_idx on public.trend_snapshot (day);
@@ -156,17 +155,37 @@ alter table public.trend_snapshot enable row level security;
 -- no policy: only the service role writes here
 ```
 
-*(27/09/2026: not implemented. No code and no scheduled job deletes
-`trend_snapshot` rows; every row, Shorts included, is kept. As written below
-the rule would delete Shorts rows along with the rest after 7 days: whether
-to implement it waits for the owner.)*
+**Retention: 7 days, no exception** (implemented 28/09/2026,
+`backend/retention.py`, migration `v2_ret1_snapshot_retention`). The window
+is the reading day and the six before it; every older day is removed, one
+day at a time, in this order and never another:
 
-Retention **7 days** (1 would suffice; 7 gives slack if a reading is
-missed), day 0 excluded:
+1. export the day's rows, every column, one `to_jsonb(row)::text` line each,
+   in `video_id` order (`snapshot_export`);
+2. write them gzip-compressed to Supabase Storage, private bucket
+   `archivio`, one file per day: `trend_snapshot/<day>.jsonl.gz`;
+3. read the stored file back and check it line for line against the export;
+4. only then delete, through `purge_snapshot_day(day, keep_from, rows, md5)`,
+   which deletes only when the row count and the md5 of the file read back
+   equal those of the rows in the table, and refuses a day inside the window
+   (against the caller's window and the database clock) and the reference —
+   the last complete reading — whatever its age.
 
-```sql
-delete from trend_snapshot where day < current_date - 7 and permanent = false;
-```
+A failure at any step deletes nothing for that day and stops before every
+later day; the run notes it (`RETENTION FAILED`) and keeps its outcome. The
+purge runs only after a complete census, so the day it runs on is the next
+reference. Destination: Storage, not the Render filesystem (the free tier
+has no persistent disk) and not git. Storage on the free tier: **1 GB, 50 MB
+per file**; measured 1,227,592 bytes for the 27,593 rows of 2026-09-25, so
+**~1.2 MB a day, ~450 MB a year**; with the plaques and the `posts_v1`
+archive (§3.6, 5.8 MB) the 1 GB lasts about two years. The nightly check
+fails above 800 MB. The functions are executable by the
+service role only; nothing public reads `trend_snapshot` or its archive.
+What open records need stays in `posts`, `post_daily` and `ingest_run`.
+
+The table holds the last 7 days; every earlier day is in the archive, and
+each of its lines restores one row with
+`insert into trend_snapshot select * from jsonb_populate_record(null::trend_snapshot, <line>::jsonb)`.
 
 ### 3.1.1 No day-0 exclusion list *(removed 25/09/2026, GATE-1)*
 
@@ -174,14 +193,13 @@ A `day0_pending` table was added at T-06 and dropped at GATE-1. Once the
 reference for every day became the last complete reading (§3.5), it excluded
 nothing: a day-0 video still charting is in the reference snapshot and is
 excluded by the ordinary test; one that leaves and returns is an entry we
-genuinely observed. The permanent day-0 snapshot stays — that is the archive,
-not a mechanism.
+genuinely observed.
 
 **Day 0 must still be complete.** An incomplete day 0 is not a reference, so
 it cannot produce false entries: day 1 would simply find no reference and
-record nothing. But the day-0 snapshot is the permanent record of the
-population at the start, and an incomplete one is a hole in it. On a partial
-day 0: delete that day's snapshot rows and re-run day 0 before day 1.
+record nothing, and the next reading is day 0 again (`vpi_engine`,
+`has_complete_reading_before`). Its rows leave the table after 7 days like
+every other day's.
 
 ### 3.1.2 New table `channel_inventory` *(GATE-2, 25/09/2026)*
 
@@ -439,7 +457,28 @@ migration before the delete.
   claim page and the checkout, so a v1 claim token still resolves (`08`
   T-20). Lookup by token only: the archive cannot be listed.
 
+**Reduced, 28/09/2026 (decision by Migert).** The v1 claim pages must keep
+working — 226 contacts in `outreach` hold those tokens — and nothing else
+reads the archive. Every column of all 28,917 rows, and `posts_v1_links`,
+were exported first to Storage (private bucket `archivio`,
+`posts_v1/posts_v1.jsonl.gz` and `posts_v1/posts_v1_links.jsonl.gz`, one
+`to_jsonb(row)::text` line per row), read back and checked against the
+table's md5; then `posts_v1` was rebuilt with the 16 columns the code reads
+from a v1 record (`tests/test_v1_slim.py` derives the list from
+`backend/main.py` and the claim page and fails if it changes): `id`,
+`claim_token`, `platform`, `author_handle`, `content_text`,
+`engagement_score`, `baseline_score`, `vpi_ratio`, `vpi_level_name`,
+`vpi_max`, `views_max`, `days_charting`, `created_at`, `detected_at`,
+`entered_on`, `method_version`. Migration `v2_v1slim_reduce`; `posts_v1`
+17.9 → 8.9 MB. `posts_v1_links` and `outreach` unchanged. Access unchanged:
+lookup by token only, the table and the bucket cannot be listed with the
+public key (`tests/check_v1_claim.py`).
+
 ### 3.7 Storage optimisation
+
+*(28/09/2026: not implemented, and not a pending task. Its estimate is
+superseded by the measured figures in §3.8, and the choice it anticipated —
+how to live within the free tier — is the owner's, §3.8.)*
 
 Measured: **759 bytes per row**. At the projected growth (~5,000 new records
 a day plus the series) that is **~8 MB a day, 240 a month**. The free tier
@@ -466,6 +505,46 @@ remains for the current window, which is the one that matters.
 
 Estimated effect: row from 759 to ~420 bytes, growth from 8 to ~4.5 MB/day,
 **from 240 to ~135 MB a month**. The free tier then lasts beyond a year.
+
+### 3.8 Known operating constraint: database size *(measured 28/09/2026)*
+
+The Supabase free tier holds **500 MB**. Records are never deleted, by
+design (`01` §3): `posts` grows with every day of the index and nothing in
+this specification makes room for it. The snapshot retention (§3.1) caps
+`trend_snapshot`; it does not touch this.
+
+Measured with `docs/db-growth.sql` on the reading of 2026-09-27, the first
+day of the series (bytes per row = total relation size, heap + toast +
+indexes, over rows):
+
+| table | bytes per row | rows per day | MiB per day |
+|---|---|---|---|
+| `posts` | 2,281 | 1,950 records | 4.24 |
+| `post_daily` | 183 | 6,928 (one per active record) | 1.21 |
+| `channel_inventory` | 2,726 | 1,712 channels not already in it | 4.45 |
+| `trend_snapshot` | 221 | 27,618 | 5.82, until the table holds 7 days |
+
+- `posts` alone: **~1.5 GiB a year** (1.6 GB), never reclaimable.
+- Database after the 28/09 operations: **68.7 MiB** (72,084,627 bytes;
+  77.2 MiB before, 8.5 MiB returned by the `posts_v1` reduction, §3.6).
+- Growth: **15.7 MiB a day** until `trend_snapshot` holds 7 days (4 more
+  readings), then **9.9 MiB a day**.
+- Runway from 28/09/2026: the nightly check's 400 MiB alarm in **~31 days**,
+  the 500 MB limit in **~41 days** (about six weeks, early November); `posts`
+  alone would fill it in ~102 days. The free tier holds roughly two months of
+  the index at this rate — measured, between six weeks with every table and
+  three months if `posts` were the only one growing.
+- These are one day's rates. Two of them move: `post_daily` grows with the
+  number of active records (+790 on 27/09: 1,950 entries, 1,160 exits), and
+  the new rows of `channel_inventory` should fall as the share of entering
+  channels already in it rises (186 of 1,898 on 27/09). Re-measure with the
+  script, not by extrapolation.
+
+**Whose decision.** The choice between a larger tier and a smaller scope is
+the owner's, and he takes it as the limit approaches. Nothing is engineered
+around it in the meantime, and **records are never deleted to make room**.
+The nightly check (`tests/check_run.sql`) carries the database size and fails
+above 400 MiB, so the approach of the limit is reported, not discovered.
 
 ---
 
@@ -681,7 +760,10 @@ class QuotaCounter:
     def total(self): return sum(self.per_endpoint.values())
 ```
 
-**Brake**: `QUOTA_MAX_DAILY` (default **9,500**). On reaching the ceiling the
+**Brake**: `QUOTA_MAX_DAILY` (default **9,900**, set by the owner on 29/09/2026;
+it was 9,500: exceeding the real 10,000 costs no penalty, the API answers
+"quota exceeded" until the reset, so the margin only has to keep the stop at a
+recorded point, and 100 units do; 500 were ~140 channels a night). On reaching the ceiling the
 run stops cleanly: the entries it did not reach are written without a
 baseline and without a VPI, `baseline_rule = 'quota_stop'` (`01` §2), their
 count is in the run report. ~~and the run ends with `outcome='partial'`.~~
@@ -715,6 +797,32 @@ the reference and an entry not written would not return.)*
 
 ---
 
+### 4.8 The queries of a reading under the 8 s statement timeout *(INC-1, measured 29/09/2026)*
+
+Every call of the run goes through PostgREST, whose role carries
+`statement_timeout = 8s`. The cost that grows is the one tied to `posts`
+(~2,000 records a day, never deleted) and to `post_daily`. Measured on
+production with `explain analyze`, day 2026-09-28 (8,088 posts, 6,928
+active, 27,455 snapshot rows):
+
+| call | what grows | plan | time |
+|---|---|---|---|
+| `entries_of_day` | `posts` | before INC-1: nested-loop anti join, `posts` scanned once per snapshot row (timed out at 8 s; reproduced 6.0 s); now merge anti join on `posts_external_post_id_idx` | 97 ms |
+| `tracked_of_day` (one page) | active `posts` | hash join; `posts` seq scan (status filter), snapshot by `trend_snapshot_day_idx` | 23 ms inner, 148 ms per page |
+| `close_exits_of_day` (as a select) | active `posts`, `post_daily` | hash anti join on the snapshot pkey; the two subqueries by `post_daily_pkey` | 182 ms |
+| `apply_daily_views` (500 rows) | none (batch) | `posts` and `post_daily` by primary key | per batch |
+| `records_of_day` | `posts` | `posts_entered_idx` | ms |
+| `snapshot_export` (one page), `purge_snapshot_day` | one day of snapshot, capped at 7 days | `trend_snapshot_pkey` | ~0.8 s per page |
+| channel inventory reads | `channel_inventory` | primary key | ms |
+
+Every probe side of every join is indexed (`trend_snapshot` (day,
+video_id), `posts.external_post_id`, `post_daily` (post_id, day)), so a
+misestimate after a bulk write can no longer turn into a scan per row. The
+one scan that grows linearly is the sequential read of `posts` for the
+active filter (5.5 ms at 8,088 rows): about 0.1 s at 100,000 records, far
+from the limit. Nothing else is close; nothing else changed. Re-measure with
+the same `explain analyze` when `posts` passes 100,000 rows.
+
 ## 5. Scheduling
 
 `cron.job` id 1 (`ingestione-iosa`): from `*/20 * * * *` to
@@ -730,8 +838,57 @@ hour year-round.
 `run_engine.py`: `--un-ciclo` remains as the fallback if pg_cron fails. The
 continuous loop and `--minuti` go.
 
-**Second attempt**: at 00:30 UTC, only if no `ingest_run` exists for the day
-just closed. Covers the case where Render does not wake in time.
+**Second attempt** *(owner rule, 29/09/2026)*: at 00:30 UTC it fires
+whenever the day just closed is not complete, and never repeats work that
+succeeded (`main._second_attempt`):
+
+| the day's row | the second attempt |
+|---|---|
+| none (Render did not wake) | the reading |
+| census complete, processing failed or the run died after the census | `reprocess_day` from the snapshot: the census is never bought again |
+| census not complete (failed before it, incomplete, or died before it) | the census again (`run_daily(rerun=True)`); the snapshot is the union of both attempts, both counted against one brake; records already written are not repeated |
+| a run started less than 5 minutes ago | left alone |
+| census complete and processing finished | 409: nothing to do |
+
+A run "died" when its row has no `finished_at`, no reading is running in the
+process, and it started more than 5 minutes ago (a restart kills the
+task). Records the brake did not reach wait for the 08:20 morning pass: at
+00:30 the quota has not reset.
+
+**`reprocess_day <day>`** *(29/09/2026, INC-1b)*. `backend/reprocess_day.py`,
+`POST /api/ingest/reprocess/{day}` (trigger token), or
+`chiedi_ripresa_di_un_giorno(day)` from the database (token read from the
+Vault). It finishes a day whose census is complete: loads the stored
+snapshot as the census (never the charts), fetches only the titles of the
+entries to be written (`videos.list` snippet, 1 unit per 50 ids: descriptive
+fields, not the measurement), runs the same processing as the night
+(`vpi_engine._process`), completes the day's records written without a
+baseline (`complete_baselines`: only `quota_stop` and `read_failed`, never a
+frozen baseline), and catches later days up for those records from their own
+snapshots. It refuses a day whose census is not complete, whose snapshot is
+not the one the census counted (`videos_seen`), that is still being read, or
+whose later days are not finished complete censuses with intact snapshots.
+The run report is rewritten: the original failure kept as "processing failed
+at ...", the reprocess line, and the quota of both passes added.
+
+- `ingest_run.census_complete`: written right after the snapshot, before any
+  processing. It alone decides the reference (`entries_of_day`,
+  `purge_snapshot_day`) and whether exits may be closed
+  (`close_exits_of_day`). `outcome` says whether the processing finished.
+- Records written or completed by `reprocess_day` carry `reprocessed_at`;
+  `baseline_computed_at` is the actual read time of every baseline (per
+  batch of 50 channels), night or not.
+- A reprocessed record names as `country`/`category` the first of its sets in
+  canonical order: the snapshot keeps the sets, not the slice pairs, and
+  neither field enters any statistic.
+
+**Morning pass** *(29/09/2026, INC-1d)*: pg_cron job `ripresa-iosa` at
+**08:20 UTC**, after the quota reset in every season (midnight Pacific =
+07:00 UTC in summer, 08:00 in winter), calls `ripresa_se_serve()`: if
+yesterday's census is complete and either its processing failed or records
+are waiting without a VPI (`quota_stop`, `read_failed`), it asks the backend
+for `reprocess_day` of yesterday. Otherwise nothing is called. The brake is
+unchanged; whatever it does not reach waits for the next morning.
 
 ---
 
@@ -870,7 +1027,7 @@ identical.
 **Phase C — day 1 and the gate**
 10. Second full run, first v2 records
 11. **Audit** from `ingest_run`:
-    - `quota_total ≤ 9,500` → proceed
+    - `quota_total ≤ 9,900` → proceed
     - over → `BASELINE_SAMPLES_MAX = 10`, re-measure
     - still over → **reduce countries**, and only that
 12. Frontend and public copy **only after** the audit passes
@@ -887,7 +1044,7 @@ identical.
 
 | Risk | Effect | Mitigation |
 |---|---|---|
-| Quota overrun on day 1 | partial run | brake at 9,500, `partial` outcome, resume with a flag |
+| Quota overrun | entries without a VPI | brake at 9,900 (was 9,500), `quota_stop` records, completed by `reprocess_day` at the 08:20 UTC morning pass |
 | **Missing snapshot day** | **every video looks new: spend explodes and entry dates are corrupted** | `entries_of_day()` compares against the most recent complete reading and writes `gap_days`; records created after a gap carry `entry_certain = false` and are excluded from entry-date statistics |
 | Render asleep | run skipped | `timeout_milliseconds: 90000` already present + second attempt at 00:30 UTC |
 | Double run | quota doubled | unique on `ingest_run.day` + 409 |
@@ -897,7 +1054,7 @@ identical.
 
 ## 10. Definition of done
 
-- yesterday's `ingest_run` with `outcome='ok'` and `quota_total ≤ 9,500`
+- yesterday's `ingest_run` with `outcome='ok'` and `quota_total ≤ 9,900`
 - every v2 record has `entered_on` set and `baseline_computed_at` equal to
   `entered_on`
 - records with a VPI below 1 exist, and so do records with

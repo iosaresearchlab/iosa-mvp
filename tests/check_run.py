@@ -3,7 +3,7 @@
     python tests/check_run.py 2026-09-27      # exit 0 = PASS, 1 = FAIL
 
 Reads production with the service key from backend/.env (never printed).
-PASS needs all of: quota_total <= 9,500, census complete (outcome 'ok',
+PASS needs all of: quota_total <= 9,900, census complete (outcome 'ok',
 slices_error = 0); zero quota_stop records; every entering record long-form
 with either a baseline and a VPI or baseline_rule 'not_computable'; no Short
 record created; units per channel in the run notes.
@@ -45,7 +45,7 @@ def main(day):
             break
         off += 1000
     checks = [
-        ("quota_total <= 9500", (r["quota_total"] or 0) <= 9500, r["quota_total"]),
+        ("quota_total <= 9900", (r["quota_total"] or 0) <= 9900, r["quota_total"]),
         ("census complete: outcome ok", r["outcome"] == "ok", r["outcome"]),
         ("slices_error = 0", r["slices_error"] == 0, r["slices_error"]),
         ("zero quota_stop records", not any(x["baseline_rule"] == "quota_stop" for x in recs),

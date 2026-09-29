@@ -330,6 +330,8 @@ The numbers that decide whether this is a measurement or not:
 **GATE-3 — GO / NO-GO.** Decided on the audit, by Migert. *(25/09/2026: the
 scale is no longer part of it, `01` §4.3; the frontend work no longer waits
 for it, by the owner's decision to put the app back online.)*
+**PASSED 28/09/2026: GO**, decided by Migert on `docs/09-day1-audit.md`, no
+condition attached.
 
 ---
 
@@ -428,8 +430,8 @@ own closing check above, and are reported as they do:
 | T-16 day 1 | the next night's reading | 27/09 (failed: brake; see T-16b) |
 | T-16b long-form perimeter | the 27/09 reading | 28/09 00:10 UTC |
 | T-17 day-1 audit, and the start date | T-16b passing: the start date is that run's day (Migert, 27/09: nights 0 and 1 are reference-only) | 28/09 |
-| GATE-3 GO / NO-GO | T-17, decided by Migert | after T-17 |
-| T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | 27/09 |
+| GATE-3 GO / NO-GO | T-17, decided by Migert | **GO, 28/09/2026** |
+| T-18 "renders against real v2 data" (the rest of T-18 is in the loop) | T-16 | **closed 28/09/2026** |
 | T-22 three weeks | 21 readings | mid-October |
 | T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
 | T-25 final review | real distributions in hand, external reviewers | after T-23 |

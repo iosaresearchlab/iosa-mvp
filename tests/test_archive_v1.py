@@ -1,8 +1,10 @@
-"""The v1 records moved out of posts into posts_v1 (02 section 3.6, 25/09/2026).
+"""The v1 records moved out of posts into posts_v1 (02 section 3.6, 25/09/2026),
+then reduced to the columns the v1 claim reads (28/09/2026, test_v1_slim.py).
 
 conftest seeds two v1 rows plus an outreach row and a claim visit pointing
 at one of them, then runs every migration: what is asserted here is the
-state after the archive migration.
+state after the archive migrations. v1 rows are named by author_handle:
+external_post_id is one of the columns the reduction dropped.
 """
 
 import re
@@ -24,19 +26,18 @@ def one(cur, sql, *args):
 def test_posts_holds_no_v1_row_and_the_archive_holds_them_all(db):
     with db.cursor() as cur:
         assert one(cur, "select count(*) from posts where method_version = 'v1'") == [(0,)]
-        assert one(cur, "select external_post_id, vpi_ratio::text, baseline_score::text "
-                        "from posts_v1 order by 1") == [("v1_old_a", "3.2", "900"),
-                                                        ("v1_old_b", "1.1", "400")]
-        assert one(cur, "select count(*) from posts_v1 where archived_at is null") == [(0,)]
+        assert one(cur, "select author_handle, vpi_ratio::text, baseline_score::text, method_version "
+                        "from posts_v1 order by 1") == [("@a", "3.2", "900", "v1"),
+                                                        ("@b", "1.1", "400", "v1")]
 
 
 def test_blanked_links_are_kept_with_the_original_post_id(db):
     with db.cursor() as cur:
         assert one(cur, "select count(*) from outreach where post_id is not null") == [(0,)]
         assert one(cur, "select count(*) from claim_visite where post_id is not null") == [(0,)]
-        rows = one(cur, "select l.source_table, v.external_post_id, l.claim_token = v.claim_token "
+        rows = one(cur, "select l.source_table, v.author_handle, l.claim_token = v.claim_token "
                         "from posts_v1_links l join posts_v1 v on v.id = l.post_id order by 1")
-        assert rows == [("claim_visite", "v1_old_a", True), ("outreach", "v1_old_a", True)]
+        assert rows == [("claim_visite", "@a", True), ("outreach", "@a", True)]
         # every blanked row is in the snapshot, and outreach keeps its token
         assert one(cur, "select count(*) from outreach o left join posts_v1_links l "
                         "on l.source_table = 'outreach' and l.source_id = o.id "
@@ -52,9 +53,9 @@ def test_the_archive_is_not_readable_by_the_api_roles(db):
 
 def test_a_v1_claim_token_resolves_by_token_only(db):
     with db.cursor() as cur:
-        (token,) = one(cur, "select claim_token from posts_v1 where external_post_id = 'v1_old_a'")[0]
+        (token,) = one(cur, "select claim_token from posts_v1 where author_handle = '@a'")[0]
         cur.execute("set local role anon")
-        assert one(cur, "select external_post_id from claim_record_v1(%s)", token) == [("v1_old_a",)]
+        assert one(cur, "select author_handle from claim_record_v1(%s)", token) == [("@a",)]
         assert one(cur, "select count(*) from claim_record_v1(%s)", "no-such-token") == [(0,)]
         assert one(cur, "select count(*) from claim_record_v1(null)") == [(0,)]
 
@@ -73,14 +74,20 @@ def test_the_move_aborts_if_a_cascading_row_points_at_a_v1_record(db):
         assert one(cur, "select count(*) from claims") == [(1,)]
 
 
-def test_the_move_aborts_on_a_checksum_mismatch(db):
-    """Re-run on an archive that already holds rows: counts differ, nothing moves."""
+def test_the_move_cannot_run_again_on_the_reduced_archive(db):
+    """A re-run of the 25/09 move on today's schema fails and moves nothing.
+
+    Its checksum branch ('archive mismatch') ran once, in production, and
+    matched (78c8c5fd..., task-log SEC-2); the archive now has 16 columns, so
+    the insert itself is refused before any checksum is compared.
+    """
     with db.cursor() as cur:
         cur.execute("insert into posts (external_post_id, author_handle, baseline_score, vpi_ratio, "
                     "vpi_level, vpi_level_name, vpi_color, method_version) values "
                     "('v1_late', '@c', 10, 2, 2, 'x', '#000', 'v1')")
         cur.execute("savepoint s")
-        with pytest.raises(psycopg.errors.RaiseException, match="archive mismatch"):
+        with pytest.raises(psycopg.Error):
             cur.execute(MOVE)
         cur.execute("rollback to savepoint s")
         assert one(cur, "select count(*) from posts where method_version = 'v1'") == [(1,)]
+        assert one(cur, "select count(*) from posts_v1") == [(2,)]

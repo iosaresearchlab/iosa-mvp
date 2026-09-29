@@ -68,6 +68,17 @@ documentation reads the way it does.
   Popular charts*, never "entered trending".
 - **Feasibility first.** If something cannot be done, say that before
   discussing whether it would be a good idea.
+- **Completeness before read-timing precision.** *(Standing rule, Migert,
+  29/09/2026.)* The index exists to publish complete daily VPIs. A missing
+  record is a visible defect; a few hours of delay in reading a baseline is
+  not. When the two conflict, completeness wins: never propose leaving a day
+  without VPIs to protect a small read-timing difference, and never present
+  that trade as neutral. The late read is recorded (`reprocessed_at`,
+  `baseline_computed_at`), not avoided.
+- **No night is unrecoverable.** A complete census on disk is never bought
+  again; whatever broke after it is finished from the snapshot
+  (`reprocess_day`). The second attempt fires whenever the day is not
+  complete, and never repeats work that succeeded.
 
 ## 4. Where things are
 
@@ -111,5 +122,7 @@ git. Names only: `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`,
 - say how many units the operation costs, **before** running it;
 - read-only verification of a factual claim is fine at a few units;
 - anything above ~100 units gets Migert's go-ahead first;
-- the daily run has a hard brake at `QUOTA_MAX_DAILY` (9,500) — never
-  disable it to finish a run.
+- the daily run has a hard brake at `QUOTA_MAX_DAILY` (9,900, set by the
+  owner on 29/09/2026; was 9,500) — never disable it to finish a run. The
+  number is the owner's to set. What the brake does not reach is written as
+  `quota_stop` and completed by `reprocess_day` after the 07:00 UTC reset.

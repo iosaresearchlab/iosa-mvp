@@ -13,13 +13,14 @@ fetch_channels_metadata(), used by refresh_showcase.py on the v1 records. The
 second platform's branch was archived at T-11, under archive/backend/.
 """
 import os
+import json
 import time
 import secrets
 import random
 import requests
 import statistics
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -219,6 +220,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
 
 import census  # noqa: E402
 import baseline as baseline_mod  # noqa: E402
+import retention  # noqa: E402
 from quota import QuotaCounter  # noqa: E402
 
 BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
@@ -258,13 +260,34 @@ def _handle(meta):
     return h if h.startswith("@") else None
 
 
-def _record(vid, v, entry, res, meta, day, now_iso):
-    """One v2 posts row. method_version is written explicitly (default is v1)."""
+def _first_slice(v):
+    """The slice a record names as its country and category.
+
+    The nightly census keeps the first slice it read the video in (the read
+    order is shuffled). A day reprocessed from its snapshot has the sets but
+    not the pairs: it names the first country and category in canonical
+    order (reprocess_day, INC-1). Neither is used by any statistic.
+    """
+    if v.get("first_slice"):
+        return v["first_slice"]
+    return (sorted(v["countries"], key=census.TARGET_COUNTRIES.index)[0],
+            sorted(v["categories"], key=int)[0])
+
+
+def _record(vid, v, entry, res, meta, day, observed_iso, baseline_iso=None, reprocessed_iso=None):
+    """One v2 posts row. method_version is written explicitly (default is v1).
+
+    observed_iso: when the census saw the video (the reading's start).
+    baseline_iso: when its channel's baseline was actually read; None when
+    no baseline was read (quota_stop, read_failed).
+    reprocessed_iso: set only when the record was written by reprocess_day,
+    after the night: the late baseline read stays visible in the data.
+    """
     views = v["views"]
     vf = _vpi_fields(views, res["baseline"])
     published = v["published_at"]
     age = (day - census_date(published)).days if published else None
-    country, category = v["first_slice"]
+    country, category = _first_slice(v)
     handle = _handle(meta)
     return {
         "platform": "YOUTUBE",
@@ -287,9 +310,10 @@ def _record(vid, v, entry, res, meta, day, now_iso):
         "claim_token": f"iosa_{secrets.token_urlsafe(12)}",
         "status": "ACTIVE",
         "created_at": published,
-        "detected_at": now_iso,
+        "detected_at": observed_iso,
         "entered_on": day.isoformat(),
-        "baseline_computed_at": now_iso,
+        "baseline_computed_at": baseline_iso,
+        "reprocessed_at": reprocessed_iso,
         "baseline_samples": res["samples"],
         "baseline_rule": res["rule"],
         "baseline_span_days": res["span_days"],
@@ -327,11 +351,23 @@ def _is_unique_violation(exc):
 
 def run_daily(client, day, *, api_key, countries=None, categories=None,
               snapshot_only=False, quota=None, session=None, rng=None,
-              sleep=time.sleep, now=None) -> dict:
+              sleep=time.sleep, now=None, storage=None, rerun=False) -> dict:
     """One daily reading. Returns the ingest_run row written for the day.
 
-    snapshot_only=True is day 0: the snapshot is written as permanent, the
-    archive of the population at the start, and nothing else (01 §4).
+    rerun=True is the second attempt on a day whose census is not complete
+    (failed before it, incomplete, or a run that died before recording it):
+    the census is read again, a complete census already on record never is.
+    The snapshot becomes the union of both attempts: a video seen by either
+    was observed present that day. The day's quota counts both attempts
+    against one brake. Work of the first attempt that succeeded (records
+    already written) is not repeated: entries exclude existing records.
+
+    snapshot_only=True is day 0: the snapshot and nothing else (01 §4).
+    After a complete census, the snapshot retention (02 section 3.1): every
+    day older than the 7-day window is archived to Storage, verified, then
+    deleted (retention.py). storage=None means Supabase Storage from the
+    environment. A retention failure is noted and deletes nothing more; it
+    never changes the reading's outcome.
     Two completeness states, kept apart (02 section 4.6, 27/09/2026):
       - the census: complete or not. It alone decides outcome ('ok' or
         'partial'), so whether the day is the next reference, whether exits
@@ -354,20 +390,40 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         rng = random.Random(seed)
     else:
         seed = None
-    try:
-        client.table("ingest_run").insert(
-            {"day": day.isoformat(), "started_at": now_iso}).execute()
-    except Exception as e:
-        if _is_unique_violation(e):
-            raise RunAlreadyExists(f"ingest_run for {day} already exists") from e
-        raise
+    prior, prior_notes = {}, []
+    if rerun:
+        found = client.table("ingest_run").select("*").in_("day", [day.isoformat()]).execute().data or []
+        if not found:
+            raise ReprocessRefused(f"{day}: no first attempt to follow")
+        first = found[0]
+        if first.get("census_complete") is True:
+            raise ReprocessRefused(f"{day}: the census is complete, it is never read again: "
+                                   "reprocess_day finishes the processing")
+        prior = {k: first.get(k) or 0 for k in QuotaCounter().as_ingest_run()}
+        prior_notes = [n for n in (first.get("notes") or "").split("; ") if n]
+        prior_notes = [f"first attempt started {first.get('started_at')}, "
+                       f"{'outcome ' + str(first.get('outcome')) if first.get('finished_at') else 'never finished'}"] \
+            + [("first attempt " + n) if n.startswith("failed: ") else n for n in prior_notes]
+        # one brake for the day: the second attempt gets what the first left
+        quota = QuotaCounter(limit=max(1, quota.limit - prior.get("quota_total", 0)))
+        client.table("ingest_run").update({"started_at": now_iso, "finished_at": None,
+                                           "outcome": None}).eq("day", day.isoformat()).execute()
+    else:
+        try:
+            client.table("ingest_run").insert(
+                {"day": day.isoformat(), "started_at": now_iso}).execute()
+        except Exception as e:
+            if _is_unique_violation(e):
+                raise RunAlreadyExists(f"ingest_run for {day} already exists") from e
+            raise
 
     row = {"day": day.isoformat(), "started_at": now_iso, "outcome": "failed",
            "entries": 0, "new_channels": 0, "updated": 0, "exits": 0,
            "discards": {}, "notes": None}
-    notes = [f"slice order seed {seed}" if seed is not None else "slice order: caller rng",
-             f"countries {len(countries)}, categories {len(categories)}",
-             f"quota limit {quota.limit}"]
+    notes = prior_notes + ([f"second attempt at {now_iso}"] if rerun else []) + [
+        f"slice order seed {seed}" if seed is not None else "slice order: caller rng",
+        f"countries {len(countries)}, categories {len(categories)}",
+        f"quota limit {quota.limit}"]
     try:
         videos, cen = census.read_charts(countries, categories, api_key, session=session,
                                          sleep=sleep, quota=quota, rng=rng)
@@ -376,133 +432,412 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         discards = dict(cen["discards"])
         if cen["stop_reason"]:
             notes.append(f"census stopped: {cen['stop_reason']}")
-        census.save_snapshot(client, day, videos, permanent=snapshot_only)
+        census.save_snapshot(client, day, videos)
+        _analyze_snapshot(client, notes)
+        if rerun:
+            stored = _snapshot_videos(client, day)
+            extra = sorted(set(stored) - set(videos))
+            if extra:
+                for vid in extra:
+                    videos[vid] = stored[vid]
+                for vid, t in _titles(extra, api_key, session=session, quota=quota).items():
+                    videos[vid].update(t)
+            row["videos_seen"] = len(videos)
+            notes.append(f"snapshot = union of both attempts: {len(videos) - len(extra)} read now, "
+                         f"{len(extra)} seen only by the first attempt")
+        # The census is on record from here, whatever breaks after it: a
+        # complete census is the next day's reference and the starting point
+        # of reprocess_day (INC-1, owner decision 29/09/2026).
+        row["census_complete"] = bool(cen["complete"])
+        _persist(client, row, notes, quota)
 
         if snapshot_only:
             if not cen["complete"]:
-                notes.append("day 0 incomplete: delete this day's snapshot and re-run day 0")
+                notes.append("day 0 incomplete: not a reference, the next reading is day 0 again")
+            else:
+                _retention(client, day, notes, storage)
             row["outcome"] = "ok" if cen["complete"] else "partial"
             row["discards"] = discards
             return row
 
-        # 3. entries: baseline computed now and frozen
-        found = census.entries(client, day)
-        measured, entry_of = [], {}
-        entering_all, entering_long = set(), set()
-        for e in found:
-            v = videos.get(e["video_id"])
-            if v is None:
-                continue
-            entering_all.add(v["channel_id"])
-            if v["format"] not in MEASURED_FORMATS:
-                discards["out_of_perimeter_" + str(v["format"]).lower()] = \
-                    discards.get("out_of_perimeter_" + str(v["format"]).lower(), 0) + 1
-                continue
-            entering_long.add(v["channel_id"])
-            if v["views"] is None:
-                discards["no_views"] = discards.get("no_views", 0) + 1
-                continue
-            entry_of[e["video_id"]] = e
-            measured.append({"video_id": e["video_id"], "channel_id": v["channel_id"],
-                             "format": v["format"], "published_at": v["published_at"]})
-        by_channel = {}
-        for m in measured:
-            by_channel.setdefault(m["channel_id"], []).append(m)
-        channels = sorted(by_channel)
-        results, meta, unresolved, quota_stopped, stopped = {}, {}, [], [], None
-        store = baseline_mod.SupabaseInventory(client)
-        run_state = baseline_mod.new_run_state()
-        # how much of today's turnover the inventory already holds: no role
-        # in the budget; it tells when Shorts can come back (27/09/2026)
-        known_all = store.known(entering_all)
-        row.update({"entering_channels": len(entering_all),
-                    "entering_channels_in_inventory": len(known_all),
-                    "entering_long_channels": len(entering_long),
-                    "entering_long_in_inventory": len(known_all & entering_long)})
-        base_units_before = quota.total
-        breps = []
-        for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
-            batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
-            if stopped:
-                quota_stopped.extend(m["video_id"] for m in batch)
-                continue
-            res, brep = baseline_mod.baselines_for_videos(
-                batch, api_key, session=session, sleep=sleep, quota=quota,
-                inventory=store, run_state=run_state, today=day)
-            results.update(res)
-            meta.update(brep["channels"])
-            breps.append(brep)
-            if brep["stop_reason"]:
-                stopped = brep["stop_reason"]
-                quota_stopped.extend(brep.get("unresolved", []))
-                notes.append(f"baselines stopped: {stopped}")
-            else:
-                unresolved.extend(brep.get("unresolved", []))
-        # 01 §2: entries the brake did not reach are valid records without a
-        # VPI; so are entries whose reads failed after the retries
-        for vid in quota_stopped:
-            results[vid] = QUOTA_STOP_RESULT
-        for vid in unresolved:
-            results[vid] = READ_FAILED_RESULT
-        if quota_stopped:
-            discards["quota_stop"] = len(quota_stopped)
-            notes.append(f"INCIDENT: {len(quota_stopped)} entries recorded without a VPI (quota_stop)")
-        if unresolved:
-            discards["read_failed"] = len(unresolved)
-            notes.append(f"{len(unresolved)} entries recorded without a VPI after failed reads "
-                         f"(read_failed)")
-        base_units = quota.total - base_units_before
-        n_ch = len(channels)
-        agg = {k: sum(b.get(k, 0) for b in breps) for k in (
-            "quota_channels", "quota_playlists", "quota_playlist", "quota_videos",
-            "skipped_by_item_count", "videos_checked", "videos_skipped_other_format")}
-        notes.append(
-            f"baselines: {base_units} units for {n_ch} channels = "
-            f"{(base_units / n_ch) if n_ch else 0:.2f} per channel (channels {agg['quota_channels']}, "
-            f"itemCount {agg['quota_playlists']}, uploads {agg['quota_playlist']}, videos "
-            f"{agg['quota_videos']}); skipped by itemCount {agg['skipped_by_item_count']}; videos "
-            f"checked {agg['videos_checked']}, other-format not checked "
-            f"{agg['videos_skipped_other_format']}")
-        notes.append(f"entering channels in the inventory: {len(known_all)}/{len(entering_all)} all "
-                     f"formats, {len(known_all & entering_long)}/{len(entering_long)} long-form")
-        row["baselines_complete"] = not stopped and not unresolved
-
-        records = [_record(vid, videos[vid], entry_of[vid], res, meta.get(videos[vid]["channel_id"], {}),
-                           day, now_iso) for vid, res in sorted(results.items())]
-        for i in range(0, len(records), WRITE_BATCH):
-            client.table("posts").insert(records[i:i + WRITE_BATCH]).execute()
-        row["entries"] = len(records)
-        row["new_channels"] = len({r["channel_id"] for r in records})
-
-        # 4. today's views for every charting v2 record, the new ones included
-        tracked = _rpc_all(client, "tracked_of_day", {"d": day.isoformat()}, "post_id")
-        payload = []
-        for t in tracked:
-            if t["views"] is None:
-                continue
-            base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
-            payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
-                            **_vpi_fields(float(t["views"]), base)})
-        updated = 0
-        for i in range(0, len(payload), WRITE_BATCH):
-            updated += client.rpc("apply_daily_views",
-                                  {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
-        row["updated"] = updated
-
-        # 5. exits: a complete census observes absence, whatever the baselines
-        census_complete = bool(cen["complete"])
-        row["exits"] = census.close_exits(client, day, census_complete)
-        row["outcome"] = "ok" if census_complete else "partial"
-        row["discards"] = discards
+        _process(client, day, videos, row, notes, discards, quota, api_key=api_key,
+                 census_complete=bool(cen["complete"]), observed_iso=now_iso,
+                 session=session, sleep=sleep, storage=storage)
         return row
     except Exception as e:
         row["outcome"] = "failed"
         notes.append(f"failed: {type(e).__name__}: {str(e)[:300]}")
         raise
     finally:
-        row.update(quota.as_ingest_run())
+        row.update({k: v + prior.get(k, 0) for k, v in quota.as_ingest_run().items()})
         row["finished_at"] = datetime.now(timezone.utc).isoformat()
         row["notes"] = "; ".join(notes)
+        client.table("ingest_run").upsert(row, on_conflict="day").execute()
+
+
+def _process(client, day, videos, row, notes, discards, quota, *, api_key, census_complete,
+             observed_iso, session=None, sleep=time.sleep, storage=None, reprocessed_iso=None):
+    """Everything after the census: entries, baselines, records, daily views,
+    exits, retention. Shared by the nightly run and reprocess_day, so a day
+    reprocessed from its snapshot follows the same rules, line for line.
+    `videos` is the census: from the charts at night, from the stored
+    snapshot when reprocessed. Sets the row's counters and outcome.
+    """
+    # 3. entries: baseline computed now and frozen
+    found = census.entries(client, day)
+    measured, entry_of = [], {}
+    entering_all, entering_long = set(), set()
+    for e in found:
+        v = videos.get(e["video_id"])
+        if v is None:
+            continue
+        entering_all.add(v["channel_id"])
+        if v["format"] not in MEASURED_FORMATS:
+            discards["out_of_perimeter_" + str(v["format"]).lower()] = \
+                discards.get("out_of_perimeter_" + str(v["format"]).lower(), 0) + 1
+            continue
+        entering_long.add(v["channel_id"])
+        if v["views"] is None:
+            discards["no_views"] = discards.get("no_views", 0) + 1
+            continue
+        entry_of[e["video_id"]] = e
+        measured.append({"video_id": e["video_id"], "channel_id": v["channel_id"],
+                         "format": v["format"], "published_at": v["published_at"]})
+    by_channel = {}
+    for m in measured:
+        by_channel.setdefault(m["channel_id"], []).append(m)
+    channels = sorted(by_channel)
+    results, meta, unresolved, quota_stopped, stopped = {}, {}, [], [], None
+    read_at = {}
+    store = baseline_mod.SupabaseInventory(client)
+    run_state = baseline_mod.new_run_state()
+    # how much of today's turnover the inventory already holds: no role
+    # in the budget; it tells when Shorts can come back (27/09/2026)
+    known_all = store.known(entering_all)
+    row.update({"entering_channels": len(entering_all),
+                "entering_channels_in_inventory": len(known_all),
+                "entering_long_channels": len(entering_long),
+                "entering_long_in_inventory": len(known_all & entering_long)})
+    base_units_before = quota.total
+    breps = []
+    for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
+        batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
+        if stopped:
+            quota_stopped.extend(m["video_id"] for m in batch)
+            continue
+        res, brep = baseline_mod.baselines_for_videos(
+            batch, api_key, session=session, sleep=sleep, quota=quota,
+            inventory=store, run_state=run_state, today=day)
+        stamp = datetime.now(timezone.utc).isoformat()
+        for vid in res:
+            read_at[vid] = stamp
+        results.update(res)
+        meta.update(brep["channels"])
+        breps.append(brep)
+        if brep["stop_reason"]:
+            stopped = brep["stop_reason"]
+            quota_stopped.extend(brep.get("unresolved", []))
+            notes.append(f"baselines stopped: {stopped}")
+        else:
+            unresolved.extend(brep.get("unresolved", []))
+    # 01 §2: entries the brake did not reach are valid records without a
+    # VPI; so are entries whose reads failed after the retries
+    for vid in quota_stopped:
+        results[vid] = QUOTA_STOP_RESULT
+    for vid in unresolved:
+        results[vid] = READ_FAILED_RESULT
+    if quota_stopped:
+        discards["quota_stop"] = len(quota_stopped)
+        notes.append(f"INCIDENT: {len(quota_stopped)} entries recorded without a VPI (quota_stop)")
+    if unresolved:
+        discards["read_failed"] = len(unresolved)
+        notes.append(f"{len(unresolved)} entries recorded without a VPI after failed reads "
+                     f"(read_failed)")
+    base_units = quota.total - base_units_before
+    n_ch = len(channels)
+    agg = {k: sum(b.get(k, 0) for b in breps) for k in (
+        "quota_channels", "quota_playlists", "quota_playlist", "quota_videos",
+        "skipped_by_item_count", "videos_checked", "videos_skipped_other_format")}
+    notes.append(
+        f"baselines: {base_units} units for {n_ch} channels = "
+        f"{(base_units / n_ch) if n_ch else 0:.2f} per channel (channels {agg['quota_channels']}, "
+        f"itemCount {agg['quota_playlists']}, uploads {agg['quota_playlist']}, videos "
+        f"{agg['quota_videos']}); skipped by itemCount {agg['skipped_by_item_count']}; videos "
+        f"checked {agg['videos_checked']}, other-format not checked "
+        f"{agg['videos_skipped_other_format']}")
+    notes.append(f"entering channels in the inventory: {len(known_all)}/{len(entering_all)} all "
+                 f"formats, {len(known_all & entering_long)}/{len(entering_long)} long-form")
+    row["baselines_complete"] = not stopped and not unresolved
+
+    records = [_record(vid, videos[vid], entry_of[vid], res, meta.get(videos[vid]["channel_id"], {}),
+                       day, observed_iso, read_at.get(vid), reprocessed_iso)
+               for vid, res in sorted(results.items())]
+    for i in range(0, len(records), WRITE_BATCH):
+        client.table("posts").insert(records[i:i + WRITE_BATCH]).execute()
+    row["entries"] = len(records)
+    row["new_channels"] = len({r["channel_id"] for r in records})
+
+    # 4. today's views for every charting v2 record, the new ones included
+    tracked = _rpc_all(client, "tracked_of_day", {"d": day.isoformat()}, "post_id")
+    payload = []
+    for t in tracked:
+        if t["views"] is None:
+            continue
+        base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
+        payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
+                        **_vpi_fields(float(t["views"]), base)})
+    updated = 0
+    for i in range(0, len(payload), WRITE_BATCH):
+        updated += client.rpc("apply_daily_views",
+                              {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
+    row["updated"] = updated
+
+    # 5. exits: a complete census observes absence, whatever the baselines
+    row["exits"] = census.close_exits(client, day, census_complete)
+    if census_complete:
+        _retention(client, day, notes, storage)
+    row["outcome"] = "ok" if census_complete else "partial"
+    row["discards"] = discards
+    return row
+
+
+def _persist(client, row, notes, quota):
+    """Write the run row as it stands. Never raises: the finally writes it again."""
+    try:
+        # outcome stays empty while the processing runs: it is written at the end
+        snap = {**row, **quota.as_ingest_run(), "notes": "; ".join(notes), "outcome": None}
+        client.table("ingest_run").upsert(snap, on_conflict="day").execute()
+    except Exception as e:
+        log.warning("ingest_run not persisted after the census: %s", e)
+
+
+def _analyze_snapshot(client, notes):
+    """Fresh statistics on trend_snapshot before entries_of_day (INC-1).
+
+    The day's rows were just written; planned on stale statistics the entry
+    query could exceed the API's 8 s statement timeout (reading of
+    2026-09-28). A failure here is noted and never fatal: the index on
+    posts(external_post_id) keeps the query fast without it.
+    """
+    try:
+        client.rpc("analyze_snapshot", {}).execute()
+    except Exception as e:
+        notes.append(f"analyze_snapshot failed: {type(e).__name__}: {str(e)[:200]}")
+
+
+def _retention(client, day, notes, storage=None):
+    """Snapshot retention after a complete census. Never raises."""
+    try:
+        store = storage if storage is not None else retention.SupabaseStorage.from_env()
+        notes.append(retention.note(day, retention.purge(client, store, day)))
+    except Exception as e:
+        notes.append(f"RETENTION FAILED: {type(e).__name__}: {str(e)[:300]}; "
+                     "no day deleted after the failure")
+
+
+class ReprocessRefused(Exception):
+    """reprocess_day will not run on this day: the reason is the message."""
+
+
+def _snapshot_videos(client, day):
+    """The stored census of a day: {video_id: {channel_id, format, published_at,
+    views, countries, categories}}, from trend_snapshot, every row."""
+    rows = _rpc_all(client, "snapshot_export", {"p_day": day.isoformat()}, "video_id")
+    out = {}
+    for r in rows:
+        x = json.loads(r["line"])
+        out[x["video_id"]] = {"channel_id": x["channel_id"], "format": x["format"],
+                              "published_at": x["published_at"], "views": x["views"],
+                              "countries": set(x["countries"]), "categories": set(x["categories"])}
+    return out
+
+
+def _titles(video_ids, api_key, *, session=None, quota):
+    """Titles and channel titles for the records to be written: videos.list,
+    snippet only, 50 ids per unit. Descriptive fields, not the measurement:
+    the views come from the snapshot, never from this read."""
+    http = session or requests
+    out = {}
+    ids = sorted(video_ids)
+    for i in range(0, len(ids), 50):
+        quota.mark("videos")
+        res = http.get("https://www.googleapis.com/youtube/v3/videos",
+                       params={"part": "snippet", "id": ",".join(ids[i:i + 50]),
+                               "maxResults": 50, "key": api_key}, timeout=30)
+        if res.status_code != 200:
+            continue
+        for item in res.json().get("items", []):
+            sn = item.get("snippet", {})
+            out[item["id"]] = {"title": sn.get("title"), "channel_title": sn.get("channelTitle")}
+    return out
+
+
+def _complete_baselines(client, day, videos, notes, quota, *, api_key, session=None,
+                        sleep=time.sleep, reprocessed_iso):
+    """Baselines for the day's records written without one (quota_stop,
+    read_failed): read now, frozen now, VPI on the day's snapshot views.
+    A record that already has a baseline is never touched (01 section 2)."""
+    recs = [r for r in _rpc_all(client, "records_of_day", {"d": day.isoformat()}, "post_id")
+            if r["baseline_rule"] in ("quota_stop", "read_failed") and r["external_post_id"] in videos]
+    if not recs:
+        return 0, 0
+    by_id = {r["external_post_id"]: {**r, "id": r["post_id"]} for r in recs}
+    measured = [{"video_id": r["external_post_id"], "channel_id": r["channel_id"],
+                 "format": r["format"], "published_at": r["created_at"]} for r in recs]
+    by_channel = {}
+    for m in measured:
+        by_channel.setdefault(m["channel_id"], []).append(m)
+    store = baseline_mod.SupabaseInventory(client)
+    run_state = baseline_mod.new_run_state()
+    done, stopped = 0, None
+    channels = sorted(by_channel)
+    for i in range(0, len(channels), BASELINE_CHANNEL_BATCH):
+        if stopped:
+            break
+        batch = [m for ch in channels[i:i + BASELINE_CHANNEL_BATCH] for m in by_channel[ch]]
+        res, brep = baseline_mod.baselines_for_videos(
+            batch, api_key, session=session, sleep=sleep, quota=quota,
+            inventory=store, run_state=run_state, today=day)
+        stamp = datetime.now(timezone.utc).isoformat()
+        rows, views = [], []
+        for vid, r in res.items():
+            v = videos[vid]["views"]
+            rows.append({"post_id": by_id[vid]["id"], "baseline_score": r["baseline"],
+                         "baseline_rule": r["rule"], "baseline_samples": r["samples"],
+                         "baseline_span_days": r["span_days"], "baseline_video_ids": r["video_ids"],
+                         "baseline_computed_at": stamp, "reprocessed_at": reprocessed_iso,
+                         **_vpi_fields(v, r["baseline"])})
+            if v is not None:
+                views.append({"post_id": by_id[vid]["id"], "views": float(v),
+                              **_vpi_fields(float(v), r["baseline"])})
+        if rows:
+            done += client.rpc("complete_baselines", {"d": day.isoformat(), "rows": rows}).execute().data or 0
+        if views:
+            client.rpc("apply_daily_views", {"d": day.isoformat(), "rows": views}).execute()
+        if brep["stop_reason"]:
+            stopped = brep["stop_reason"]
+            notes.append(f"baselines stopped: {stopped}")
+    return len(recs), done
+
+
+def _catch_up(client, day, later_day):
+    """Replay a later day for the records entered on `day`: their views and
+    VPI on `later_day` (from its snapshot) and the exits it observed. The
+    same functions the night uses; for the other records they change
+    nothing (same views, same frozen baseline, already closed)."""
+    mine = {r["post_id"] for r in _rpc_all(client, "records_of_day", {"d": day.isoformat()}, "post_id")}
+    tracked = _rpc_all(client, "tracked_of_day", {"d": later_day.isoformat()}, "post_id")
+    payload = []
+    for t in tracked:
+        if t["post_id"] not in mine or t["views"] is None:
+            continue
+        base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
+        payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
+                        **_vpi_fields(float(t["views"]), base)})
+    views = 0
+    for i in range(0, len(payload), WRITE_BATCH):
+        views += client.rpc("apply_daily_views", {"d": later_day.isoformat(),
+                                                  "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
+    exits = census.close_exits(client, later_day, True)
+    return {"views": views, "exits": exits}
+
+
+def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.sleep,
+                  storage=None, now=None) -> dict:
+    """Finish the processing of a day whose chart census is complete (INC-1).
+
+    The stored snapshot is the census, already paid for: the charts are
+    never read again. Does what the night did not: entries against the
+    previous complete census, baselines and VPI for the long-form entries,
+    daily views, exits, retention; then baselines for the day's records left
+    without one (quota_stop, read_failed). Records it writes or completes
+    carry reprocessed_at and the actual baseline read time. The run report is
+    rewritten with what was done.
+
+    Refuses a day with no complete census, a snapshot that is not the one the
+    census counted, or a reading still in progress. Later days already read
+    are caught up for this day's records, in order, from their snapshots;
+    refused if one of them is not a finished complete census with its
+    snapshot intact.
+    """
+    started = now or datetime.now(timezone.utc)
+    stamp = started.isoformat()
+    rows = client.table("ingest_run").select("*").in_("day", [day.isoformat()]).execute().data or []
+    if not rows:
+        raise ReprocessRefused(f"{day}: no reading")
+    row = dict(rows[0])
+    if row.get("census_complete") is not True:
+        raise ReprocessRefused(f"{day}: the census is not complete")
+    if row.get("finished_at") is None:
+        raise ReprocessRefused(f"{day}: a reading is in progress")
+    later = sorted((r for r in (client.table("ingest_run").select("*").execute().data or [])
+                    if str(r["day"])[:10] > day.isoformat()), key=lambda r: str(r["day"]))
+    # Later days are caught up for this day's records (views, VPI, exits), in
+    # order, from their own snapshots: each must be a complete census whose
+    # snapshot is still the one it counted, or nothing is done.
+    for r in later:
+        d = str(r["day"])[:10]
+        if r.get("census_complete") is not True or r.get("finished_at") is None:
+            raise ReprocessRefused(f"{day}: the later reading of {d} is not a finished complete census")
+        n = len(_rpc_all(client, "snapshot_export", {"p_day": d}, "video_id"))
+        if n != (r.get("videos_seen") or -1):
+            raise ReprocessRefused(f"{day}: the later snapshot of {d} holds {n} videos, "
+                                   f"its census counted {r.get('videos_seen')}")
+    videos = _snapshot_videos(client, day)
+    if len(videos) != (row.get("videos_seen") or -1):
+        raise ReprocessRefused(f"{day}: the snapshot holds {len(videos)} videos, "
+                               f"the census counted {row.get('videos_seen')}")
+
+    quota = quota if quota is not None else QuotaCounter()
+    before = {k: row.get(k) or 0 for k in quota.as_ingest_run()}
+    old_notes = [n for n in (row.get("notes") or "").split("; ") if n]
+    notes = [n if not n.startswith("failed: ") else f"processing failed at {row.get('finished_at')}: {n[8:]}"
+             for n in old_notes]
+    notes.append(f"reprocessed at {stamp} by reprocess_day: census from the stored snapshot "
+                 f"({len(videos)} videos), charts not read again")
+    for k in ("id", "entries", "new_channels", "updated", "exits", "baselines_complete"):
+        row.pop(k, None)
+    row.update({"entries": 0, "new_channels": 0, "updated": 0, "exits": 0})
+    discards = dict(row.get("discards") or {})
+    observed = str(row["started_at"])
+    try:
+        # titles for the entries that will become records (not stored in the snapshot)
+        found = census.entries(client, day)
+        want = {e["video_id"] for e in found if e["video_id"] in videos
+                and videos[e["video_id"]]["format"] in MEASURED_FORMATS}
+        for vid, t in _titles(want, api_key, session=session, quota=quota).items():
+            videos[vid].update(t)
+        title_units = quota.total
+        _process(client, day, videos, row, notes, discards, quota, api_key=api_key,
+                 census_complete=True, observed_iso=observed, session=session, sleep=sleep,
+                 storage=storage, reprocessed_iso=stamp)
+        n_left, n_done = _complete_baselines(client, day, videos, notes, quota, api_key=api_key,
+                                             session=session, sleep=sleep, reprocessed_iso=stamp)
+        for r in later:
+            caught = _catch_up(client, day, date.fromisoformat(str(r["day"])[:10]))
+            notes.append(f"caught up {str(r['day'])[:10]} for this day's records: "
+                         f"{caught['views']} daily views, {caught['exits']} exits")
+        entered = _rpc_all(client, "records_of_day", {"d": day.isoformat()}, "post_id")
+        waiting = sum(r["baseline_rule"] in ("quota_stop", "read_failed") for r in entered)
+        row["entries"] = len(entered)
+        row["baselines_complete"] = waiting == 0
+        notes.append(f"reprocess: titles {title_units} units; {n_done}/{n_left} records completed "
+                     f"that were written without a baseline; {waiting} still without a VPI; "
+                     f"{quota.total} units in this pass")
+        row["outcome"] = "ok"
+        return row
+    except Exception as e:
+        row["outcome"] = "failed"
+        notes.append(f"reprocess failed: {type(e).__name__}: {str(e)[:300]}")
+        raise
+    finally:
+        spent = quota.as_ingest_run()
+        for k, v in spent.items():
+            row[k] = before.get(k, 0) + v
+        row["reprocessed_at"] = stamp
+        row["finished_at"] = datetime.now(timezone.utc).isoformat()
+        row["notes"] = "; ".join(notes)
+        row["discards"] = discards
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
 
 
@@ -528,18 +863,19 @@ def reading_day(now: datetime | None = None):
 
 
 def has_complete_reading_before(client, day) -> bool:
-    """True when an ingest_run with outcome 'ok' exists for a day before `day`.
+    """True when a reading with a complete census exists for a day before `day`
+    (INC-1b: the census, not the outcome of what followed it).
 
     Without one there is no reference to compare against (01 section 4), so
-    the reading is day 0: census and permanent snapshot only. This makes day 0
+    the reading is day 0: census and snapshot only. This makes day 0
     automatic, with no environment flag to set and then remember to unset; a
     partial day 0 is not a reference, so the next night is day 0 again.
     """
-    res = client.table("ingest_run").select("*").in_("outcome", ["ok"]).execute()
+    res = client.table("ingest_run").select("*").in_("census_complete", [True]).execute()
     return any(str(r["day"])[:10] < day.isoformat() for r in (res.data or []))
 
 
-def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
+def esegui_un_ciclo(con_scadenze: bool = True, rerun: bool = False) -> dict:
     """One daily reading for the reading day (UTC), configured from the environment.
 
     Day 0 (census only) when no complete reading exists before the reading
@@ -556,7 +892,14 @@ def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
     day = reading_day()
     snapshot_only = _env_flag("SNAPSHOT_ONLY") or not has_complete_reading_before(client, day)
     return run_daily(client, day, api_key=YOUTUBE_API_KEY, countries=countries,
-                     snapshot_only=snapshot_only)
+                     snapshot_only=snapshot_only, rerun=rerun)
+
+
+def riprendi_un_giorno(day) -> dict:
+    """reprocess_day for `day`, configured from the environment (service role)."""
+    key = os.getenv("SUPABASE_SERVICE_KEY") or SUPABASE_KEY
+    client = create_client(SUPABASE_URL, key)
+    return reprocess_day(client, day, api_key=YOUTUBE_API_KEY)
 
 
 def start_engine():

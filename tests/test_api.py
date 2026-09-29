@@ -126,7 +126,8 @@ def test_posts_selects_the_claim_token_but_no_internal_column(api):
 def test_the_lock_uses_the_reading_day(api, monkeypatch):
     """A second attempt at 00:30 UTC finds the row of the day just closed."""
     client, db = api
-    db.data["ingest_run"] = [{"day": "2026-10-01", "outcome": "ok"}]
+    db.data["ingest_run"] = [{"day": "2026-10-01", "outcome": "ok", "census_complete": True,
+                              "finished_at": "2026-10-02T00:38:00+00:00"}]
     monkeypatch.setattr(main, "reading_day", lambda: date(2026, 10, 1))
     monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("must not run"))
     r = client.post("/api/ingest/run", headers=AUTH)
@@ -247,7 +248,8 @@ def test_a_second_run_for_the_same_day_is_409(api, monkeypatch):
 
     def fake_reading():
         ran.append(today)
-        db.data["ingest_run"].append({"day": today, "outcome": "ok"})
+        db.data["ingest_run"].append({"day": today, "outcome": "ok", "census_complete": True,
+                                      "finished_at": "2026-10-02T00:38:00+00:00"})
         main._ingestione_in_corso = False
     monkeypatch.setattr(main, "_giro_di_ingestione", fake_reading)
     first = client.post("/api/ingest/run", headers=AUTH)
@@ -255,14 +257,6 @@ def test_a_second_run_for_the_same_day_is_409(api, monkeypatch):
     second = client.post("/api/ingest/run", headers=AUTH)
     assert second.status_code == 409 and second.json()["detail"]["outcome"] == "ok"
     assert ran == [today]
-
-
-@pytest.mark.parametrize("outcome", ["partial", "failed", None])
-def test_any_existing_row_for_today_is_409(api, monkeypatch, outcome):
-    client, db = api
-    db.data["ingest_run"] = [{"day": main.reading_day().isoformat(), "outcome": outcome}]
-    monkeypatch.setattr(main, "_giro_di_ingestione", lambda: pytest.fail("must not run"))
-    assert client.post("/api/ingest/run", headers=AUTH).status_code == 409
 
 
 def test_without_the_service_key_the_lock_fails_closed(api, monkeypatch):
@@ -346,3 +340,89 @@ def test_public_reads_are_floored_at_the_series_start(api):
     assert db.last("posts").has("gte", "entered_on", main.vpi_core.series_floor())
     client.get("/api/analytics/top10?timeframe=all")
     assert db.last("post_daily").has("gte", "posts.entered_on", main.vpi_core.series_floor())
+
+
+# --- the second attempt fires whenever the day is not complete (owner rule 29/09/2026) ---
+
+OLD = "2026-09-28T23:59:01+00:00"      # started long before the attempt
+FIN = "2026-09-29T00:00:08+00:00"
+
+
+def _attempt(api, monkeypatch, row):
+    client, db = api
+    today = main.reading_day()
+    db.data["ingest_run"] = [] if row is None else [{"day": today.isoformat(), **row}]
+    calls = []
+    monkeypatch.setattr(main, "_ripresa_di_un_giorno", lambda d: calls.append(("resume", d)))
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda rerun=False: calls.append(("read", rerun)))
+    r = client.post("/api/ingest/run", headers=AUTH)
+    main._ingestione_in_corso = False
+    return r, calls, today
+
+
+def test_no_run_for_the_day_reads_it(api, monkeypatch):
+    r, calls, _ = _attempt(api, monkeypatch, None)
+    assert r.status_code == 200 and r.json()["stato"] == "avviato" and calls == [("read", False)]
+
+
+def test_a_failed_run_with_a_complete_census_is_resumed_not_read_again(api, monkeypatch):
+    # the 28/09 case: census complete, processing failed
+    r, calls, today = _attempt(api, monkeypatch, {"outcome": "failed", "census_complete": True,
+                                                  "started_at": OLD, "finished_at": FIN})
+    assert r.status_code == 200 and r.json()["stato"] == "ripresa" and calls == [("resume", today)]
+
+
+def test_a_run_that_failed_before_its_census_is_read_again(api, monkeypatch):
+    r, calls, _ = _attempt(api, monkeypatch, {"outcome": "failed", "census_complete": None,
+                                              "started_at": OLD, "finished_at": FIN})
+    assert r.status_code == 200 and r.json()["stato"] == "rilettura" and calls == [("read", True)]
+
+
+def test_an_incomplete_census_is_read_again(api, monkeypatch):
+    r, calls, _ = _attempt(api, monkeypatch, {"outcome": "partial", "census_complete": False,
+                                              "started_at": OLD, "finished_at": FIN})
+    assert r.status_code == 200 and r.json()["stato"] == "rilettura" and calls == [("read", True)]
+
+
+def test_a_run_that_died_after_its_census_is_resumed(api, monkeypatch):
+    # finished_at never written: the process was killed; the census is on record
+    r, calls, today = _attempt(api, monkeypatch, {"outcome": None, "census_complete": True,
+                                                  "started_at": OLD, "finished_at": None})
+    assert r.json()["stato"] == "ripresa" and calls == [("resume", today)]
+
+
+def test_a_run_that_died_before_its_census_is_read_again(api, monkeypatch):
+    r, calls, _ = _attempt(api, monkeypatch, {"outcome": None, "census_complete": None,
+                                              "started_at": OLD, "finished_at": None})
+    assert r.json()["stato"] == "rilettura" and calls == [("read", True)]
+
+
+def test_a_run_that_just_started_is_left_alone(api, monkeypatch):
+    now = datetime.now(timezone.utc).isoformat()
+    r, calls, _ = _attempt(api, monkeypatch, {"outcome": None, "census_complete": None,
+                                              "started_at": now, "finished_at": None})
+    assert r.json()["stato"] == "gia_in_corso" and calls == []
+
+
+def test_a_complete_day_is_never_repeated(api, monkeypatch):
+    r, calls, _ = _attempt(api, monkeypatch, {"outcome": "ok", "census_complete": True,
+                                              "started_at": OLD, "finished_at": FIN})
+    assert r.status_code == 409 and calls == []
+
+
+def test_a_reading_in_progress_in_this_process_is_not_doubled(api, monkeypatch):
+    client, db = api
+    monkeypatch.setattr(main, "_ingestione_in_corso", True)
+    monkeypatch.setattr(main, "_giro_di_ingestione", lambda rerun=False: pytest.fail("must not run"))
+    assert client.post("/api/ingest/run", headers=AUTH).json()["stato"] == "gia_in_corso"
+
+
+def test_reprocess_endpoint_needs_the_token_and_a_date(api, monkeypatch):
+    client, _ = api
+    started = []
+    monkeypatch.setattr(main, "_ripresa_di_un_giorno", lambda d: started.append(d))
+    assert client.post("/api/ingest/reprocess/2026-09-28").status_code == 401
+    assert client.post("/api/ingest/reprocess/yesterday", headers=AUTH).status_code == 400
+    r = client.post("/api/ingest/reprocess/2026-09-28", headers=AUTH)
+    assert r.status_code == 200 and started == [date(2026, 9, 28)]
+    main._ingestione_in_corso = False

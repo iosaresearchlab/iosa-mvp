@@ -80,8 +80,10 @@ run under the long-form perimeter that passed `tests/check_run.py`, T-16b). Ever
 Most Popular charts before that date is outside the measurement: we did not
 observe it arrive, so we do not measure it.
 
-The day-0 snapshot is retained permanently as the reference state of the
-population at the start, and produces no records for that period. A day-0
+The day-0 snapshot is the reference state of the population at the start,
+and produces no records for that period. Like every snapshot it is working
+data, kept 7 days in the database and archived after that (owner decision
+28/09/2026, `02` §3.1). A day-0
 video becomes eligible only once we have observed it absent from all charts;
 if it later returns, that return is an entry we did observe and is measured
 like any other. Its view count is cumulative and therefore includes the
@@ -236,8 +238,9 @@ is computed.** Cost: 1,486 units.
 
 Videos already in the chart on day 0 do not enter the index while they
 remain in it: we could not say when they entered. **Day 0's snapshot is
-retained permanently as the reference state of the population**; it never
-enters the metrics. **A day-0 video becomes eligible again only once we have
+the reference state of the population**; it never enters the metrics. *(Kept
+7 days like every snapshot, then archived: owner decision 28/09/2026, `02`
+§3.1.)* **A day-0 video becomes eligible again only once we have
 observed it absent from all charts**: if it later returns, we observed that
 entry, and it is recorded like any other. *(Made explicit 25/09/2026. No
 separate exclusion list is kept: the reference for every day is the last
@@ -267,6 +270,20 @@ baselines were stopped by the brake is a complete reading; the entries it
 did not reach are records without a VPI (`quota_stop`), and that is an
 incident, counted and reported. The completeness of the baselines decides
 only each record, through its own `baseline_rule`.
+
+**Nor is a crash after a complete census.** *(29/09/2026, owner decision,
+INC-1.)* A reading whose chart census is complete is the next day's
+reference and the starting point for its own reprocessing, whatever broke
+after it. The stored snapshot is that census, already paid for: the day's
+processing (entries, baselines, daily views, exits) is finished later from
+it, without reading the charts again (`reprocess_day`). The numerator is the
+view count stored at 23:59; the baseline window is unchanged, anchored to
+each video's own publication; only the view counts of the window videos are
+read later than on a normal night. Every such record carries
+`reprocessed_at` and the time its baseline was actually read
+(`baseline_computed_at`), so the two read timings are never mixed silently.
+The same applies to the records a quota stop left without a VPI: they are
+completed the next morning, after the quota resets.
 
 **If a day's reading is missed, entry status becomes indeterminate.** The
 comparison still runs against the most recent **complete** reading rather

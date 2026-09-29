@@ -284,16 +284,16 @@ def test_entries_reads_every_page_of_the_rpc():
     assert ranges == [(0, 999), (1000, 1999), (2000, 2999)]
 
 
-def test_save_snapshot_writes_every_video_in_batches_with_the_permanent_flag():
+def test_save_snapshot_writes_every_video_in_batches_with_no_permanent_flag():
     videos = {f"v{i:04d}": {"channel_id": "UCa", "format": "SHORT",
                             "published_at": None, "views": 1,
                             "countries": {"US", "IT"}, "categories": {"24", "10"}}
               for i in range(1201)}
     db = RecordingClient()
-    assert census.save_snapshot(db, date(2026, 10, 1), videos, permanent=True) == 1201
+    assert census.save_snapshot(db, date(2026, 10, 1), videos) == 1201
     batches = [op[2] for op in db.ops if op[0] == "upsert"]
     assert [len(b) for b in batches] == [500, 500, 201]
     row = batches[0][0]
-    assert row["day"] == "2026-10-01" and row["permanent"] is True
+    assert row["day"] == "2026-10-01" and "permanent" not in row   # 02 §3.1, 28/09/2026
     assert row["countries"] == ["IT", "US"] and row["categories"] == ["10", "24"]
     assert all(op[1] == "trend_snapshot" for op in db.ops)
