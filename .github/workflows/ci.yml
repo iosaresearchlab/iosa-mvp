@@ -1,12 +1,12 @@
 # CI for the v2 implementation loop (docs/08-implementation-plan.md, T-01).
-# Runs the backend tests and the frontend build on every push to the working
-# branch and on every pull request. It never calls the YouTube API and holds
+# Runs the backend tests and the frontend build on every push to main
+# and on every pull request. It never calls the YouTube API and holds
 # no secrets.
 name: CI
 
 on:
   push:
-    branches: [docs/methodology-v2]
+    branches: [main]
   pull_request:
 
 permissions:
