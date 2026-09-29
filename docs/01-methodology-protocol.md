@@ -271,6 +271,20 @@ did not reach are records without a VPI (`quota_stop`), and that is an
 incident, counted and reported. The completeness of the baselines decides
 only each record, through its own `baseline_rule`.
 
+**Nor is a crash after a complete census.** *(29/09/2026, owner decision,
+INC-1.)* A reading whose chart census is complete is the next day's
+reference and the starting point for its own reprocessing, whatever broke
+after it. The stored snapshot is that census, already paid for: the day's
+processing (entries, baselines, daily views, exits) is finished later from
+it, without reading the charts again (`reprocess_day`). The numerator is the
+view count stored at 23:59; the baseline window is unchanged, anchored to
+each video's own publication; only the view counts of the window videos are
+read later than on a normal night. Every such record carries
+`reprocessed_at` and the time its baseline was actually read
+(`baseline_computed_at`), so the two read timings are never mixed silently.
+The same applies to the records a quota stop left without a VPI: they are
+completed the next morning, after the quota resets.
+
 **If a day's reading is missed, entry status becomes indeterminate.** The
 comparison still runs against the most recent **complete** reading rather
 than "yesterday" by definition, but a video first seen after a gap cannot be

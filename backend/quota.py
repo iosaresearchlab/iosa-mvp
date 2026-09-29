@@ -5,9 +5,12 @@ section 6. Counted, not estimated: every HTTP attempt to the YouTube Data
 API is marked here BEFORE it is sent, so the counter can never lag behind
 the calls, and the brake stops the call that would cross the limit.
 
-The limit is QUOTA_MAX_DAILY (default 9,500). It may be lowered (the dry
-run uses 2,000); it can never be raised above 9,500: a larger value is
-clamped, because a brake that can be configured away is not a brake.
+The limit is QUOTA_MAX_DAILY (default 9,900, set by the owner on 29/09/2026;
+it was 9,500). It may be lowered (the dry run uses 2,000); it can never be
+raised above 9,900: a larger value is clamped, because a brake that can be
+configured away is not a brake. The margin to the real 10,000 ceiling only
+keeps the stop at a recorded point: what the brake did not reach is written
+as quota_stop and completed by reprocess_day after the reset.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ import os
 import threading
 from collections import Counter
 
-QUOTA_HARD_MAX = 9_500
+QUOTA_HARD_MAX = 9_900   # owner decision 29/09/2026 (was 9,500)
 
 # the ingest_run column each endpoint is written to
 COLUMNS = {"charts": "quota_charts", "channels": "quota_channels",

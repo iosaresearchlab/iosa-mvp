@@ -1,6 +1,8 @@
 -- The nightly check, as one SQL statement: the same criteria as
 -- tests/check_run.py, for the scheduled task that runs without the device.
 -- :day defaults to yesterday (UTC). One row; verdict = 'PASS' or 'FAIL'.
+-- waiting_for_reprocess: the day's records without a VPI that reprocess_day
+-- completes after the quota resets (the ripresa-iosa job, 08:20 UTC).
 -- Also fails when the database passes 400 MB of the 500 MB free tier, when
 -- Storage passes 800 MB of its 1 GB, and when the snapshot retention did not
 -- run clean (02 section 3.1): no retention line in the notes, a RETENTION
@@ -20,6 +22,8 @@ c as (select
   (select count(*) from p)                                             as records,
   (select count(*) from p where baseline_rule = 'quota_stop')          as quota_stop,
   (select count(*) from p where baseline_rule = 'read_failed')         as read_failed,
+  (select count(*) from p where baseline_rule in ('quota_stop', 'read_failed')) as waiting_for_reprocess,
+  (select census_complete from r)                                      as census_complete,
   (select count(*) from p where not ((baseline_rule = 'standard' and baseline_score is not null
                                       and vpi_ratio is not null)
                                      or (baseline_rule = 'not_computable' and vpi_ratio is null))) as bad_records,
@@ -31,7 +35,7 @@ c as (select
   (select coalesce(sum((metadata->>'size')::bigint), 0) from storage.objects) as storage_bytes,
   pg_database_size(current_database())                                 as db_bytes)
 select (select day from d) as day,
-       case when runs = 1 and finished and quota_total <= 9500 and outcome = 'ok'
+       case when runs = 1 and finished and quota_total <= 9900 and outcome = 'ok'
                  and slices_error = 0 and records > 0 and quota_stop = 0
                  and bad_records = 0 and shorts = 0 and units_in_notes
                  and retention_ran and not retention_failed and stale_snapshot_days = 0

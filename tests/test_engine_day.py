@@ -121,7 +121,7 @@ def world(db):
 def run(client, fake, n, *, snapshot_only=False, limit=None, storage=None):
     fake.calls = []
     row = eng.run_daily(client, day(n), api_key=KEY, countries=COUNTRIES, categories=CATS,
-                        snapshot_only=snapshot_only, quota=q.QuotaCounter(limit=limit or 9500),
+                        snapshot_only=snapshot_only, quota=q.QuotaCounter(limit=limit or 9900),
                         rng=random.Random(n), sleep=lambda s: None, now=at(n),
                         storage=storage if storage is not None else retention.MemoryStorage())
     return row
@@ -528,3 +528,45 @@ def test_a_record_with_a_baseline_is_never_touched_by_reprocess(world):
     reprocess(client, fake, 1)
     assert one(db, "select external_post_id, baseline_score, baseline_computed_at, reprocessed_at "
                    "from posts order by 1") == before
+
+
+
+# --- the second attempt on an incomplete census (owner rule 29/09/2026) -------
+
+
+def test_a_second_attempt_reads_an_incomplete_census_again_and_keeps_both(world):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = {("IT", "24"): [("a", 950), ("n1", 5000), ("b", 100)], ("US", "10"): 503}
+    run(client, fake, 1)                                   # incomplete: US/10 unread
+    first = one(db, "select census_complete, quota_total from ingest_run where day = %s", day(1))[0]
+    assert first[0] is False
+    fake.charts = DAY1                                     # b has left by the second read
+    fake.calls = []
+    eng.run_daily(client, day(1), api_key=KEY, countries=COUNTRIES, categories=CATS,
+                  quota=q.QuotaCounter(limit=9900), rng=random.Random(11), sleep=lambda s: None,
+                  now=at(1, 0), storage=retention.MemoryStorage(), rerun=True)
+    r = one(db, "select outcome, census_complete, videos_seen, quota_total, notes from ingest_run "
+                "where day = %s", day(1))[0]
+    assert r[:2] == ("ok", True)
+    assert one(db, "select count(*) from trend_snapshot where day = %s", day(1))[0][0] == r[2]
+    assert one(db, "select count(*) from trend_snapshot where day = %s and video_id = 'b'", day(1)) == [(1,)]
+    assert r[3] == first[1] + len(fake.calls)              # both attempts counted, one day
+    assert "second attempt" in r[4] and "seen only by the first attempt" in r[4]
+    p = posts(db)
+    assert {"n1", "n2"} <= set(p)                          # n2 was in the unread slice
+    assert one(db, "select count(*) from posts where external_post_id = 'n1'") == [(1,)]   # not repeated
+
+
+def test_a_second_attempt_never_reads_a_complete_census_again(world, monkeypatch):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = DAY1
+    _crash_after_census(monkeypatch)
+    with pytest.raises(RuntimeError):
+        run(client, fake, 1)
+    fake.calls = []
+    with pytest.raises(eng.ReprocessRefused, match="never read again"):
+        eng.run_daily(client, day(1), api_key=KEY, countries=COUNTRIES, categories=CATS,
+                      quota=q.QuotaCounter(limit=9900), sleep=lambda s: None, now=at(1, 0), rerun=True)
+    assert fake.calls == []                                # not one chart read

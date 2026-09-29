@@ -306,3 +306,12 @@ def test_a_complete_census_whose_processing_failed_is_the_reference(db):
                     "values (%s, now(), now(), 'failed', true)", (d(1),))
     snap(db, d(2), ["a", "b", "c"])
     assert entries(db, d(2)) == {"c": (0, True)}
+
+
+def test_the_morning_pass_is_scheduled_and_not_callable_by_any_api_role(db):
+    with db.cursor() as cur:
+        cur.execute("select schedule, command, active from cron.job where jobname = 'ripresa-iosa'")
+        assert cur.fetchone() == ("20 8 * * *", "select public.ripresa_se_serve()", True)
+        for role in ("anon", "authenticated", "service_role"):
+            cur.execute("select has_function_privilege(%s, 'public.ripresa_se_serve()', 'execute')", (role,))
+            assert cur.fetchone() == (False,), role

@@ -226,16 +226,16 @@ def _keepalive(stop, url, interval=KEEPALIVE_SECONDS, get=None):
             log.info("keepalive: %s", e)
 
 
-def _giro_di_ingestione():
+def _giro_di_ingestione(rerun=False):
     global _ingestione_in_corso
     stop = threading.Event()
     url = (os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
     if url:
         threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
     try:
-        esiti = esegui_un_ciclo()
+        esiti = esegui_un_ciclo(rerun=rerun)
         log.info("ingestione su richiesta conclusa: %s", esiti)
-    except RunAlreadyExists as e:
+    except (RunAlreadyExists, ReprocessRefused) as e:
         log.warning("reading refused: %s", e)
     except Exception as e:
         log.error("reading failed: %s", e)
@@ -263,11 +263,41 @@ def _ripresa_di_un_giorno(day):
         _ingestione_in_corso = False
 
 
+DEAD_RUN_AFTER = timedelta(minutes=5)
+
+
+def _second_attempt(row, now=None):
+    """What an attempt does with the day's existing row (owner rule 29/09/2026).
+
+    'read'    no row: the reading.
+    'resume'  the census is complete and on record but the processing did not
+              finish (failed, or the run died): reprocess_day from the snapshot.
+    'reread'  the census is not complete (failed before it, incomplete, or the
+              run died before recording it): the census again.
+    'done'    census complete and processing finished: nothing is repeated.
+    A row with no finish while no reading runs in this process, started more
+    than DEAD_RUN_AFTER ago, is a run that died (a restart kills the task).
+    """
+    if not row:
+        return "read"
+    finished = bool(row.get("finished_at"))
+    if not finished:
+        started = row.get("started_at")
+        try:
+            t = datetime.fromisoformat(str(started).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            t = None
+        now = now or datetime.now(timezone.utc)
+        if t is not None and now - t < DEAD_RUN_AFTER:
+            return "running"
+    census = row.get("census_complete") is True
+    if census and finished and row.get("outcome") in ("ok", "partial"):
+        return "done"
+    return "resume" if census else "reread"
+
+
 def _resumable(row) -> bool:
-    """A finished reading whose census is complete and whose processing failed:
-    the second attempt resumes it from the snapshot (INC-1b)."""
-    return bool(row and row.get("census_complete") is True and row.get("outcome") == "failed"
-                and row.get("finished_at"))
+    return _second_attempt(row) == "resume"
 
 
 def _ingest_run_for(day):
@@ -308,14 +338,23 @@ def avvia_ingestione(background: BackgroundTasks,
                             detail="SUPABASE_SERVICE_KEY non configurata: il lock giornaliero non e' verificabile.")
     oggi = reading_day()
     esistente = _ingest_run_for(oggi)
-    if _resumable(esistente):
-        # The census of the day is complete and already paid for: the second
-        # attempt resumes the processing from the snapshot instead of
-        # answering "already read" (owner decision 29/09/2026).
+    azione = _second_attempt(esistente)
+    # The second attempt fires whenever the day is not complete, and never
+    # repeats work that succeeded (owner rule, 29/09/2026): a complete census
+    # on disk is resumed, never bought again; an incomplete one is read again.
+    if azione == "resume":
         _ingestione_in_corso = True
         background.add_task(_ripresa_di_un_giorno, oggi)
         return {"stato": "ripresa", "day": oggi.isoformat(),
-                "dettaglio": "Censimento completo, elaborazione fallita: ripresa dallo snapshot."}
+                "dettaglio": "Censimento completo, elaborazione non finita: ripresa dallo snapshot."}
+    if azione == "reread":
+        _ingestione_in_corso = True
+        background.add_task(_giro_di_ingestione, True)
+        return {"stato": "rilettura", "day": oggi.isoformat(),
+                "dettaglio": "Censimento non completo: seconda lettura delle classifiche."}
+    if azione == "running":
+        return {"stato": "gia_in_corso", "day": oggi.isoformat(),
+                "dettaglio": "La lettura del giorno e' appena partita."}
     if esistente:
         raise HTTPException(status_code=409,
                             detail={"day": oggi.isoformat(), "outcome": esistente.get("outcome"),

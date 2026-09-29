@@ -351,8 +351,16 @@ def _is_unique_violation(exc):
 
 def run_daily(client, day, *, api_key, countries=None, categories=None,
               snapshot_only=False, quota=None, session=None, rng=None,
-              sleep=time.sleep, now=None, storage=None) -> dict:
+              sleep=time.sleep, now=None, storage=None, rerun=False) -> dict:
     """One daily reading. Returns the ingest_run row written for the day.
+
+    rerun=True is the second attempt on a day whose census is not complete
+    (failed before it, incomplete, or a run that died before recording it):
+    the census is read again, a complete census already on record never is.
+    The snapshot becomes the union of both attempts: a video seen by either
+    was observed present that day. The day's quota counts both attempts
+    against one brake. Work of the first attempt that succeeded (records
+    already written) is not repeated: entries exclude existing records.
 
     snapshot_only=True is day 0: the snapshot and nothing else (01 §4).
     After a complete census, the snapshot retention (02 section 3.1): every
@@ -382,20 +390,40 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         rng = random.Random(seed)
     else:
         seed = None
-    try:
-        client.table("ingest_run").insert(
-            {"day": day.isoformat(), "started_at": now_iso}).execute()
-    except Exception as e:
-        if _is_unique_violation(e):
-            raise RunAlreadyExists(f"ingest_run for {day} already exists") from e
-        raise
+    prior, prior_notes = {}, []
+    if rerun:
+        found = client.table("ingest_run").select("*").in_("day", [day.isoformat()]).execute().data or []
+        if not found:
+            raise ReprocessRefused(f"{day}: no first attempt to follow")
+        first = found[0]
+        if first.get("census_complete") is True:
+            raise ReprocessRefused(f"{day}: the census is complete, it is never read again: "
+                                   "reprocess_day finishes the processing")
+        prior = {k: first.get(k) or 0 for k in QuotaCounter().as_ingest_run()}
+        prior_notes = [n for n in (first.get("notes") or "").split("; ") if n]
+        prior_notes = [f"first attempt started {first.get('started_at')}, "
+                       f"{'outcome ' + str(first.get('outcome')) if first.get('finished_at') else 'never finished'}"] \
+            + [("first attempt " + n) if n.startswith("failed: ") else n for n in prior_notes]
+        # one brake for the day: the second attempt gets what the first left
+        quota = QuotaCounter(limit=max(1, quota.limit - prior.get("quota_total", 0)))
+        client.table("ingest_run").update({"started_at": now_iso, "finished_at": None,
+                                           "outcome": None}).eq("day", day.isoformat()).execute()
+    else:
+        try:
+            client.table("ingest_run").insert(
+                {"day": day.isoformat(), "started_at": now_iso}).execute()
+        except Exception as e:
+            if _is_unique_violation(e):
+                raise RunAlreadyExists(f"ingest_run for {day} already exists") from e
+            raise
 
     row = {"day": day.isoformat(), "started_at": now_iso, "outcome": "failed",
            "entries": 0, "new_channels": 0, "updated": 0, "exits": 0,
            "discards": {}, "notes": None}
-    notes = [f"slice order seed {seed}" if seed is not None else "slice order: caller rng",
-             f"countries {len(countries)}, categories {len(categories)}",
-             f"quota limit {quota.limit}"]
+    notes = prior_notes + ([f"second attempt at {now_iso}"] if rerun else []) + [
+        f"slice order seed {seed}" if seed is not None else "slice order: caller rng",
+        f"countries {len(countries)}, categories {len(categories)}",
+        f"quota limit {quota.limit}"]
     try:
         videos, cen = census.read_charts(countries, categories, api_key, session=session,
                                          sleep=sleep, quota=quota, rng=rng)
@@ -406,6 +434,17 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
             notes.append(f"census stopped: {cen['stop_reason']}")
         census.save_snapshot(client, day, videos)
         _analyze_snapshot(client, notes)
+        if rerun:
+            stored = _snapshot_videos(client, day)
+            extra = sorted(set(stored) - set(videos))
+            if extra:
+                for vid in extra:
+                    videos[vid] = stored[vid]
+                for vid, t in _titles(extra, api_key, session=session, quota=quota).items():
+                    videos[vid].update(t)
+            row["videos_seen"] = len(videos)
+            notes.append(f"snapshot = union of both attempts: {len(videos) - len(extra)} read now, "
+                         f"{len(extra)} seen only by the first attempt")
         # The census is on record from here, whatever breaks after it: a
         # complete census is the next day's reference and the starting point
         # of reprocess_day (INC-1, owner decision 29/09/2026).
@@ -430,7 +469,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         notes.append(f"failed: {type(e).__name__}: {str(e)[:300]}")
         raise
     finally:
-        row.update(quota.as_ingest_run())
+        row.update({k: v + prior.get(k, 0) for k, v in quota.as_ingest_run().items()})
         row["finished_at"] = datetime.now(timezone.utc).isoformat()
         row["notes"] = "; ".join(notes)
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
@@ -836,7 +875,7 @@ def has_complete_reading_before(client, day) -> bool:
     return any(str(r["day"])[:10] < day.isoformat() for r in (res.data or []))
 
 
-def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
+def esegui_un_ciclo(con_scadenze: bool = True, rerun: bool = False) -> dict:
     """One daily reading for the reading day (UTC), configured from the environment.
 
     Day 0 (census only) when no complete reading exists before the reading
@@ -853,7 +892,7 @@ def esegui_un_ciclo(con_scadenze: bool = True) -> dict:
     day = reading_day()
     snapshot_only = _env_flag("SNAPSHOT_ONLY") or not has_complete_reading_before(client, day)
     return run_daily(client, day, api_key=YOUTUBE_API_KEY, countries=countries,
-                     snapshot_only=snapshot_only)
+                     snapshot_only=snapshot_only, rerun=rerun)
 
 
 def riprendi_un_giorno(day) -> dict:

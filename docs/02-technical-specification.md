@@ -760,7 +760,10 @@ class QuotaCounter:
     def total(self): return sum(self.per_endpoint.values())
 ```
 
-**Brake**: `QUOTA_MAX_DAILY` (default **9,500**). On reaching the ceiling the
+**Brake**: `QUOTA_MAX_DAILY` (default **9,900**, set by the owner on 29/09/2026;
+it was 9,500: exceeding the real 10,000 costs no penalty, the API answers
+"quota exceeded" until the reset, so the margin only has to keep the stop at a
+recorded point, and 100 units do; 500 were ~140 channels a night). On reaching the ceiling the
 run stops cleanly: the entries it did not reach are written without a
 baseline and without a VPI, `baseline_rule = 'quota_stop'` (`01` §2), their
 count is in the run report. ~~and the run ends with `outcome='partial'`.~~
@@ -794,6 +797,32 @@ the reference and an entry not written would not return.)*
 
 ---
 
+### 4.8 The queries of a reading under the 8 s statement timeout *(INC-1, measured 29/09/2026)*
+
+Every call of the run goes through PostgREST, whose role carries
+`statement_timeout = 8s`. The cost that grows is the one tied to `posts`
+(~2,000 records a day, never deleted) and to `post_daily`. Measured on
+production with `explain analyze`, day 2026-09-28 (8,088 posts, 6,928
+active, 27,455 snapshot rows):
+
+| call | what grows | plan | time |
+|---|---|---|---|
+| `entries_of_day` | `posts` | before INC-1: nested-loop anti join, `posts` scanned once per snapshot row (timed out at 8 s; reproduced 6.0 s); now merge anti join on `posts_external_post_id_idx` | 97 ms |
+| `tracked_of_day` (one page) | active `posts` | hash join; `posts` seq scan (status filter), snapshot by `trend_snapshot_day_idx` | 23 ms inner, 148 ms per page |
+| `close_exits_of_day` (as a select) | active `posts`, `post_daily` | hash anti join on the snapshot pkey; the two subqueries by `post_daily_pkey` | 182 ms |
+| `apply_daily_views` (500 rows) | none (batch) | `posts` and `post_daily` by primary key | per batch |
+| `records_of_day` | `posts` | `posts_entered_idx` | ms |
+| `snapshot_export` (one page), `purge_snapshot_day` | one day of snapshot, capped at 7 days | `trend_snapshot_pkey` | ~0.8 s per page |
+| channel inventory reads | `channel_inventory` | primary key | ms |
+
+Every probe side of every join is indexed (`trend_snapshot` (day,
+video_id), `posts.external_post_id`, `post_daily` (post_id, day)), so a
+misestimate after a bulk write can no longer turn into a scan per row. The
+one scan that grows linearly is the sequential read of `posts` for the
+active filter (5.5 ms at 8,088 rows): about 0.1 s at 100,000 records, far
+from the limit. Nothing else is close; nothing else changed. Re-measure with
+the same `explain analyze` when `posts` passes 100,000 rows.
+
 ## 5. Scheduling
 
 `cron.job` id 1 (`ingestione-iosa`): from `*/20 * * * *` to
@@ -809,8 +838,57 @@ hour year-round.
 `run_engine.py`: `--un-ciclo` remains as the fallback if pg_cron fails. The
 continuous loop and `--minuti` go.
 
-**Second attempt**: at 00:30 UTC, only if no `ingest_run` exists for the day
-just closed. Covers the case where Render does not wake in time.
+**Second attempt** *(owner rule, 29/09/2026)*: at 00:30 UTC it fires
+whenever the day just closed is not complete, and never repeats work that
+succeeded (`main._second_attempt`):
+
+| the day's row | the second attempt |
+|---|---|
+| none (Render did not wake) | the reading |
+| census complete, processing failed or the run died after the census | `reprocess_day` from the snapshot: the census is never bought again |
+| census not complete (failed before it, incomplete, or died before it) | the census again (`run_daily(rerun=True)`); the snapshot is the union of both attempts, both counted against one brake; records already written are not repeated |
+| a run started less than 5 minutes ago | left alone |
+| census complete and processing finished | 409: nothing to do |
+
+A run "died" when its row has no `finished_at`, no reading is running in the
+process, and it started more than 5 minutes ago (a restart kills the
+task). Records the brake did not reach wait for the 08:20 morning pass: at
+00:30 the quota has not reset.
+
+**`reprocess_day <day>`** *(29/09/2026, INC-1b)*. `backend/reprocess_day.py`,
+`POST /api/ingest/reprocess/{day}` (trigger token), or
+`chiedi_ripresa_di_un_giorno(day)` from the database (token read from the
+Vault). It finishes a day whose census is complete: loads the stored
+snapshot as the census (never the charts), fetches only the titles of the
+entries to be written (`videos.list` snippet, 1 unit per 50 ids: descriptive
+fields, not the measurement), runs the same processing as the night
+(`vpi_engine._process`), completes the day's records written without a
+baseline (`complete_baselines`: only `quota_stop` and `read_failed`, never a
+frozen baseline), and catches later days up for those records from their own
+snapshots. It refuses a day whose census is not complete, whose snapshot is
+not the one the census counted (`videos_seen`), that is still being read, or
+whose later days are not finished complete censuses with intact snapshots.
+The run report is rewritten: the original failure kept as "processing failed
+at ...", the reprocess line, and the quota of both passes added.
+
+- `ingest_run.census_complete`: written right after the snapshot, before any
+  processing. It alone decides the reference (`entries_of_day`,
+  `purge_snapshot_day`) and whether exits may be closed
+  (`close_exits_of_day`). `outcome` says whether the processing finished.
+- Records written or completed by `reprocess_day` carry `reprocessed_at`;
+  `baseline_computed_at` is the actual read time of every baseline (per
+  batch of 50 channels), night or not.
+- A reprocessed record names as `country`/`category` the first of its sets in
+  canonical order: the snapshot keeps the sets, not the slice pairs, and
+  neither field enters any statistic.
+
+**Morning pass** *(29/09/2026, INC-1d)*: pg_cron job `ripresa-iosa` at
+**08:20 UTC**, after the quota reset in every season (midnight Pacific =
+07:00 UTC in summer, 08:00 in winter), calls `ripresa_se_serve()`: if
+yesterday's census is complete and either its processing failed or records
+are waiting without a VPI (`quota_stop`, `read_failed`), it asks the backend
+for `reprocess_day` of yesterday. Otherwise nothing is called. The brake is
+unchanged; whatever it does not reach waits for the next morning.
 
 ---
 
@@ -949,7 +1027,7 @@ identical.
 **Phase C — day 1 and the gate**
 10. Second full run, first v2 records
 11. **Audit** from `ingest_run`:
-    - `quota_total ≤ 9,500` → proceed
+    - `quota_total ≤ 9,900` → proceed
     - over → `BASELINE_SAMPLES_MAX = 10`, re-measure
     - still over → **reduce countries**, and only that
 12. Frontend and public copy **only after** the audit passes
@@ -966,7 +1044,7 @@ identical.
 
 | Risk | Effect | Mitigation |
 |---|---|---|
-| Quota overrun on day 1 | partial run | brake at 9,500, `partial` outcome, resume with a flag |
+| Quota overrun | entries without a VPI | brake at 9,900 (was 9,500), `quota_stop` records, completed by `reprocess_day` at the 08:20 UTC morning pass |
 | **Missing snapshot day** | **every video looks new: spend explodes and entry dates are corrupted** | `entries_of_day()` compares against the most recent complete reading and writes `gap_days`; records created after a gap carry `entry_certain = false` and are excluded from entry-date statistics |
 | Render asleep | run skipped | `timeout_milliseconds: 90000` already present + second attempt at 00:30 UTC |
 | Double run | quota doubled | unique on `ingest_run.day` + 409 |
@@ -976,7 +1054,7 @@ identical.
 
 ## 10. Definition of done
 
-- yesterday's `ingest_run` with `outcome='ok'` and `quota_total ≤ 9,500`
+- yesterday's `ingest_run` with `outcome='ok'` and `quota_total ≤ 9,900`
 - every v2 record has `entered_on` set and `baseline_computed_at` equal to
   `entered_on`
 - records with a VPI below 1 exist, and so do records with

@@ -3,6 +3,9 @@
 -- database, never handled outside it. Used for 2026-09-28 (INC-1) and for
 -- any day whose processing is incomplete (reprocess_day). Callable by the
 -- database owner only: no API role may execute it.
+--
+-- Applied to project jodgdhkfkgvbyirvfcds on 2026-09-29 as migration
+-- 20260929124500 "v2_inc1c_reprocess_trigger"; below this header, the exact SQL applied.
 
 create function public.chiedi_ripresa_di_un_giorno(p_day date)
 returns bigint

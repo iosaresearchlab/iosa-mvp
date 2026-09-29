@@ -41,7 +41,9 @@ def test_the_schedule_is_2359_with_a_0030_second_attempt(db):
     assert jobs["ingestione-iosa"][0] == "59 23 * * *" and jobs["ingestione-iosa"][2] is True
     assert jobs["ingestione-iosa-retry"] == ("30 0 * * *",
                                              "select public.chiedi_un_giro_di_ingestione()", True)
-    assert len(jobs) == 2
+    # INC-1d (29/09/2026): the morning pass, after the quota reset
+    assert jobs["ripresa-iosa"] == ("20 8 * * *", "select public.ripresa_se_serve()", True)
+    assert len(jobs) == 3
 
 
 def test_public_columns_are_every_posts_column_but_the_private_ones(db):

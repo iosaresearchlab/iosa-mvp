@@ -7,7 +7,7 @@ again. Refuses a day whose census is incomplete, whose snapshot is not the one
 the census counted, or that is still being read (vpi_engine.reprocess_day).
 The same work runs on Render through POST /api/ingest/reprocess/{day}, and by
 itself at the 00:30 second attempt when the night's processing failed.
-Quota: baselines as on a normal night, plus 1 unit per 50 titles; the 9,500
+Quota: baselines as on a normal night, plus 1 unit per 50 titles; the 9,900
 brake applies to this pass. Prints the rewritten run report.
 """
 

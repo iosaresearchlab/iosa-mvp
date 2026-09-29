@@ -135,9 +135,9 @@ def test_the_brake_inside_baseline_resolves_nothing_and_sends_nothing_more():
 # --- the limit itself --------------------------------------------------------
 
 
-def test_default_limit_is_9500(monkeypatch):
+def test_default_limit_is_9900(monkeypatch):
     monkeypatch.delenv("QUOTA_MAX_DAILY", raising=False)
-    assert q.QuotaCounter().limit == 9500
+    assert q.QuotaCounter().limit == 9900
 
 
 def test_the_limit_can_be_lowered(monkeypatch):
@@ -145,10 +145,10 @@ def test_the_limit_can_be_lowered(monkeypatch):
     assert q.QuotaCounter().limit == 2000
 
 
-def test_the_brake_cannot_be_raised_above_9500(monkeypatch):
+def test_the_brake_cannot_be_raised_above_9900(monkeypatch):
     monkeypatch.setenv("QUOTA_MAX_DAILY", "20000")
-    assert q.QuotaCounter().limit == 9500
-    assert q.QuotaCounter(limit=10**9).limit == 9500
+    assert q.QuotaCounter().limit == 9900
+    assert q.QuotaCounter(limit=10**9).limit == 9900
 
 
 @pytest.mark.parametrize("bad", ["0", "-5", "abc"])

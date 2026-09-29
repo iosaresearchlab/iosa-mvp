@@ -69,6 +69,40 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 29 September 2026 — INC-1: the reading of 28/09, and the census as the reference (Migert)
+
+The reading of 2026-09-28 completed its chart census (442 slices, 0 errors,
+27,455 videos in the snapshot) and then failed on the 8 s statement timeout
+in the entry query (no index on `posts.external_post_id`; fixed, INC-1).
+Owner decision: nothing is thrown away and the day gets its VPIs.
+
+- **A complete census is the reference and a starting point for
+  reprocessing, whatever broke after it** (`01` §4, `02` §5). The split of
+  27/09 (census vs baselines) now also covers a crash: `census_complete`
+  decides the reference, not `outcome`.
+- **`reprocess_day`** finishes such a day from its stored snapshot, never
+  re-reading the charts; the 00:30 second attempt resumes instead of
+  answering 409; the 08:20 UTC morning pass completes the records a quota
+  stop left without a VPI.
+- **28/09 was reprocessed on 29/09.** Its numerators are the views stored at
+  23:59; its baselines were read about fifteen hours late (the window is the
+  same, anchored to publication; only the window videos' view counts are
+  later). **Bookkeeping:** every such record carries `reprocessed_at`, and
+  `baseline_computed_at` is the actual read time, so the late read can
+  always be told apart. Accepted explicitly by the owner.
+- Titles of the reprocessed records come from `videos.list` at reprocess
+  time (the snapshot does not store titles); `country`/`category` are the
+  first of the record's sets in canonical order.
+- **Standing rule: completeness before read-timing precision** (`CLAUDE.md`
+  §3). A missing record is a visible defect; a few hours of delay in reading
+  a baseline is not.
+- **Brake 9,500 → 9,900** (owner). Exceeding the real 10,000 costs no penalty;
+  the margin only keeps the stop at a recorded point. What the brake does
+  not reach is `quota_stop`, completed by the morning pass.
+- **The second attempt fires whenever the day is not complete** (`02` §5):
+  no run, a failed run, an incomplete census, or a complete census whose
+  processing did not finish; a complete census is resumed, never re-read.
+
 ### 28 September 2026 — GATE-3, snapshot retention (Migert)
 
 **GATE-3: GO**, on `09-day1-audit.md`, no condition attached.
