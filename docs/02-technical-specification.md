@@ -967,7 +967,8 @@ observation duration and cannot be published as a performance ranking
 - `n` is displayed, and so is the range of `age_at_first_obs_days`
 - one line under the title: *"VPI on the first day observed in Most Popular.
   Not age-adjusted."*
-- timeframe 24h / 7d / 15d → **today / 7 days / 30 days / all**, filtered on
+- timeframe 24h / 7d / 15d → **today / 7 days / 30 days / all** *(APP-11,
+  01/10/2026: "today" → "latest reading", §6.7)*, filtered on
   `entered_on`. Today the filter runs on `created_at`, the video's
   publication date: the label promises one thing and the query does another
 - a separate table by **peak VPI**, clearly labelled *"highest values
@@ -1092,6 +1093,11 @@ always with views and days in Most Popular (01 §4.1).
   long-form videos published 7-90 days before), no TikTok.
 - **APP-10** — the v1 social cards (`public/social/iosa-card-1..5.png`) are
   removed from the site; they stay in the git history.
+- **APP-11** — Top VPI (`/leaderboard`): the timeframe "Today" becomes
+  **"Latest reading"** (`timeframe=latest`: the records first observed on
+  the day of the latest reading, `since` in the response; "today" was empty
+  until the 23:59 UTC reading). No Shorts option: only the measured format
+  is offered (`MEASURED_FORMATS`), and no ranking ever pools the two.
 
 ---
 

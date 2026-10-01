@@ -491,3 +491,16 @@ def test_top10_counts_the_records_without_a_vpi_beside_n(api):
     client, db = api
     body = client.get("/api/analytics/top10?timeframe=all").json()
     assert body["without_vpi"] == {"not_computable": 1, "pending": 0}
+
+
+# --- APP-11: "latest" is the day of the latest reading ------------------------
+
+
+def test_top10_latest_is_the_latest_reading_day(api):
+    client, db = api
+    db.data["posts"] = [{"id": "p", "entered_on": "2026-09-30"}]
+    body = client.get("/api/analytics/top10?timeframe=latest").json()
+    assert body["since"] == "2026-09-30"
+    assert db.last("post_daily").has("gte", "posts.entered_on", "2026-09-30")
+    q = [q for q in db.queries if q.table == "posts"][-1]
+    assert q.has("eq", "hidden", False) and q.has("order", "entered_on")

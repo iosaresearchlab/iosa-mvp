@@ -572,7 +572,10 @@ BASELINE_BANDS = (
     (100_000, float("inf"), ">=100k"),
 )
 
-TIMEFRAMES = {"today": 0, "7d": 7, "30d": 30, "all": None}
+# "latest" (APP-11, 01/10/2026): the records first observed on the latest
+# reading day. "today" stays for callers of the API; before the 23:59 UTC
+# reading it is empty, which is why the page no longer offers it.
+TIMEFRAMES = {"latest": "latest", "today": 0, "7d": 7, "30d": 30, "all": None}
 
 DAY1_POST_COLUMNS = (
     "id, external_post_id, format, baseline_score, baseline_rule, country, countries, "
@@ -603,7 +606,22 @@ def _since(timeframe):
     days = TIMEFRAMES[timeframe]
     if days is None:
         return None
+    if days == "latest":
+        return _latest_reading_day()
     return (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
+
+
+def _latest_reading_day():
+    """The day of the latest reading: the last entered_on of a public v2 record
+    (every reading belongs to the day that has just closed)."""
+    try:
+        res = (supabase.table("posts").select("entered_on").eq("method_version", "v2")
+               .eq("hidden", False).order("entered_on", desc=True).limit(1).execute())
+        if res.data and res.data[0].get("entered_on"):
+            return str(res.data[0]["entered_on"])[:10]
+    except Exception as e:
+        log.info(f"latest reading day not read: {e}")
+    return (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
 
 
 def _day1_rows(since=None, country=None, category=None, format=None):
@@ -671,6 +689,7 @@ def get_top10_analytics(
         top = rows[:min(max(limit, 10), 1000)]
         return {
             "timeframe": timeframe,
+            "since": since,
             "day_index": 1,
             "label": "VPI on the first day observed in Most Popular. Not age-adjusted.",
             "n": len(rows),

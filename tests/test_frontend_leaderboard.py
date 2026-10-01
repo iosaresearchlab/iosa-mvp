@@ -26,6 +26,12 @@ def test_no_day_selector_and_no_pooled_average():
         assert forbidden not in PAGE, forbidden
 
 
-def test_timeframes_are_today_7_30_all():
-    for t in ("'today'", "'7d'", "'30d'", "'all'"):
+def test_timeframes_are_latest_reading_7_30_all():
+    # APP-11 (01/10/2026): "Latest reading" replaces "Today"
+    for t in ("'latest'", "'7d'", "'30d'", "'all'"):
         assert t in PAGE
+    assert "Latest reading" in PAGE and "'Today'" not in PAGE
+
+
+def test_no_shorts_option():
+    assert 'value="SHORT"' not in PAGE and "const formato = 'LONG';" in PAGE

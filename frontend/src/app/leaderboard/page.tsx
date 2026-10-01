@@ -25,9 +25,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-type Periodo = 'today' | '7d' | '30d' | 'all';
+// APP-11 (01/10/2026): "Latest reading" al posto di "Today", che prima della
+// lettura delle 23:59 UTC era vuoto. Il giorno lo dice il backend (since).
+type Periodo = 'latest' | '7d' | '30d' | 'all';
 const PERIODI: { valore: Periodo; etichetta: string; giorni: number | null }[] = [
-  { valore: 'today', etichetta: 'Today', giorni: 0 },
+  { valore: 'latest', etichetta: 'Latest reading', giorni: null },
   { valore: '7d', etichetta: '7 days', giorni: 7 },
   { valore: '30d', etichetta: '30 days', giorni: 30 },
   { valore: 'all', etichetta: 'All', giorni: null },
@@ -77,9 +79,10 @@ function dataDa(giorni: number | null): string | null {
 }
 
 export default function LeaderboardPage() {
-  const [periodo, setPeriodo] = useState<Periodo>('7d');
+  const [periodo, setPeriodo] = useState<Periodo>('latest');
   // Never both formats in one ranking: VPI is not comparable across formats.
-  const [formato, setFormato] = useState<'SHORT' | 'LONG'>('LONG');
+  // Only long-form is measured (MEASURED_FORMATS): no Shorts option (APP-11).
+  const formato = 'LONG';
   const [paese, setPaese] = useState<string>('ALL');
   const [categoria, setCategoria] = useState<string>('ALL');
   const [risposta, setRisposta] = useState<Risposta | null>(null);
@@ -112,7 +115,7 @@ export default function LeaderboardPage() {
           .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)
           .not('vpi_max', 'is', null);
-        const da = dataDa(giorni);
+        const da = periodo === 'latest' ? (dati as Risposta & { since?: string }).since ?? null : dataDa(giorni);
         if (da) q = q.gte('entered_on', da);
         q = q.eq('format', formato);
         if (paese !== 'ALL') q = q.contains('countries', [paese]);
@@ -133,7 +136,7 @@ export default function LeaderboardPage() {
     return () => {
       annullato = true;
     };
-  }, [periodo, formato, paese, categoria]);
+  }, [periodo, paese, categoria]);
 
   const eta = risposta?.age_at_first_obs_days;
 
@@ -167,11 +170,7 @@ export default function LeaderboardPage() {
               </button>
             ))}
           </div>
-          <select value={formato} onChange={(e) => setFormato(e.target.value as 'SHORT' | 'LONG')}
-            className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-gray-200">
-            <option value="LONG">Long-form</option>
-            <option value="SHORT">Shorts (not measured since 27 September)</option>
-          </select>
+          <span className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-gray-400">Long-form</span>
           <select value={paese} onChange={(e) => setPaese(e.target.value)}
             className="bg-black border border-gray-800 rounded-lg px-2 py-1.5 text-gray-200">
             <option value="ALL">All 34 countries</option>
