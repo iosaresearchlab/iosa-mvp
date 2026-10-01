@@ -130,3 +130,16 @@ def test_creator_pages_keep_closed_records_peak_first():
     assert "outlierDi" not in creator and creator.count("recordDelCreator(author)") == 2
     sitemap = read("app/sitemap.ts")
     assert ".eq('status', 'ACTIVE')" not in sitemap
+
+
+# --- APP-9 ---------------------------------------------------------------------
+
+def test_privacy_and_terms_say_v2():
+    pub = ROOT / "frontend" / "public"
+    for name in ("privacy.html", "terms.html"):
+        page = (pub / name).read_text(encoding="utf-8")
+        low = page.lower()
+        for gone in ("tiktok", "shorts", "short-form", "15 days", "15-day", "expired"):
+            assert gone not in low, (name, gone)
+        assert "Last updated: 1 October 2026" in page, name
+    assert "hidden from public pages" in (pub / "privacy.html").read_text(encoding="utf-8")

@@ -1086,6 +1086,10 @@ always with views and days in Most Popular (01 §4.1).
   closed, highest VPI observed first, records without a VPI last
   (`recordDelCreator`). A page no longer 404s when its videos leave Most
   Popular; the sitemap counts closed records too.
+- **APP-9** — `public/privacy.html` and `public/terms.html`, dated 1 October
+  2026: no 15-day expiry (records do not expire; on request they are hidden
+  from public pages), no Shorts (the baseline is the same channel's
+  long-form videos published 7-90 days before), no TikTok.
 
 ---
 
