@@ -235,7 +235,7 @@ export default function LeaderboardPage() {
                     {r.claim_token && (
                       <Link href={`/claim/${r.claim_token}`}
                         className="text-[10px] font-mono font-bold bg-[#00E5FF] text-black px-2 py-1 rounded">
-                        Plaque
+                        Analysis
                       </Link>
                     )}
                     {r.post_url && (
