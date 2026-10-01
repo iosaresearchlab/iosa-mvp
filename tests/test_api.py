@@ -471,3 +471,17 @@ def test_the_plaque_states():
     assert main._plaque_state({"method_version": "v2", "status": "CLOSED", "vpi_max": None}) == "no_vpi"
     assert main._plaque_state({"method_version": "v2", "status": "CLOSED", "vpi_max": 2.0}) == "open"
     assert main._plaque_state({"method_version": "v1", "vpi_ratio": 3.2}) == "open"
+
+
+# --- APP-6: day-1 cells per baseline band, one format -------------------------
+
+
+def test_day1_bands_one_format_with_n_and_the_records_without_a_vpi(api):
+    client, db = api
+    body = client.get("/api/analytics/day1-bands?format=SHORT").json()
+    q = db.last("post_daily")
+    assert q.has("eq", "day_index", 1) and q.has("eq", "posts.format", "SHORT")
+    # the fake does not filter: the format filter is asserted on the query above
+    assert body["n"] == sum(c["n"] for c in body["cells"])
+    assert body["without_vpi"] == {"not_computable": 1, "pending": 0}   # the "nc" row
+    assert client.get("/api/analytics/day1-bands?format=both").status_code == 400

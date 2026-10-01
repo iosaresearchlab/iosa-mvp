@@ -1069,6 +1069,12 @@ always with views and days in Most Popular (01 §4.1).
   Popular", no "best" or "outperforming". Country and category pages:
   "Ordered by views, VPI beside each video", no "strongest" or "top
   measurement". The outliers index: "videos charting now".
+- **APP-6** — a disclosure box (`components/DisclosureBox.tsx`) on Top VPI,
+  the home page and the methodology modal: the day-1 median VPI per baseline
+  band with its n, long-form only, fed live from the backend cells
+  (`GET /api/analytics/day1-bands?format=LONG` → `_cells(_day1_rows())`, plus
+  the records without a VPI by reason). It says why the high levels come from
+  small channels (01 §4.2, 04), with the figures beside it, never smoothed.
 
 ---
 

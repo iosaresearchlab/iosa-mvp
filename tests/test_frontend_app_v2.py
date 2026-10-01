@@ -96,3 +96,12 @@ def test_copy_home_creator_segments_outliers():
         for word in ("strongest", "Top measurement"):
             assert word.lower() not in page.lower(), (rel, word)
     assert "videos charting now" in read("app/outliers/page.tsx")
+
+
+# --- APP-6 ---------------------------------------------------------------------
+
+def test_the_disclosure_box_is_on_top_vpi_home_and_the_methodology():
+    box = read("components/DisclosureBox.tsx")
+    assert "/api/analytics/day1-bands?format=LONG" in box
+    for rel in ("app/leaderboard/page.tsx", "app/page.tsx", "components/MetodologiaModal.tsx"):
+        assert "<DisclosureBox" in read(rel), rel

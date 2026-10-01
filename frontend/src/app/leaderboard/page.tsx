@@ -17,6 +17,7 @@ import { ArrowLeft, Trophy, ExternalLink } from 'lucide-react';
 import { formatVPI, formatCount } from '@/lib/format';
 import { PAESI, CATEGORIE } from '@/lib/segments';
 import { SERIES_FLOOR } from '@/lib/index-start';
+import { DisclosureBox } from '@/components/DisclosureBox';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const supabase = createClient(
@@ -150,6 +151,8 @@ export default function LeaderboardPage() {
             VPI on the first day observed in Most Popular. Not age-adjusted.
           </p>
         </header>
+
+        <DisclosureBox />
 
         <section className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
           <div className="flex bg-black border border-gray-800 rounded-lg overflow-hidden">

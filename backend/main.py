@@ -722,6 +722,47 @@ def _calcola_insights():
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
 
+def _without_vpi(rows):
+    """APP-7: day-1 records with no VPI, by reason (baseline_rule)."""
+    out = {"not_computable": 0, "pending": 0}
+    for r in rows:
+        if r.get("vpi_ratio") is not None:
+            continue
+        rule = (r.get("posts") or {}).get("baseline_rule")
+        out["pending" if rule in ("quota_stop", "read_failed") else "not_computable"] += 1
+    return out
+
+
+@app.get("/api/analytics/day1-bands")
+def get_day1_bands(format: str = "LONG"):
+    """APP-6 disclosure: day-1 median VPI per baseline band, with n, for one
+    format (01 section 4.2, 04, 09). The VPI a video needs to enter Most
+    Popular depends on the size of its channel, so high levels concentrate in
+    small-baseline channels; these cells say so with the live figures. Never
+    pooled across bands or formats."""
+    fmt = (format or "LONG").upper()
+    if fmt not in ("LONG", "SHORT"):
+        raise HTTPException(status_code=400, detail="format must be LONG or SHORT")
+
+    def calcola():
+        if not supabase:
+            return {"day_index": 1, "format": fmt, "cells": [], "n": 0,
+                    "without_vpi": {"not_computable": 0, "pending": 0}}
+        rows = _day1_rows(format=fmt)
+        cells = _cells(rows)
+        return {"day_index": 1, "format": fmt,
+                "baseline_bands": [b[2] for b in BASELINE_BANDS],
+                "cells": cells, "n": sum(c["n"] for c in cells),
+                "without_vpi": _without_vpi(rows)}
+    try:
+        return _statistiche_in_memoria(f"day1-bands-{fmt}", calcola)
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+
 @app.get("/api/analytics/keywords")
 def get_viral_keywords(min_vpi: float = 5.0, limit: int = 30):
     """Title words of records with day-1 VPI >= min_vpi, per baseline band

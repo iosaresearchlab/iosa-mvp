@@ -1,6 +1,7 @@
 import { Calculator } from 'lucide-react';
 import { LIVELLI, SOGLIE, SOGLIA_MINIMA } from '@/lib/vpi-scale';
 import { INDEX_START_DATE } from '@/lib/index-start';
+import { DisclosureBox } from '@/components/DisclosureBox';
 
 /**
  * Il corpo del popup "VPI Methodology Standard", riscritto per intero
@@ -21,6 +22,7 @@ export default function ContenutoMetodologia() {
       </h2>
 
       <div className="space-y-3 font-sans text-xs text-gray-300 leading-relaxed">
+        <DisclosureBox compatta />
         <div className="bg-black/40 border border-cyan-500/30 p-3.5 rounded-xl space-y-2">
           <h3 className="font-bold text-[#00E5FF] font-mono text-xs">What we measure</h3>
           <p className="font-mono text-sm text-white bg-black p-2 rounded border border-gray-800 text-center">

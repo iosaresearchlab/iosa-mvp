@@ -43,6 +43,7 @@ const CAMPI_HOME =
 const PER_PAGINA = 100;
 import { createClient } from '@supabase/supabase-js';
 import ContenutoMetodologia from '@/components/MetodologiaModal';
+import { DisclosureBox } from '@/components/DisclosureBox';
 import {
   Award,
   ExternalLink,
@@ -544,6 +545,9 @@ export default function Home() {
 
           </div>
         </section>
+
+        {/* APP-6: how to read a level, live day-1 figures per baseline band */}
+        <DisclosureBox />
 
         {/* Filter Controls */}
         <section className="bg-[#070A10] border border-gray-800 rounded-lg p-2 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
