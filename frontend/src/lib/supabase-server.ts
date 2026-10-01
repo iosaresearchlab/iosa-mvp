@@ -52,12 +52,23 @@ export type Post = {
   views_max: number | string | null;
   baseline_rule: string | null;
   method_version: string | null;
+  status?: 'ACTIVE' | 'CLOSED' | string | null;
+  /** public_records: days observed in Most Popular so far (ACTIVE) or in all (CLOSED). */
+  day_n?: number | null;
+  /** public_records: last day the plaque can be claimed; null while charting. */
+  claim_open_until?: string | null;
+  vpi_max_on?: string | null;
 };
+
+// Ogni pagina pubblica legge public_records (APP-4, 01/10/2026): i record v2
+// di posts con day_n e claim_open_until, sotto le stesse RLS (un record
+// nascosto su richiesta non c'e', OPTOUT-1).
+export const TABELLA_PUBBLICA = 'public_records';
 
 // vpi_color e vpi_level_name non si leggono: il colore e il nome vengono da
 // livelloDaNumero(vpi_level), unica scala (docs/02 §6.1).
 const CAMPI =
-  'id,external_post_id,format,author_handle,channel_id,channel_handle,author_name,content_text,post_url,country,category,platform,vpi_ratio,vpi_level,baseline_score,engagement_score,claim_token,detected_at,entered_on,left_on,days_charting,countries,categories,vpi_max,views_max,baseline_rule,method_version';
+  'id,external_post_id,format,author_handle,channel_id,channel_handle,author_name,content_text,post_url,country,category,platform,vpi_ratio,vpi_level,baseline_score,engagement_score,claim_token,detected_at,entered_on,left_on,days_charting,countries,categories,vpi_max,views_max,baseline_rule,method_version,status,day_n,claim_open_until,vpi_max_on';
 
 /** I segmenti leggono gli array: un video presente in piu' fette conta in tutte. */
 const COLONNA_ARRAY = { country: 'countries', category: 'categories' } as const;
@@ -69,7 +80,7 @@ export async function outlierDi(
   limite = 60
 ): Promise<Post[]> {
   const query = supabaseServer
-    .from('posts')
+    .from(TABELLA_PUBBLICA)
     .select(CAMPI)
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)
@@ -91,7 +102,7 @@ export async function contaDi(
   valore: string
 ): Promise<number> {
   const query = supabaseServer
-    .from('posts')
+    .from(TABELLA_PUBBLICA)
     .select('id', { count: 'exact', head: true })
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)

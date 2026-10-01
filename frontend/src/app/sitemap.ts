@@ -18,7 +18,7 @@ const MIN_OUTLIER = 2;
 
 async function creatorDaIndicizzare(): Promise<string[]> {
   const { data } = await supabaseServer
-    .from('posts')
+    .from('public_records')
     .select('author_handle')
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)

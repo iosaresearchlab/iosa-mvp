@@ -63,7 +63,7 @@ type Picco = {
   claim_token: string | null;
   vpi_max: number | string | null;
   views_max: number | string | null;
-  days_charting: number | null;
+  day_n: number | null;
   entered_on: string | null;
 };
 
@@ -105,8 +105,8 @@ export default function LeaderboardPage() {
 
         const giorni = PERIODI.find((p) => p.valore === periodo)?.giorni ?? null;
         let q = supabase
-          .from('posts')
-          .select('id,author_handle,content_text,format,claim_token,vpi_max,views_max,days_charting,entered_on')
+          .from('public_records')
+          .select('id,author_handle,content_text,format,claim_token,vpi_max,views_max,day_n,entered_on')
           .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)
           .not('vpi_max', 'is', null);
@@ -257,7 +257,7 @@ export default function LeaderboardPage() {
                   <span className="w-16 shrink-0 text-center font-mono font-black text-[#00E5FF]">{formatVPI(p.vpi_max)}</span>
                   <span className="min-w-0 truncate">{p.content_text || 'Untitled video'}</span>
                   <span className="ml-auto shrink-0 font-mono text-[10px] text-gray-400">
-                    {p.author_handle} · {formatCount(p.views_max)} views · {p.days_charting ?? 1} days in Most Popular
+                    {p.author_handle} · {formatCount(p.views_max)} views · {p.day_n ?? '\u2014'} days in Most Popular
                   </span>
                 </li>
               ))}

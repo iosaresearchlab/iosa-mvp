@@ -26,7 +26,7 @@ type Conteggio = Record<string, number>;
 // countries / categories, non la prima fetta (docs/02 §6.1).
 async function conteggi(colonna: 'countries' | 'categories'): Promise<Conteggio> {
   const { data } = await supabaseServer
-    .from('posts')
+    .from('public_records')
     .select(colonna)
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)
@@ -44,7 +44,7 @@ export default async function Outliers() {
     conteggi('countries'),
     conteggi('categories'),
     supabaseServer
-      .from('posts')
+      .from('public_records')
       .select('id', { count: 'exact', head: true })
       .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)

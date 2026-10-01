@@ -18,7 +18,7 @@ const MAX_RIGHE = 5000;
 type Vista = 'charting' | 'archive';
 
 const CAMPI_HOME =
-  'id,external_post_id,platform,format,author_handle,author_name,channel_id,content_text,post_url,country,category,countries,categories,engagement_score,baseline_score,baseline_rule,vpi_ratio,vpi_level,vpi_max,views_max,days_charting,entered_on,left_on,status,claim_token';
+  'id,external_post_id,platform,format,author_handle,author_name,channel_id,content_text,post_url,country,category,countries,categories,engagement_score,baseline_score,baseline_rule,vpi_ratio,vpi_level,vpi_max,views_max,days_charting,day_n,claim_open_until,entered_on,left_on,status,claim_token';
 
 // Quante righe si disegnano per volta.
 //
@@ -145,7 +145,7 @@ export default function Home() {
       // tutte le righe. Nessun range, ma chiediamo comunque il conteggio esatto
       // cosi' la statistica resta corretta anche se un domani il tetto cambia.
       let query = supabase
-        .from('posts')
+        .from('public_records')
         .select(CAMPI_HOME, { count: 'exact' })
         .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR);
@@ -303,7 +303,7 @@ export default function Home() {
       post.baseline_score ?? '',
       post.vpi_ratio ?? '',
       post.vpi_max ?? '',
-      post.days_charting ?? '',
+      post.day_n ?? '',
       post.entered_on ?? '',
       post.baseline_rule ?? '',
       `"${post.post_url || ''}"`
@@ -692,7 +692,7 @@ export default function Home() {
                               : 'N/A'}
                           </span>{' '}
                           | Peak VPI: {formatVPI(post.vpi_max)}{' '}
-                          | Days in Most Popular: {post.days_charting ?? 1}
+                          | Days in Most Popular: {post.day_n ?? '\u2014'}
                         </p>
                       </div>
                     </div>

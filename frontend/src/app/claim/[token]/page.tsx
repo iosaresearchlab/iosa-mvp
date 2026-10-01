@@ -51,7 +51,7 @@ export default function ClaimPage({
     async function fetchPost() {
       try {
         const { data } = await supabase
-          .from('posts')
+          .from('public_records')
           .select('*')
           .eq('claim_token', token)
           .maybeSingle();
@@ -261,7 +261,7 @@ export default function ClaimPage({
   // i giorni in Most Popular (docs/01 §4.1). I record v1 non hanno vpi_max.
   const vpiPubblicato = post.vpi_max ?? post.vpi_ratio;
   const viewsPubblicate = post.views_max ?? post.engagement_score ?? post.e_act;
-  const giorniInClassifica: number | null = post.days_charting ?? null;
+  const giorniInClassifica: number | null = post.day_n ?? post.days_charting ?? null;
   const livelloPubblicato = livelloDaRatio(vpiPubblicato) ?? NESSUN_LIVELLO;
   const formattedVpi = formatVPI(vpiPubblicato);
   const postTitle = post.content_text || post.title || post.content_title || 'Measured Video';

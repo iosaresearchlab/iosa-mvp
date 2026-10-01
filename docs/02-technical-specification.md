@@ -922,6 +922,16 @@ unchanged; whatever it does not reach waits for the next morning.
 - `vpi_color` and `vpi_level_name` leave the select: the colour comes from
   `livelloDaNumero()`, which already exists
 
+- *(APP-4, 01/10/2026)* every public page reads **`public_records`**, not
+  `posts`: the v2 records with two derived columns, `day_n` (an `ACTIVE`
+  record's `post_daily` rows so far, counted as `days_charting` is at the
+  close; `days_charting` once `CLOSED`) and `claim_open_until`
+  (`left_on + CLAIM_DAYS − 1`, `claim_window.open_until`; null while
+  charting). A view with `security_invoker`, so the caller's RLS applies and
+  a hidden record is not in it. `days_charting` is never defaulted to 1.
+  `claim_days()` mirrors `CLAIM_DAYS` (`tests/test_public_records.py`).
+  Migration `20261001010327_v2_app4_public_records`
+
 ### 6.2 `app/page.tsx`
 
 - `MIN_VPI_DISPLAY = 1.4` → 0

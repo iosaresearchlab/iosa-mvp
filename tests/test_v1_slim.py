@@ -64,7 +64,9 @@ def test_the_claim_functions_are_found():
 
 def test_posts_v1_holds_exactly_the_columns_the_v1_claim_reads(db):
     read = fields_read()
-    assert read - columns(db, "posts") <= NOT_COLUMNS, read - columns(db, "posts")
+    # The page reads public_records (APP-4); its derived columns are not posts columns.
+    known = columns(db, "posts") | columns(db, "public_records")
+    assert read - known <= NOT_COLUMNS, read - known
     assert columns(db, "posts_v1") == (read & columns(db, "posts"))
     assert len(columns(db, "posts_v1")) == 16
 
