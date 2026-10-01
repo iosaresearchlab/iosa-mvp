@@ -203,3 +203,11 @@ def test_last_complete_reading_is_the_latest_complete_census(db):
         (day,) = cur.fetchone()
         cur.execute("rollback to savepoint s")
     assert str(day) == "2026-09-30"
+
+
+# --- UI-5 ----------------------------------------------------------------------
+
+def test_the_nav_says_top_vpi():
+    for f in list(SRC.rglob("*.tsx")) + list(SRC.rglob("*.ts")):
+        assert "Top 10" not in f.read_text(encoding="utf-8"), f
+    assert "etichetta: 'Top VPI'" in read("components/SiteHeader.tsx")

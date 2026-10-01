@@ -1150,6 +1150,8 @@ always with views and days in Most Popular (01 §4.1).
   the latest `ingest_run` day with a complete census
   (`last_complete_reading()`, security definer, returns that date only).
   No "NODE STATUS: ACTIVE", no LIVE pulse.
+- **UI-5** — the navigation calls the day-1 ranking "Top VPI", the title of
+  its page; never "Top 10".
 
 ---
 

@@ -13,7 +13,7 @@ import { Logo } from '@/components/Logo';
 
 const VOCI = [
   { href: '/outliers', etichetta: 'Browse', icona: Globe, attiva: (p: string) => p.startsWith('/outliers') || p.startsWith('/categories') },
-  { href: '/leaderboard', etichetta: 'Top 10', icona: Trophy, attiva: (p: string) => p.startsWith('/leaderboard') },
+  { href: '/leaderboard', etichetta: 'Top VPI', icona: Trophy, attiva: (p: string) => p.startsWith('/leaderboard') },
   { href: '/#methodology', etichetta: 'Method', icona: Info, attiva: () => false },
   { href: '/#faq', etichetta: 'FAQ', icona: HelpCircle, attiva: () => false },
 ];
