@@ -3,7 +3,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { formatVPI, formatCount } from '@/lib/format';
-import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
+import { stileBadge } from '@/lib/vpi-scale';
+import {
+  inClassifica,
+  vpiPubblicato,
+  viewsPubblicate,
+  livelloPubblicato,
+  dataBreve,
+} from '@/lib/record-status';
+import { StatusBadge } from '@/components/StatusBadge';
 import { PAESI } from '@/lib/segments';
 
 // Nessuna soglia sul VPI (docs/01 §7): l'indice non e' censurato dal basso e
@@ -15,7 +23,13 @@ import { PAESI } from '@/lib/segments';
 // Si caricano le prime MAX_RIGHE per views; il conteggio resta esatto.
 const MAX_RIGHE = 5000;
 
-type Vista = 'charting' | 'archive';
+// HOME-1 (01/10/2026): una tabella, tre viste, colonne dedicate a ciascuna.
+type Vista = 'charting' | 'left' | 'all';
+const VISTE: { valore: Vista; etichetta: string }[] = [
+  { valore: 'charting', etichetta: 'In Most Popular now' },
+  { valore: 'left', etichetta: 'Left Most Popular' },
+  { valore: 'all', etichetta: 'All' },
+];
 
 const CAMPI_HOME =
   'id,external_post_id,platform,format,author_handle,author_name,channel_id,content_text,post_url,country,category,countries,categories,engagement_score,baseline_score,baseline_rule,vpi_ratio,vpi_level,vpi_max,views_max,days_charting,day_n,claim_open_until,entered_on,left_on,status,claim_token';
@@ -150,6 +164,7 @@ export default function Home() {
         .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR);
       if (vista === 'charting') query = query.eq('status', 'ACTIVE');
+      if (vista === 'left') query = query.eq('status', 'CLOSED');
       const { data, error, count } = await query
         .order('engagement_score', { ascending: false })
         .range(0, MAX_RIGHE - 1);
@@ -291,9 +306,10 @@ export default function Home() {
   const exportToCSV = () => {
     if (!filteredPosts || filteredPosts.length === 0) return;
     // Nessun claim_token nell'export: e' il codice che autorizza il claim del creator.
-    const headers = ['Rank by views', 'Platform', 'Format', 'Countries', 'Categories', 'Creator Handle', 'Views', 'Baseline', 'VPI', 'Peak VPI observed', 'Days in Most Popular', 'First observed', 'Baseline rule', 'Post URL'];
+    const headers = ['Rank by views', 'Status', 'Platform', 'Format', 'Countries', 'Categories', 'Creator Handle', 'Views', 'Baseline', 'VPI today', 'Highest VPI observed', 'Days in Most Popular', 'First observed', 'Left on', 'Claim open until', 'Baseline rule', 'Post URL'];
     const rows = filteredPosts.map((post, idx) => [
       idx + 1,
+      inClassifica(post) ? 'In Most Popular' : 'Left Most Popular',
       `"${post.platform || ''}"`,
       `"${post.format || ''}"`,
       `"${(post.countries || []).join(' ')}"`,
@@ -301,10 +317,12 @@ export default function Home() {
       `"${(post.author_handle || '').replace(/"/g, '""')}"`,
       post.engagement_score ?? '',
       post.baseline_score ?? '',
-      post.vpi_ratio ?? '',
+      inClassifica(post) ? (post.vpi_ratio ?? '') : '',
       post.vpi_max ?? '',
       post.day_n ?? '',
       post.entered_on ?? '',
+      post.left_on ?? '',
+      post.claim_open_until ?? '',
       post.baseline_rule ?? '',
       `"${post.post_url || ''}"`
     ]);
@@ -491,7 +509,7 @@ export default function Home() {
                             <p className="text-[9px] text-gray-400 truncate">{post.content_text || post.title}</p>
                           </div>
                           <span className="font-mono text-[#00E5FF] font-bold text-[10px] bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
-                            {formatVPI(Number(post.vpi_ratio || 0))}
+                            {formatVPI(vpiPubblicato(post))}
                           </span>
                         </div>
                       ))}
@@ -517,7 +535,7 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{vista === 'charting' ? 'CHARTING NOW' : 'RECORDS'}</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{vista === 'charting' ? 'IN MOST POPULAR NOW' : vista === 'left' ? 'LEFT MOST POPULAR' : 'RECORDS'}</div>
                 <div className="text-sm md:text-base font-black text-white">{totalIndexed || posts.length}</div>
               </div>
 
@@ -599,13 +617,14 @@ export default function Home() {
           <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1">
-                {(['charting', 'archive'] as Vista[]).map((v) => (
+                {VISTE.map(({ valore: v, etichetta }) => (
                   <button
                     key={v}
+                    data-vista={v}
                     onClick={() => { setIsLoading(true); setVista(v); }}
                     className={`px-2 py-0.5 rounded border text-[10px] cursor-pointer ${vista === v ? 'text-black bg-[#00E5FF] border-[#00E5FF]' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/40'}`}
                   >
-                    {v === 'charting' ? 'CHARTING NOW' : 'FULL ARCHIVE'}
+                    {etichetta}
                   </button>
                 ))}
               </span>
@@ -626,98 +645,128 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="divide-y divide-gray-800/60">
+          <div className="overflow-x-auto">
             {isLoading ? (
               <VPILoader />
             ) : filteredPosts.length > 0 ? (
-              postsVisibili.map((post, indiceLocale) => {
-                const index = primoIndice + indiceLocale;
-                const formattedVpi = formatVPI(post.vpi_ratio);
-                return (
-                  <div
-                    key={post.id || index}
-                    className="p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-gray-900/40 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono text-gray-600 font-bold text-xs w-12 min-w-[3rem]">
-                        #{index + 1}
-                      </div>
-
-                      <div className="w-14 h-11 rounded-lg bg-black border border-cyan-500/30 flex flex-col items-center justify-center font-mono font-black text-sm text-[#00E5FF] shadow-lg shadow-cyan-950/40 shrink-0">
-                        {formattedVpi}
-                        <span className="text-[7px] text-gray-500 font-normal -mt-0.5">
-                          VPI
+              <table className="w-full text-left font-mono text-[11px]" data-home-table={vista}>
+                <thead className="bg-black/40 text-[9px] uppercase tracking-wider text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 font-bold">#</th>
+                    <th className="px-3 py-2 font-bold">Video</th>
+                    {vista === 'charting' && (
+                      <>
+                        <th className="px-3 py-2 font-bold">Day</th>
+                        <th className="px-3 py-2 font-bold">Current VPI &middot; level</th>
+                        <th className="px-3 py-2 font-bold text-right">Views</th>
+                        <th className="px-3 py-2 font-bold">First observed</th>
+                      </>
+                    )}
+                    {vista === 'left' && (
+                      <>
+                        <th className="px-3 py-2 font-bold">Highest VPI observed &middot; level</th>
+                        <th className="px-3 py-2 font-bold text-right">Views</th>
+                        <th className="px-3 py-2 font-bold">Days in Most Popular</th>
+                        <th className="px-3 py-2 font-bold">Left on</th>
+                        <th className="px-3 py-2 font-bold">Claim open until</th>
+                      </>
+                    )}
+                    {vista === 'all' && (
+                      <>
+                        <th className="px-3 py-2 font-bold">Status</th>
+                        <th className="px-3 py-2 font-bold">VPI &middot; level</th>
+                        <th className="px-3 py-2 font-bold text-right">Views</th>
+                      </>
+                    )}
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/60">
+                  {postsVisibili.map((post, indiceLocale) => {
+                    const index = primoIndice + indiceLocale;
+                    const livello = livelloPubblicato(post);
+                    const vpi = vpiPubblicato(post);
+                    const cellaVpi = (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[#00E5FF] font-black text-xs">{vpi === null ? '\u2014' : formatVPI(vpi)}</span>
+                        <span
+                          className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border w-fit"
+                          style={stileBadge(livello.colore)}
+                        >
+                          {livello.nome}
                         </span>
                       </div>
-
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                          <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-gray-900 text-gray-300 border border-gray-800 uppercase font-bold">
-                            {post.platform || 'YOUTUBE'}
-                          </span>
-                          <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-gray-900 text-gray-400 border border-gray-800 uppercase font-bold">
-                            {post.format === 'LONG' ? 'Long' : 'Short'}
-                          </span>
-                          <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
-                            {(post.countries || [post.country]).filter(Boolean).join(' ') || 'GLOBAL'}
-                          </span>
-                          <span
-                            className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
-                            style={stileBadge(livelloDiRecord(post).colore)}
-                          >
-                            {post.vpi_level_name || livelloDiRecord(post).nome}
-                          </span>
-                        </div>
-
-                        <h3 className="font-bold text-xs text-white mb-0.5 font-sans leading-tight">
-                          {post.content_text ||
-                            post.content_title ||
-                            post.title ||
-                            'Observed Public Metric Data'}
-                        </h3>
-
-                        <p className="text-[10px] text-gray-400 font-mono">
-                          Creator:{' '}
-                          <span className="text-white font-bold">
+                    );
+                    return (
+                      <tr key={post.id || index} className="hover:bg-gray-900/40 align-top">
+                        <td className="px-3 py-2.5 text-gray-600 font-bold">#{index + 1}</td>
+                        <td className="px-3 py-2.5 min-w-[16rem]">
+                          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                            <StatusBadge post={post} />
+                            <span className="text-[8px] px-1.5 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
+                              {(post.countries || [post.country]).filter(Boolean).join(' ') || 'GLOBAL'}
+                            </span>
+                          </div>
+                          <div className="font-sans font-bold text-xs text-white leading-tight">
+                            {post.content_text || 'Untitled video'}
+                          </div>
+                          <div className="text-[10px] text-gray-400">
                             {post.author_handle || post.author_name}
-                          </span>{' '}
-                          | Baseline:{' '}
-                          {post.baseline_score
-                            ? formatCount(Number(post.baseline_score))
-                            : 'N/A'}{' '}
-                          | Views:{' '}
-                          <span className="text-[#00E5FF] font-bold">
-                            {post.engagement_score
-                              ? formatCount(Number(post.engagement_score))
-                              : 'N/A'}
-                          </span>{' '}
-                          | Peak VPI: {formatVPI(post.vpi_max)}{' '}
-                          | Days in Most Popular: {post.day_n ?? '\u2014'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 justify-end pt-2 md:pt-0 border-t md:border-t-0 border-gray-800">
-                      <a
-                        href={`/claim/${post.claim_token}`}
-                        className="flex items-center gap-1.5 bg-[#00E5FF] hover:bg-cyan-400 text-black font-mono font-bold text-xs px-3 py-1.5 rounded-lg transition-colors shadow-lg shadow-cyan-950/50"
-                      >
-                        <BarChart3 className="w-3.5 h-3.5" /> View Analysis
-                      </a>
-                      {post.post_url && (
-                        <a
-                          href={post.post_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700 rounded-lg bg-black/40 transition-colors"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+                            {' '}&middot; baseline {post.baseline_score ? formatCount(Number(post.baseline_score)) : '\u2014'}
+                          </div>
+                        </td>
+                        {vista === 'charting' && (
+                          <>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-white">day {post.day_n ?? '\u2014'}</td>
+                            <td className="px-3 py-2.5">{cellaVpi}</td>
+                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.entered_on)}</td>
+                          </>
+                        )}
+                        {vista === 'left' && (
+                          <>
+                            <td className="px-3 py-2.5">{cellaVpi}</td>
+                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
+                            <td className="px-3 py-2.5 text-white">{post.day_n ?? '\u2014'}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.left_on)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.claim_open_until)}</td>
+                          </>
+                        )}
+                        {vista === 'all' && (
+                          <>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">
+                              {inClassifica(post) ? `since ${dataBreve(post.entered_on)}` : `left ${dataBreve(post.left_on)}`}
+                            </td>
+                            <td className="px-3 py-2.5">{cellaVpi}</td>
+                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
+                          </>
+                        )}
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <a
+                              href={`/claim/${post.claim_token}`}
+                              className="flex items-center gap-1 bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
+                            >
+                              <BarChart3 className="w-3 h-3" /> Analysis
+                            </a>
+                            {post.post_url && (
+                              <a
+                                href={post.post_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label="Open the video"
+                                className="p-1 text-gray-400 hover:text-white border border-gray-800 rounded-lg"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
               <div className="p-8 text-center text-gray-500 font-mono text-xs">
                 NO RECORDS MATCH YOUR SEARCH OR FILTERS.

@@ -1021,6 +1021,24 @@ No change now. At recalibration `vpi-scale.ts` changes **together with**
 `vpi_core.py`, and `tests/audit_scala.py` already verifies they stay
 identical.
 
+### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
+
+Two status words only, on every page, from `lib/record-status.ts` and
+`components/StatusBadge.tsx`: **"In Most Popular - day N"** while the record
+is `ACTIVE`, **"Left Most Popular - N days"** once `CLOSED`. Never "hot",
+"trending" or "popular" as a qualifier. While charting the value shown is
+the current VPI and no award; after the exit, the highest VPI observed,
+always with views and days in Most Popular (01 §4.1).
+
+- **HOME-1** — the home is one table with a switch *In Most Popular now* /
+  *Left Most Popular* / *All*, ordered by views, with columns dedicated to
+  each view. Charting: day N, current VPI and its level, views, first
+  observed. Left: highest VPI observed and its level, views, days in Most
+  Popular, left on, claim open until. All: status, the VPI of the status,
+  views. The status badge is the same on the outliers, country, category and
+  creator pages (`OutlierList`). The CSV carries the status, both VPIs, left
+  on and claim open until.
+
 ---
 
 ## 7. Tests

@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { livelloDiRecord, stileBadge } from '@/lib/vpi-scale';
+import { stileBadge } from '@/lib/vpi-scale';
+import { inClassifica, livelloPubblicato, vpiPubblicato, viewsPubblicate } from '@/lib/record-status';
+import { StatusBadge } from '@/components/StatusBadge';
 import { ExternalLink } from 'lucide-react';
 import { formatVPI, formatCount } from '@/lib/format';
 import type { Post } from '@/lib/supabase-server';
@@ -39,14 +41,15 @@ export function OutlierList({
               </div>
 
               <div className="w-14 h-11 rounded-lg bg-black border border-cyan-500/30 flex flex-col items-center justify-center font-mono font-black text-sm text-[#00E5FF] shrink-0">
-                {formatVPI(post.vpi_ratio)}
+                {formatVPI(vpiPubblicato(post))}
                 <span className="text-[7px] text-gray-500 font-normal -mt-0.5">
-                  VPI RATIO
+                  {inClassifica(post) ? 'VPI' : 'PEAK VPI'}
                 </span>
               </div>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                  <StatusBadge post={post} />
                   <span className="text-[8px] font-mono px-1.5 rounded bg-gray-900 text-gray-300 border border-gray-800 uppercase font-bold">
                     {post.platform || 'YOUTUBE'}
                   </span>
@@ -55,9 +58,9 @@ export function OutlierList({
                   </span>
                   <span
                     className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
-                    style={stileBadge(livelloDiRecord(post).colore)}
+                    style={stileBadge(livelloPubblicato(post).colore)}
                   >
-                    {post.vpi_level_name || livelloDiRecord(post).nome}
+                    {livelloPubblicato(post).nome}
                   </span>
                 </div>
 
@@ -78,9 +81,9 @@ export function OutlierList({
                       |{' '}
                     </>
                   ) : null}
-                  Baseline: {formatCount(post.baseline_score)} | Recorded:{' '}
+                  Baseline: {formatCount(post.baseline_score)} | Views:{' '}
                   <span className="text-[#00E5FF] font-bold">
-                    {formatCount(post.engagement_score)}
+                    {formatCount(viewsPubblicate(post))}
                   </span>
                 </p>
               </div>
