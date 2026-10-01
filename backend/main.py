@@ -941,24 +941,49 @@ async def get_trophy_mug_preview(
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
 # Outreach parameter (01 section 4.1): the days available to claim a plaque,
-# counted from first observation. It does not touch the measurement: the
+# counted from the record's close (left_on), not from first observation: the
+# plaque carries the highest VPI observed, which exists only once the record
+# has closed (CLAIM-1, 01/10/2026). It does not touch the measurement: the
 # record never expires, the claim token does. Was CAMPAIGN_DAYS = 15 in v1
-# (02 section 4.7), same value.
+# (02 section 4.7), same value. Mirrored in the database by claim_days()
+# (public_records.claim_open_until); tests/test_claim_window.py compares them.
 CLAIM_DAYS = 15
 
 
 def claim_window(record, today=None):
-    """{start, expires_on, claim_days, expired} for a record, computed here and
-    not in the browser (02 section 6.4). Start = entered_on (v2), else the
-    day it was detected (v1 records in the archive)."""
+    """{state, start, expires_on, open_until, claim_days, expired}, computed
+    here and not in the browser (02 section 6.4).
+
+    v2 records: no window while ACTIVE (state "charting"); once CLOSED,
+    start = left_on, expires_on = left_on + CLAIM_DAYS (the first day the
+    claim is closed), open_until = the day before (the last day it is open).
+    v1 archive records keep the window they were issued with, from the day
+    they were detected: they have no left_on and all closed under v1.
+    """
     today = today or datetime.now(timezone.utc).date()
-    raw = (record or {}).get("entered_on") or (record or {}).get("detected_at") \
-        or (record or {}).get("created_at")
+    record = record or {}
+    if record.get("method_version") == "v2":
+        return _claim_window_v2(record, today)
+    raw = record.get("detected_at") or record.get("created_at")
     if not raw:
-        return {"start": None, "expires_on": None, "claim_days": CLAIM_DAYS, "expired": False}
-    start = datetime.fromisoformat(str(raw)[:10]).date()
+        return _window(None, None, today)
+    return _window("closed", datetime.fromisoformat(str(raw)[:10]).date(), today)
+
+
+def _claim_window_v2(record, today):
+    """v2 only: never reached by a v1 archive record (tests/test_v1_slim.py)."""
+    if record.get("status") != "CLOSED" or not record.get("left_on"):
+        return _window("charting", None, today)
+    return _window("closed", datetime.fromisoformat(str(record["left_on"])[:10]).date(), today)
+
+
+def _window(state, start, today):
+    if start is None:
+        return {"state": state, "start": None, "expires_on": None, "open_until": None,
+                "claim_days": CLAIM_DAYS, "expired": False}
     expires = start + timedelta(days=CLAIM_DAYS)
-    return {"start": start.isoformat(), "expires_on": expires.isoformat(),
+    return {"state": state, "start": start.isoformat(), "expires_on": expires.isoformat(),
+            "open_until": (expires - timedelta(days=1)).isoformat(),
             "claim_days": CLAIM_DAYS, "expired": today >= expires}
 
 

@@ -331,7 +331,12 @@ after the peak is not a demerit of the video. `vpi_max` and `vpi_max_on` are
 It does **not** claim to be independent of the video's age.
 
 The days available to claim the plaque (`CLAIM_DAYS`) are an outreach
-parameter counted from first observation. They do not touch the measurement.
+parameter counted from the record's close (`left_on`, the first complete
+reading in which the video is no longer observed in Most Popular), not from
+first observation: the plaque carries the highest VPI observed, which exists
+only once the record has closed. A record still charting has no claim window
+yet. The window is computed by the backend. It does not touch the
+measurement.
 
 ### 4.2 Comparability between records
 
@@ -534,7 +539,8 @@ all 13 (§1).
 
 - **`MIN_VPI_FOR_INGESTION = 1.0`** — censored the population from below.
 - **`CAMPAIGN_DAYS = 15` as a measurement window** — survives only as an
-  outreach parameter (`CLAIM_DAYS`), counted from entry into the chart.
+  outreach parameter (`CLAIM_DAYS`), counted from the record's close
+  (`left_on`).
 - **Random sampling** — becomes a full census.
 - **Categories 19 and 27** — wasted roughly one cycle in seven.
 - **Excluding channels with no handle** (the "- Topic" Art Tracks) — they

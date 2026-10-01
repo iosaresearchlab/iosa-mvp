@@ -359,7 +359,7 @@ section labelled "highest values observed".
   `day_index = 1` (asserted in a test, not by reading the code).
 
 ### T-20 — claim page and plaque
-`app/claim/[token]/page.tsx`: expiry from `entered_on + CLAIM_DAYS` computed
+`app/claim/[token]/page.tsx`: expiry from `left_on + CLAIM_DAYS` (CLAIM-1, 01/10/2026; was `entered_on`) computed
 server-side; the plaque carries **peak VPI, views, days in Most Popular**;
 "MEASUREMENT EXPIRED" and the 15-day copy removed.
 

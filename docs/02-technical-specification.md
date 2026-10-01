@@ -791,7 +791,8 @@ the reference and an entry not written would not return.)*
 - `refresh_showcase.py` — align to the new meaning of `ACTIVE` and to the
   `method_version='v2'` filter
 - `aggiorna_token_outreach.py` — detach "token expired" from `status` and
-  tie it to `entered_on + CLAIM_DAYS`
+  tie it to `left_on + CLAIM_DAYS` (01 §4.1; no window while the record is
+  `ACTIVE`)
 - `printify_service.py`, `trophy_pipeline.py`, `generate_trophy.py`,
   `archivio_targhe.py`, `scalda_targhe.py` — **unchanged**
 
@@ -947,7 +948,14 @@ observation duration and cannot be published as a performance ranking
 ### 6.4 `app/claim/[token]/page.tsx`
 
 - **line 176**: `createdAt + 15 days` computed in the browser from the
-  publication date → `entered_on + CLAIM_DAYS`, computed by the backend
+  publication date → `left_on + CLAIM_DAYS`, computed by the backend
+  (`claim_window`, `GET /api/claim/{token}/window`). While the record is
+  `ACTIVE` there is no window: `{"state": "charting", "start": null}`. Once
+  closed: `start = left_on`, `expires_on = left_on + CLAIM_DAYS` (the first
+  day the claim is closed), `open_until = expires_on − 1` (the last day it is
+  open, the date the page shows). v1 archive records keep the window they
+  were issued with, counted from their detection day: they have no
+  `left_on`, and every one of them closed under v1
 - "MEASUREMENT EXPIRED" and "Measurements stay published for 15 days" become
   false: the measurement no longer expires, the token does. Rewrite
 

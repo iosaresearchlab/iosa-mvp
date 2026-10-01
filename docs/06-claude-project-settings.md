@@ -153,8 +153,9 @@ rows are working data, kept for a rolling window and archived to Storage
 before they are deleted (backend/retention.py, 02 §3.1).
 
 The days available to claim a plaque (CLAIM_DAYS, backend/main.py) are an
-outreach parameter counted from first observation. They do not touch the
-measurement.
+outreach parameter counted from the record's close (left_on), computed by the
+backend; a record still charting has no claim window yet. They do not touch
+the measurement.
 
 ## 6. Stack
 

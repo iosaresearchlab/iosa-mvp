@@ -298,25 +298,47 @@ def test_a_v1_token_resolves_in_the_archive(api):
 # --- claim window (02 section 6.4) ---------------------------------------------
 
 
-def test_the_claim_window_counts_from_first_observation():
+def test_a_record_still_charting_has_no_claim_window():
+    """CLAIM-1 (01/10/2026): the window opens at the close, not at entry."""
     from datetime import date
-    w = main.claim_window({"entered_on": "2026-09-26", "created_at": "2026-09-01T00:00:00+00:00"},
-                          today=date(2026, 10, 1))
-    assert w == {"start": "2026-09-26", "expires_on": "2026-10-11", "claim_days": 15, "expired": False}
-    assert main.claim_window({"entered_on": "2026-09-26"}, today=date(2026, 10, 11))["expired"] is True
+    w = main.claim_window({"method_version": "v2", "status": "ACTIVE", "entered_on": "2026-09-26",
+                           "created_at": "2026-09-01T00:00:00+00:00"}, today=date(2026, 10, 1))
+    assert w == {"state": "charting", "start": None, "expires_on": None, "open_until": None,
+                 "claim_days": 15, "expired": False}
+
+
+def test_the_claim_window_counts_from_the_close():
+    from datetime import date
+    rec = {"method_version": "v2", "status": "CLOSED", "entered_on": "2026-09-20",
+           "left_on": "2026-09-26"}
+    w = main.claim_window(rec, today=date(2026, 10, 1))
+    assert w == {"state": "closed", "start": "2026-09-26", "expires_on": "2026-10-11",
+                 "open_until": "2026-10-10", "claim_days": 15, "expired": False}
+    assert main.claim_window(rec, today=date(2026, 10, 10))["expired"] is False
+    assert main.claim_window(rec, today=date(2026, 10, 11))["expired"] is True
+    # entered_on never opens a window, whatever its age
+    assert main.claim_window({**rec, "status": "ACTIVE", "left_on": None},
+                             today=date(2027, 1, 1))["start"] is None
 
 
 def test_a_v1_record_uses_its_detection_day():
     from datetime import date
-    w = main.claim_window({"detected_at": "2026-09-21T10:00:00+00:00"}, today=date(2026, 9, 25))
-    assert (w["start"], w["expires_on"]) == ("2026-09-21", "2026-10-06")
+    w = main.claim_window({"detected_at": "2026-09-21T10:00:00+00:00", "method_version": "v1"},
+                          today=date(2026, 9, 25))
+    assert (w["state"], w["start"], w["expires_on"]) == ("closed", "2026-09-21", "2026-10-06")
 
 
 def test_claim_window_endpoint(api):
     client, db = api
-    db.data["posts"] = [{"id": "p", "claim_token": "tok", "entered_on": "2026-09-26"}]
+    db.data["posts"] = [
+        {"id": "p", "claim_token": "tok", "method_version": "v2", "status": "CLOSED",
+         "entered_on": "2026-09-20", "left_on": "2026-09-26"},
+        {"id": "q", "claim_token": "tok2", "method_version": "v2", "status": "ACTIVE",
+         "entered_on": "2026-09-26"}]
     body = client.get("/api/claim/tok/window").json()
-    assert body["start"] == "2026-09-26" and body["claim_days"] == 15
+    assert body["start"] == "2026-09-26" and body["open_until"] == "2026-10-10"
+    assert body["claim_days"] == 15
+    assert client.get("/api/claim/tok2/window").json()["state"] == "charting"
     assert client.get("/api/claim/none/window").status_code == 404
 
 
