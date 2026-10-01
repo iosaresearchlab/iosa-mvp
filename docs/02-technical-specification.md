@@ -810,6 +810,24 @@ the reference and an entry not written would not return.)*
 - `aggiorna_token_outreach.py` — detach "token expired" from `status` and
   tie it to `left_on + CLAIM_DAYS` (01 §4.1; no window while the record is
   `ACTIVE`)
+- `tools/weekly_digest.py` *(DIG-1, owner decision 01/10/2026)* — replaces
+  `archive/backend/weekly_digest.py` (v1: a pooled top 3 by current VPI,
+  "broke the algorithm", a call to action). Outside the backend runtime,
+  read-only (REST GETs, service key; no YouTube quota), it writes a DRAFT
+  for the owner and publishes nothing. Week = the last 7 readings with a
+  complete census, never before `INDEX_START_DATE`. Hook (long-form videos
+  first observed, how many seen in a single reading only); 3-2-1 by day-1
+  VPI within ONE baseline band rotating by ISO week (the next band with at
+  least 3 if the rotation lands on a thinner one, said in the draft), band
+  and n stated, certain entries only; #1's highest VPI observed, views and
+  days together if closed, day N if still charting; one limit line with its
+  figure (the featured band's day-1 median beside the largest band's, each
+  its own band, or the share without a computable baseline); close:
+  iosaresearch.org. Voiceover ~55 s with timings, carousel texts and an HTML
+  file in the `assets/social` style, an X post within 280 with the link as
+  23. Likely live streams and re-uploads are flagged, never dropped. The
+  wording rules are checked on every output and a draft that breaks one is
+  not written (`tests/test_weekly_digest.py`)
 - `printify_service.py`, `trophy_pipeline.py`, `generate_trophy.py`,
   `archivio_targhe.py`, `scalda_targhe.py` — **unchanged** *(01/10/2026:
   `generate_trophy.py` changed at APP-2, §6.7: no gamma, the v2 figures;

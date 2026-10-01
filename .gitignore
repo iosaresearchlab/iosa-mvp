@@ -23,3 +23,6 @@ outreach/
 
 # I log sono locali alla macchina che fa girare il motore.
 backend/logs/
+
+# bozze del digest settimanale: per la revisione del titolare, mai pubblicate
+tools/drafts/
