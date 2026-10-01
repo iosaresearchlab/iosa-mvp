@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ContenutoMetodologia from '@/components/MetodologiaModal';
 import { DisclosureBox } from '@/components/DisclosureBox';
+import { LastReading } from '@/components/LastReading';
 import HomeArchive, { SearchBox } from '@/components/HomeArchive';
 import type { Vista } from '@/lib/home-query';
 import {
@@ -160,8 +161,8 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col justify-center items-center">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">NODE STATUS</div>
-                <div className="text-sm md:text-base font-black text-emerald-400">ACTIVE</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">LAST READING</div>
+                <div className="text-xs md:text-sm font-black text-white"><LastReading /></div>
               </div>
             </div>
 

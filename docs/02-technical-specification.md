@@ -1146,6 +1146,10 @@ always with views and days in Most Popular (01 §4.1).
   the same channel's long-form videos published 7-90 days before it" (the
   shared footer, the structured data, the FAQ of the home and of insights),
   never "recent videos of the same format".
+- **UI-2** — the home says "Last reading: <day>, 23:59 UTC", where <day> is
+  the latest `ingest_run` day with a complete census
+  (`last_complete_reading()`, security definer, returns that date only).
+  No "NODE STATUS: ACTIVE", no LIVE pulse.
 
 ---
 

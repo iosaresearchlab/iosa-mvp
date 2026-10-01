@@ -179,3 +179,27 @@ def test_formula_kept_baseline_described_as_measured():
     assert "VPI = E<sub>act</sub> / E<sub>base</sub>" in footer                   # owner: formula as it is
     assert "long-form videos published 7-90 days before it" in footer
     assert "long-form videos published 7-90 days before it" in read("app/layout.tsx")
+
+
+# --- UI-2 ----------------------------------------------------------------------
+
+def test_last_reading_not_a_live_pulse():
+    for f in SRC.rglob("*.tsx"):
+        text = f.read_text(encoding="utf-8")
+        assert "NODE STATUS" not in text and ">LIVE<" not in text and "animate-ping" not in text, f
+    assert "<LastReading />" in HOME and "LAST READING" in HOME
+    lr = read("components/LastReading.tsx")
+    assert "rpc('last_complete_reading')" in lr and "23:59 UTC" in lr
+
+
+def test_last_complete_reading_is_the_latest_complete_census(db):
+    with db.cursor() as cur:
+        for day, complete in (("2026-09-29", True), ("2026-09-30", True), ("2026-10-01", False)):
+            cur.execute("insert into ingest_run (day, started_at, census_complete) values (%s, now(), %s)",
+                        (day, complete))
+        cur.execute("savepoint s")
+        cur.execute("set local role anon")
+        cur.execute("select public.last_complete_reading()")
+        (day,) = cur.fetchone()
+        cur.execute("rollback to savepoint s")
+    assert str(day) == "2026-09-30"
