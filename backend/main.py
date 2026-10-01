@@ -663,8 +663,8 @@ def get_top10_analytics(
     try:
         if not supabase:
             return {"timeframe": timeframe, "day_index": 1, "n": 0, "top10": []}
-        rows = [r for r in _day1_rows(since, country, category, format)
-                if r.get("vpi_ratio") is not None]
+        every = _day1_rows(since, country, category, format)
+        rows = [r for r in every if r.get("vpi_ratio") is not None]
         rows.sort(key=lambda r: float(r["vpi_ratio"]), reverse=True)
         ages = [r["posts"]["age_at_first_obs_days"] for r in rows
                 if r["posts"].get("age_at_first_obs_days") is not None]
@@ -674,6 +674,8 @@ def get_top10_analytics(
             "day_index": 1,
             "label": "VPI on the first day observed in Most Popular. Not age-adjusted.",
             "n": len(rows),
+            # APP-7: beside n, the records of the same cut that have no VPI
+            "without_vpi": _without_vpi(every),
             "age_at_first_obs_days": {"min": min(ages) if ages else None,
                                       "median": _median(ages),
                                       "max": max(ages) if ages else None},

@@ -485,3 +485,9 @@ def test_day1_bands_one_format_with_n_and_the_records_without_a_vpi(api):
     assert body["n"] == sum(c["n"] for c in body["cells"])
     assert body["without_vpi"] == {"not_computable": 1, "pending": 0}   # the "nc" row
     assert client.get("/api/analytics/day1-bands?format=both").status_code == 400
+
+
+def test_top10_counts_the_records_without_a_vpi_beside_n(api):
+    client, db = api
+    body = client.get("/api/analytics/top10?timeframe=all").json()
+    assert body["without_vpi"] == {"not_computable": 1, "pending": 0}

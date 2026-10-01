@@ -51,6 +51,7 @@ type Riga = {
 
 type Risposta = {
   n: number;
+  without_vpi?: { not_computable: number; pending: number };
   label?: string;
   age_at_first_obs_days?: { min: number | null; median: number | null; max: number | null };
   top10: Riga[];
@@ -189,7 +190,15 @@ export default function LeaderboardPage() {
 
         <section className="bg-[#070A10] border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-800 font-mono text-[11px] text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-            <span>n = <strong className="text-white">{risposta?.n ?? 0}</strong> videos with a VPI on their first day</span>
+            <span data-leaderboard-n>
+              n = <strong className="text-white">{risposta?.n ?? 0}</strong> videos with a VPI on their first day
+              {(risposta?.without_vpi?.not_computable ?? 0) > 0
+                ? ` + ${risposta?.without_vpi?.not_computable} without a computable baseline`
+                : ''}
+              {(risposta?.without_vpi?.pending ?? 0) > 0
+                ? ` + ${risposta?.without_vpi?.pending} with the baseline still to be read`
+                : ''}
+            </span>
             <span>
               age at first observation:{' '}
               <strong className="text-white">

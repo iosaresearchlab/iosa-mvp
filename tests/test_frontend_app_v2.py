@@ -105,3 +105,15 @@ def test_the_disclosure_box_is_on_top_vpi_home_and_the_methodology():
     assert "/api/analytics/day1-bands?format=LONG" in box
     for rel in ("app/leaderboard/page.tsx", "app/page.tsx", "components/MetodologiaModal.tsx"):
         assert "<DisclosureBox" in read(rel), rel
+
+
+# --- APP-7 ---------------------------------------------------------------------
+
+def test_no_vpi_says_why_never_no_level():
+    assert "'No VPI (baseline not computable)'" in STATUS
+    assert "'No VPI yet (baseline still to be read)'" in STATUS
+    # "No level" only for a VPI below the first threshold: every list page goes through livelloPubblicato
+    for rel in ("app/page.tsx", "components/OutlierList.tsx"):
+        assert "livelloPubblicato(post)" in read(rel) and "livelloDiRecord" not in read(rel), rel
+    assert "without a computable baseline" in read("app/leaderboard/page.tsx")
+    assert "without a computable baseline" in read("components/DisclosureBox.tsx")

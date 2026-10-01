@@ -1075,6 +1075,13 @@ always with views and days in Most Popular (01 §4.1).
   (`GET /api/analytics/day1-bands?format=LONG` → `_cells(_day1_rows())`, plus
   the records without a VPI by reason). It says why the high levels come from
   small channels (01 §4.2, 04), with the figures beside it, never smoothed.
+- **APP-7** — a record without a VPI says why, from `baseline_rule`: *"No VPI
+  (baseline not computable)"* for `not_computable`, *"No VPI yet (baseline
+  still to be read)"* for `quota_stop` and `read_failed`; never *"No level
+  (VPI < 1.5x)"*, which is only for a VPI below the first threshold. Beside
+  every n: *"+ M without a computable baseline"* (`without_vpi` in
+  `/api/analytics/top10` and `/day1-bands`). No claim date for a closed
+  record without a VPI: there is no plaque.
 
 ---
 

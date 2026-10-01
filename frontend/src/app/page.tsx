@@ -725,7 +725,9 @@ export default function Home() {
                             <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
                             <td className="px-3 py-2.5 text-white">{post.day_n ?? '\u2014'}</td>
                             <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.left_on)}</td>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.claim_open_until)}</td>
+                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">
+                              {vpi === null ? 'no plaque (no VPI)' : dataBreve(post.claim_open_until)}
+                            </td>
                           </>
                         )}
                         {vista === 'all' && (
