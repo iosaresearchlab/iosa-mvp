@@ -1090,6 +1090,8 @@ always with views and days in Most Popular (01 §4.1).
   2026: no 15-day expiry (records do not expire; on request they are hidden
   from public pages), no Shorts (the baseline is the same channel's
   long-form videos published 7-90 days before), no TikTok.
+- **APP-10** — the v1 social cards (`public/social/iosa-card-1..5.png`) are
+  removed from the site; they stay in the git history.
 
 ---
 
