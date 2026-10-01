@@ -311,31 +311,8 @@ export default function ClaimPage({
     : (post.created_at ? new Date(post.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A');
 
   return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 pt-0 sm:pt-0 md:pt-0 relative overflow-x-hidden flex flex-col">
+    <main className="min-h-screen bg-[#030508] text-white font-sans p-3 sm:p-4 md:p-6 pt-4 relative overflow-x-hidden flex flex-col">
       
-      {/* Fixed Header Container */}
-      <header className="sticky top-0 z-50 bg-[#030508]/90 backdrop-blur-md max-w-5xl mx-auto w-full border-b border-gray-800/80 py-3 mb-3 flex flex-row justify-between items-center gap-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <div className="flex items-end gap-1.5">
-              <svg className="h-6 w-3.5 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-                <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
-              </svg>
-              <span className="font-mono font-black text-lg tracking-tighter text-white leading-none">OSA</span>
-            </div>
-          </div>
-          <span className="text-[8px] font-mono text-gray-400 tracking-widest uppercase opacity-90">
-            Institute for Open Social Analytics
-          </span>
-        </div>
-
-        {/* Badge: Clean Verified Accreditation Status */}
-        <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] bg-cyan-950/40 border border-cyan-500/30 px-3 py-1 rounded-full shadow-sm">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> 
-          <span className="text-[9px] sm:text-[11px] font-bold tracking-wider">INDEPENDENT MEASUREMENT</span>
-        </div>
-      </header>
 
       {/* Navigation Return Link */}
       <div className="max-w-5xl mx-auto w-full mb-3">
@@ -624,12 +601,6 @@ export default function ClaimPage({
         </div>
       </div>
 
-      {/* Footer Disclaimer */}
-      <footer className="max-w-5xl mx-auto w-full mt-2 pt-2 border-t border-gray-800/60 text-[10px] text-gray-500 font-mono text-center leading-relaxed">
-        <p>
-          <strong className="text-gray-400">PROJECT DISCLAIMER:</strong> IOSA (Institute for Open Social Analytics) is an independent, self-funded research project with no profit purpose. Commemorative items are optional and their proceeds cover servers, API quota and development. VPI is our own measurement, not a certification issued by any authority. Not affiliated with, endorsed by, sponsored by, or associated with YouTube, Google LLC, TikTok, or any other platform.
-        </p>
-      </footer>
     </main>
   );
 }

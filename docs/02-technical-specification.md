@@ -1133,6 +1133,14 @@ always with views and days in Most Popular (01 §4.1).
   the day of the latest reading, `since` in the response; "today" was empty
   until the 23:59 UTC reading). No Shorts option: only the measured format
   is offered (`MEASURED_FORMATS`), and no ranking ever pools the two.
+- **UI-4** — one header and one footer for every page (`SiteHeader`,
+  `SiteFooter`, mounted by the root layout); no page draws its own. The
+  logo is one image of the whole mark (the spike "I", "OSA", "Institute for
+  Open Social Analytics"), `components/Logo.tsx`, from `res/IOSA Logo
+  Trasp.png` (no vector source exists): trimmed, PNG and WebP at 1x
+  (142×96) and 2x (284×192) in `public/brand`, explicit width and height,
+  alt "IOSA - Institute for Open Social Analytics". No spike drawn beside
+  text anywhere (it read "IIOSA"). The site is dark only (`globals.css`).
 
 ---
 

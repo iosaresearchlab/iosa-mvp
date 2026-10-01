@@ -101,64 +101,9 @@ export default function InsightsPage() {
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
       
-      {/* Fixed Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2.5 flex justify-between items-center">
-        <div className="flex items-center gap-2.5">
-          <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-            <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="14" cy="3" r="3" fill="#00E5FF" />
-          </svg>
-          <div className="flex flex-col">
-            <span className="font-mono font-black text-base tracking-tighter text-white leading-none">IOSA</span>
-            <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">Institute for Open Social Analytics</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 md:gap-2">
-          <Link
-            href="/leaderboard"
-            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors"
-          >
-            <Trophy className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">Top 10 Creators</span>
-          </Link>
-
-          <Link
-            href="/insights"
-            className="flex items-center gap-1 bg-cyan-950/80 border border-cyan-500 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs shadow-[0_0_10px_rgba(0,229,255,0.3)]"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">Insights</span>
-          </Link>
-
-          <button
-            onClick={() => setActiveModal('faq')}
-            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">FAQ</span>
-          </button>
-
-          <button
-            onClick={() => setActiveModal('methodology')}
-            className="hidden sm:flex items-center gap-1 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <Info className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span>Method</span>
-          </button>
-
-          <div className="hidden lg:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-full text-emerald-400 font-mono text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-bold text-[9px] tracking-wider">LIVE</span>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content Area */}
-      <div className="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-6 flex-grow w-full font-sans">
+      <div className="pt-6 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-6 flex-grow w-full font-sans">
         
         {/* Back to Home Button - Placed below header on the left side */}
         <div className="flex justify-start">
@@ -452,18 +397,6 @@ export default function InsightsPage() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="w-full bg-[#020305] border-t border-gray-800/80 pt-5 pb-5 px-6 md:px-12 mt-10 text-xs font-mono text-gray-400">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3 text-[10px] text-gray-400">
-          <p className="text-center md:text-left font-sans">
-            © 2026 Institute for Open Social Analytics (IOSA). Independent research initiative.
-          </p>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-[#00E5FF] transition-colors">Home Landing</Link>
-            <Link href="/leaderboard" className="hover:text-[#00E5FF] transition-colors">Top 10 Outliers</Link>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }

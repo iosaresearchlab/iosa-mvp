@@ -145,3 +145,22 @@ def test_privacy_and_terms_say_v2():
             assert gone not in low, (name, gone)
         assert "Last updated: 1 October 2026" in page, name
     assert "hidden from public pages" in (pub / "privacy.html").read_text(encoding="utf-8")
+
+
+# --- UI-4 ----------------------------------------------------------------------
+
+def test_one_header_one_footer_one_logo():
+    layout = read("app/layout.tsx")
+    assert "<SiteHeader />" in layout and "<SiteFooter />" in layout
+    spike = 'd="M1 26.5H6.5L14 8.5L17.5 14"'
+    for f in sorted(SRC.rglob("*.tsx")):
+        text = f.read_text(encoding="utf-8")
+        assert spike not in text, f                                   # no spike-plus-text left
+        if f.name not in ("SiteHeader.tsx", "SiteFooter.tsx"):
+            assert "<header" not in text and "<footer" not in text, f
+    logo = read("components/Logo.tsx")
+    assert 'alt="IOSA - Institute for Open Social Analytics"' in logo
+    assert "width={larghezza}" in logo and "height={altezza}" in logo
+    pub = ROOT / "frontend" / "public" / "brand"
+    for name in ("iosa-logo@1x.png", "iosa-logo@2x.png", "iosa-logo@1x.webp", "iosa-logo@2x.webp"):
+        assert (pub / name).stat().st_size > 0, name

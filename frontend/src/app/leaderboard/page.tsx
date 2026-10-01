@@ -147,14 +147,14 @@ export default function LeaderboardPage() {
           <ArrowLeft className="w-3.5 h-3.5" /> Back to the index
         </Link>
 
-        <header className="space-y-1">
+        <div className="space-y-1">
           <h1 className="text-xl md:text-2xl font-black font-mono tracking-tight flex items-center gap-2">
             <Trophy className="w-5 h-5 text-[#00E5FF]" /> Top VPI — first day observed
           </h1>
           <p className="text-xs text-gray-400">
             VPI on the first day observed in Most Popular. Not age-adjusted.
           </p>
-        </header>
+        </div>
 
         <DisclosureBox />
 

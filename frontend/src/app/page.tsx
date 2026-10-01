@@ -47,12 +47,16 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Legge l'hash dell'URL all'avvio per aprire automaticamente la modale corrispondente
+  // L'hash apre la modale corrispondente: all'avvio e quando la testata del
+  // sito (UI-4) porta a /#methodology o /#faq stando gia' in home.
   useEffect(() => {
-    const hash = window.location.hash.replace('#', '');
-    if (hash === 'faq' || hash === 'methodology') {
-      setActiveModal(hash as ModalType);
-    }
+    const apri = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'faq' || hash === 'methodology') setActiveModal(hash as ModalType);
+    };
+    apri();
+    window.addEventListener('hashchange', apri);
+    return () => window.removeEventListener('hashchange', apri);
   }, []);
 
   const scrollToTop = () => {
@@ -69,68 +73,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
-      {/* Fixed Navigation Header - Ottimizzato in altezza con collegamenti a Leaderboard e Insights */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#030508]/90 backdrop-blur-md border-b border-gray-800/80 px-4 md:px-10 py-2 flex justify-between items-center">
-        <div className="flex items-center gap-2.5">
-          <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-            <path
-              d="M1 26.5H6.5L14 8.5L17.5 14"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="14" cy="3" r="3" fill="#00E5FF" />
-          </svg>
-          <div className="flex flex-col">
-            <span className="font-mono font-black text-base tracking-tighter text-white leading-none">
-              IOSA
-            </span>
-            <span className="text-[7px] font-mono text-gray-400 tracking-widest uppercase opacity-80">
-              Institute for Open Social Analytics
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 md:gap-2">
-          {/* Collegamenti diretti alle nuove viste */}
-          <Link
-            href="/leaderboard"
-            className="flex items-center gap-1 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <Trophy className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">Top 10</span>
-          </Link>
-
-
-          <button
-            onClick={() => setActiveModal('faq')}
-            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">FAQ</span>
-          </button>
-
-          <button
-            onClick={scrollToHowItWorks}
-            className="hidden sm:flex items-center gap-1 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 px-2.5 py-1 rounded-full text-cyan-300 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <Info className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span>Method</span>
-          </button>
-
-          <div className="hidden lg:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-full text-emerald-400 font-mono text-xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-bold text-[9px] tracking-wider">LIVE</span>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content Area */}
-      <div className="pt-14 pb-5 px-3 md:px-8 max-w-6xl mx-auto space-y-2 flex-grow w-full">
+      <div className="pt-4 pb-5 px-3 md:px-8 max-w-6xl mx-auto space-y-2 flex-grow w-full">
         
         {/* Perimeter notice: stated on the front page, not in a footnote (27/09/2026) */}
         <section
@@ -357,78 +302,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Institutional Footer */}
-      <footer className="w-full bg-[#020305] border-t border-gray-800/80 pt-6 pb-5 px-6 md:px-12 mt-6 text-xs font-mono text-gray-400">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 pb-5 border-b border-gray-800/60">
-          
-          <div className="md:col-span-2 space-y-2">
-            <div className="flex items-center gap-2">
-              <svg className="h-5 w-3 text-[#00E5FF]" viewBox="0 0 18.5 32" fill="none">
-                <path d="M1 26.5H6.5L14 8.5L17.5 14" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="14" cy="3" r="3" fill="#00E5FF"/>
-              </svg>
-              <span className="font-mono font-black text-base text-white">IOSA — Institute for Open Social Analytics</span>
-            </div>
-            <p className="text-[11px] text-gray-400 font-sans leading-relaxed max-w-md">
-              An independent, self-funded research project with no profit purpose, measuring how long-form videos first observed in YouTube&apos;s Most Popular charts perform against each channel&apos;s own baseline.
-            </p>
-            <div className="flex items-center gap-2 text-[10px] text-[#00E5FF] pt-1">
-              <Mail className="w-3.5 h-3.5" />
-              <a href="mailto:iosa.research.lab@gmail.com" className="hover:underline">iosa.research.lab@gmail.com</a>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-white font-bold text-xs tracking-wider uppercase block border-b border-gray-800 pb-1">
-              Governance & Legal
-            </span>
-            <ul className="space-y-2 text-[11px]">
-              <li>
-                <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
-                  <ShieldCheck className="w-3 h-3 text-cyan-400" /> Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
-                  <FileText className="w-3 h-3 text-cyan-400" /> Terms of Service
-                </a>
-              </li>
-              <li>
-                <button 
-                  onClick={() => setActiveModal('methodology')} 
-                  className="hover:text-[#00E5FF] transition-colors flex items-center gap-1.5 cursor-pointer text-left">
-                  <Info className="w-3 h-3 text-cyan-400" /> VPI Methodology Standard
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-white font-bold text-xs tracking-wider uppercase block border-b border-gray-800 pb-1">
-              Community Contact
-            </span>
-            <p className="text-[10px] text-gray-400 font-sans leading-relaxed">
-              Have questions about your VPI record or wish to contribute open analytical nodes?
-            </p>
-            <a 
-              href="mailto:iosa.research.lab@gmail.com"
-              className="inline-flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white border border-gray-700 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors"
-            >
-              <Mail className="w-3 h-3 text-[#00E5FF]" /> iosa.research.lab@gmail.com
-            </a>
-          </div>
-
-        </div>
-
-        <div className="max-w-6xl mx-auto pt-4 flex flex-col md:flex-row justify-between items-center gap-3 text-[10px] text-gray-400">
-          <p className="text-center md:text-left font-sans">
-            © 2026 Institute for Open Social Analytics (IOSA). Independent, self-funded research project.
-          </p>
-          <p className="text-center md:text-right font-sans text-gray-400 max-w-xl">
-            Disclaimer: IOSA is an independent analytics project and is not affiliated, endorsed, or partnered with YouTube, TikTok, Instagram, X (Twitter), or Meta.
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }
