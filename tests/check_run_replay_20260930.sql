@@ -1,42 +1,33 @@
--- The nightly check, as one SQL statement. The scheduled task "IOSA check_run
--- notturno" (02:07 UTC) runs exactly this query, without the comments: keep
--- the two identical (owner decision 01/10/2026). tests/check_run.py applies
--- the same criteria to any day; tests/test_check_run.py holds the two to
--- the same verdicts. One row; verdict = 'PASS' or 'FAIL'. The day checked is
--- the UTC day that has just closed; to replay another day, replace the first
--- line (the d CTE) with: with d as (select date '<day>' as day),
---
--- A quota_stop is EXPECTED, and the verdict can be PASS, when all hold:
---   the census is complete; the run notes carry Google's 403; and the units
---   of the previous day's morning reprocess that fell in the same Pacific
---   quota day as this reading, plus this run's quota_total, reach 9,000.
---   While there is a backlog the 08:20 UTC reprocess spends quota of the same
---   Google day as the 23:59 UTC reading, so the reading can stop well below
---   the 9,900 brake; ripresa-iosa completes the records at 08:20 UTC.
--- FAIL only on: a quota_stop not expected; the previous day still waiting
---   (quota_stop or read_failed records left); read_failed > 0; an incomplete
---   census or a failed outcome; no run or more than one; slice errors; no
---   records; a Short record; malformed records (bad_records: a standard
---   record needs a baseline and a VPI, a not_computable, quota_stop or
---   read_failed one has no VPI); no units per channel in the notes; the
---   snapshot retention not run clean (02 section 3.1: no retention line, a
---   RETENTION FAILED line, or a snapshot day older than the 7-day window);
---   the database over 400 MB of the 500 MB free tier, Storage over 800 MB
---   of its 1 GB. After a missed reading the old reference stays one extra
---   night by design; that night fails here, which is the point.
--- Three corrections to the query first scheduled on 01/10, all toward the
--- owner's rule: an incomplete census fails the day by itself (it was read
--- only inside quota_stop_expected); a run with no previous-day pass in the
--- same quota day counts 0 units for it (the scalar subquery returned NULL,
--- which made the verdict FAIL however many units the run itself had spent:
--- a false FAIL); and Google's 403 is matched as the engine writes it
--- ("baselines stopped: 403 on ..."), not as any "403" in the notes, which a
--- slice seed or a count can contain.
--- Measured on 2026-09-30 as of the 02:07 UTC check of 01/10
--- (tests/check_run_replay_20260930.sql, read-only): 1,205 quota_stop, the
--- 403 in the notes, 5,695 units of the 29/09 morning pass + 4,155 of the
--- reading = 9,850 >= 9,000: quota_stop_expected, verdict PASS.
-with d as (select (now() at time zone 'utc')::date - 1 as day),
+-- tests/check_run.sql replayed, read-only, on 2026-09-30 as the 02:07 UTC
+-- check of 01/10 saw it: before the 08:20 UTC morning pass of 01/10, which
+-- completed the 1,205 quota_stop records (posts.reprocessed_at >= 08:20) and
+-- added its 3,818 units and its notes to the run of 30/09. Two CTEs shadow
+-- posts and ingest_run with that earlier state; nothing is written. The rest
+-- is tests/check_run.sql as it stands, with the day fixed.
+-- Result on production, 01/10/2026: verdict PASS; quota_stop 1205,
+-- quota_stop_expected true, stopped_by_google_403 true,
+-- same_quota_day_pass_units 5695 + quota_total 4155 = 9850 >= 9000,
+-- previous_day_still_waiting 0, read_failed 0, bad_records 0, records 2080,
+-- db 110 MB, storage 11 MB.
+with d as (select date '2026-09-30' as day),
+posts as (select x.method_version, x.entered_on, x.format,
+   case when x.reprocessed_at >= '2026-10-01 08:20:00+00' and x.entered_on = '2026-09-30'
+        then 'quota_stop' else x.baseline_rule end as baseline_rule,
+   case when x.reprocessed_at >= '2026-10-01 08:20:00+00' and x.entered_on = '2026-09-30'
+        then null else x.baseline_score end as baseline_score,
+   case when x.reprocessed_at >= '2026-10-01 08:20:00+00' and x.entered_on = '2026-09-30'
+        then null else x.vpi_ratio end as vpi_ratio
+   from public.posts x),
+ingest_run as (select i.id, i.day, i.started_at, i.outcome, i.slices_error, i.census_complete,
+   case when i.day = '2026-09-30' then i.started_at + interval '17 minutes 18 seconds'
+        else i.finished_at end as finished_at,
+   case when i.day = '2026-09-30' then null else i.reprocessed_at end as reprocessed_at,
+   case when i.day = '2026-09-30'
+        then i.quota_total - substring(i.notes from '.*[^0-9]([0-9]+) units in this pass')::int
+        else i.quota_total end as quota_total,
+   case when i.day = '2026-09-30' then substring(i.notes from '^(.*?); reprocessed at ')
+        else i.notes end as notes
+   from public.ingest_run i),
 r as (select i.* from ingest_run i, d where i.day = d.day),
 r1 as (select i.* from ingest_run i, d where i.day = d.day - 1),
 p as (select format, baseline_rule, baseline_score, vpi_ratio

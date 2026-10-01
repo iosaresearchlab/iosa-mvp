@@ -70,7 +70,8 @@ create table public.posts (
 
 # Supabase-only objects some migrations use, none of which exists on a plain
 # PostgreSQL: the API roles, pg_cron (same call signature for alter_job) and
-# storage.buckets (the columns the migrations write).
+# storage.buckets (the columns the migrations write) and storage.objects (the
+# metadata the nightly check sums).
 SUPABASE_STUB = """
 do $r$ begin
   create role anon; create role authenticated; create role service_role;
@@ -97,6 +98,8 @@ returns bigint language sql as
 create schema storage;
 create table storage.buckets (id text primary key, name text not null,
   public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(),
+  bucket_id text, name text, metadata jsonb);
 """
 
 # Tables that reference posts in production, with their foreign keys as read

@@ -910,6 +910,21 @@ are waiting without a VPI (`quota_stop`, `read_failed`), it asks the backend
 for `reprocess_day` of yesterday. Otherwise nothing is called. The brake is
 unchanged; whatever it does not reach waits for the next morning.
 
+**The nightly check** *(02:07 UTC, scheduled task; CHECK-2, owner decision
+01/10/2026)*: `tests/check_run.sql`, and the same criteria for any day in
+`tests/check_run.py`. While there is a backlog the 08:20 morning pass spends
+quota of the same Google day (midnight Pacific) as the next 23:59 UTC
+reading, so that reading can stop on Google's 403 well below the 9,900
+brake. Such a `quota_stop` is **expected**, and the day can PASS, when the
+census is complete, the notes carry Google's 403, and the morning pass units
+falling in that quota day plus the run's `quota_total` reach 9,000. The check
+fails only on a `quota_stop` not expected, the previous day still waiting,
+`read_failed` > 0, an incomplete census or failed run, malformed records,
+a Short record, the retention not run clean, or the database or Storage over
+its threshold. Measured on 30/09 as the 02:07 check of 01/10 saw it
+(`tests/check_run_replay_20260930.sql`): 1,205 `quota_stop`, 5,695 + 4,155 =
+9,850 units, PASS.
+
 ---
 
 ## 6. Frontend
