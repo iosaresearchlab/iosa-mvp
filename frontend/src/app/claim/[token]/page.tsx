@@ -3,6 +3,7 @@
 import { use, useState, useEffect, useCallback } from 'react';
 import { livelloDaRatio, NESSUN_LIVELLO, stileBadge } from '@/lib/vpi-scale';
 import { etichettaStato, motivoSenzaVpi, dataBreve } from '@/lib/record-status';
+import { StatusIcon } from '@/components/StatusBadge';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -349,11 +350,11 @@ export default function ClaimPage({
       <div className="max-w-5xl mx-auto w-full mb-3 grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
         <div
           data-claim-status={inMostPopular ? 'charting' : 'left'}
-          className={`border rounded-xl p-3 flex items-center gap-3 shadow-md ${inMostPopular ? 'bg-emerald-950/30 border-emerald-500/40' : 'bg-gray-900/60 border-gray-700'}`}
+          className={`border rounded-xl p-3 flex items-center gap-3 shadow-md ${inMostPopular ? 'bg-cyan-950/30 border-cyan-500/40' : 'bg-gray-900/60 border-gray-700'}`}
         >
-          <Calendar className={`w-3.5 h-3.5 shrink-0 ${inMostPopular ? 'text-emerald-400' : 'text-gray-300'}`} />
+          {isV2 ? <StatusIcon post={post} className="w-4 h-4" /> : <Calendar className="w-3.5 h-3.5 shrink-0 text-gray-300" aria-hidden />}
           <div>
-            <span className={`block font-bold text-[11px] tracking-wider ${inMostPopular ? 'text-emerald-300' : 'text-white'}`}>{statoPagina}</span>
+            <span className={`block font-bold text-[11px] tracking-wider ${inMostPopular ? 'text-[#00E5FF]' : 'text-white'}`}>{statoPagina}</span>
             <span className="text-gray-400 block text-[9px] mt-0.5">
               {inMostPopular
                 ? `First observed ${dataBreve(post.entered_on)}`

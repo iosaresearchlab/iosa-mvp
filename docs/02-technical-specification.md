@@ -1096,6 +1096,12 @@ always with views and days in Most Popular (01 §4.1).
   views. The status badge is the same on the outliers, country, category and
   creator pages (`OutlierList`). The CSV carries the status, both VPIs, left
   on and claim open until.
+  *(UI-7, 01/10/2026)* the two states carry two icons wherever a state
+  appears (home table, outliers, country, category, creator, claim): in
+  Most Popular, a rising arrow in cyan with "day N"; left, a flag in grey
+  with "N days, left <date>". The full label ("In Most Popular - day N",
+  "Left Most Popular - N days, left <date>") is the tooltip and the
+  screen-reader text; colour is never the only signal.
 - **CLAIM-2** — the claim page. While the record is `ACTIVE`: a status block
   "IN MOST POPULAR - DAY N", the current VPI and its level, and *"Measurement
   in progress. The plaque and the claim window open when the video leaves

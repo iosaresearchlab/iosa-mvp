@@ -211,3 +211,16 @@ def test_the_nav_says_top_vpi():
     for f in list(SRC.rglob("*.tsx")) + list(SRC.rglob("*.ts")):
         assert "Top 10" not in f.read_text(encoding="utf-8"), f
     assert "etichetta: 'Top VPI'" in read("components/SiteHeader.tsx")
+
+
+# --- UI-7 ----------------------------------------------------------------------
+
+def test_two_states_two_icons_with_labels():
+    badge = read("components/StatusBadge.tsx")
+    assert "<TrendingUp" in badge and "text-[#00E5FF]" in badge          # in Most Popular: rising, cyan
+    assert "<Flag" in badge and "text-gray-400" in badge                  # left: flag, grey
+    assert "`day ${n}`" in badge and "`${giorni}, left ${dataBreve(post.left_on)}`" in badge
+    assert 'className="sr-only">{completa}' in badge and "title={completa}" in badge
+    for rel in ("components/HomeArchive.tsx", "components/OutlierList.tsx"):
+        assert "<StatusBadge post={post} />" in read(rel), rel
+    assert "<StatusIcon post={post}" in read("app/claim/[token]/page.tsx")
