@@ -47,6 +47,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "backend"))
 from vpi_core import INDEX_START_DATE  # noqa: E402  the published series starts here (01 section 1)
+from vpi_format import format_vpi_full  # noqa: E402  UI-11: a VPI shown to people is rounded down
 
 SITE = "iosaresearch.org"
 X_LIMIT, X_LINK = 280, 23
@@ -102,8 +103,8 @@ def fmt_int(n):
 
 
 def fmt_vpi(v):
-    v = float(v)
-    return f"{v:,.0f}x" if v >= 100 else f"{v:.1f}x"
+    """UI-11: rounded down, the print form without the sign ("2,496x", "1.4x")."""
+    return format_vpi_full(float(v)).lstrip("+")
 
 
 def flags_of(rec):

@@ -1201,6 +1201,17 @@ always with views and days in Most Popular (01 §4.1).
   No "NODE STATUS: ACTIVE", no LIVE pulse.
 - **UI-5** — the navigation calls the day-1 ranking "Top VPI", the title of
   its page; never "Top 10".
+- **UI-11** *(owner decision, 02/10/2026)* — a VPI written for people is
+  rounded **down** at the precision it is shown with, so the number never
+  reaches a level threshold the record has not reached: 1.48 is "+1.4x",
+  4.96 "+4.9x", 2,496 "+2.4Kx" (compact) or "+2,496x" (print). The level is
+  still assigned on the full value (01 §4.3). One rule in two places that a
+  test holds to the same strings: `frontend/src/lib/vpi-format.mjs`
+  (`formatVPI`, `formatVPIFull`, re-exported by `lib/format.ts`) and
+  `backend/vpi_format.py` (`format_vpi`, `format_vpi_full`: the plaque and
+  checkout strings of `main.py`, the weekly digest). The floor works on the
+  shortest decimal of the number, in string arithmetic. The CSV export and
+  the API's numeric fields keep the full value.
 
 ---
 

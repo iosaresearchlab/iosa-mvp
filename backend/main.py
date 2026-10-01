@@ -27,6 +27,7 @@ from supabase import create_client
 
 import archivio_targhe
 import vpi_core
+from vpi_format import format_vpi_full  # UI-11: a VPI written for people is rounded down
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import METHOD_TEXT_V1, METHOD_TEXT_V2
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
@@ -900,7 +901,7 @@ async def get_trophy_preview(
                         raw_vpi = post.get("vpi_ratio")
                         try:
                             v_float = float(raw_vpi)
-                            vpi = f"+{v_float:.1f}x"
+                            vpi = format_vpi_full(v_float)
                         except (ValueError, TypeError):
                             vpi = str(raw_vpi)
                             if not vpi.startswith("+"):
@@ -1126,7 +1127,7 @@ def _plaque_figures_v2(record):
     None for anything else (a v1 archive record, an open record)."""
     if (record or {}).get("method_version") != "v2" or plaque_state_v2(record) != "open":
         return None
-    return {"vpi": f"+{float(record['vpi_max']):.1f}x",
+    return {"vpi": format_vpi_full(float(record['vpi_max'])),
             "views": str(record.get("views_max") if record.get("views_max") is not None
                          else record.get("engagement_score")),
             "days": record.get("days_charting"),
@@ -1175,7 +1176,7 @@ def create_checkout_session(req: CheckoutSessionRequest):
                     raw_vpi = p.get("vpi_max") if p.get("vpi_max") is not None else p.get("vpi_ratio", 8.7)
                     try:
                         v_float = float(raw_vpi)
-                        vpi_ratio = f"+{v_float:.1f}x"
+                        vpi_ratio = format_vpi_full(v_float)
                     except (ValueError, TypeError):
                         vpi_ratio = str(raw_vpi)
                         if not vpi_ratio.startswith("+"):
@@ -1356,7 +1357,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     raw_vpi = p.get("vpi_ratio") or vpi_ratio
                     try:
                         v = float(raw_vpi)
-                        vpi_ratio = f"+{v:.1f}x"
+                        vpi_ratio = format_vpi_full(v)
                     except (ValueError, TypeError):
                         vpi_ratio = str(raw_vpi)
                         if not vpi_ratio.startswith("+"):
