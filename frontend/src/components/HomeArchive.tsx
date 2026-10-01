@@ -90,19 +90,22 @@ function CellaVpi({ post }: { post: Riga }) {
   return <VpiCell post={post} />;
 }
 
+/** UI-10: two icon buttons of the same size, side by side, with tooltips. */
 function Azioni({ post }: { post: Riga }) {
+  const icona = 'inline-flex items-center justify-center w-8 h-8 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
   return (
-    <div className="flex items-center gap-1.5 justify-end">
-      <a href={`/claim/${post.claim_token}`}
-        className="flex items-center gap-1 bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold text-[10px] px-2 py-1 rounded-lg whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-        <BarChart3 className="w-3 h-3" aria-hidden /> Analysis
+    <div className="flex items-center gap-2 justify-end" data-row-actions>
+      <a href={`/claim/${post.claim_token}`} title="Analysis" aria-label="Analysis of this measurement"
+        className={`${icona} bg-[#00E5FF] hover:bg-cyan-400 text-black focus-visible:outline-white`}>
+        <BarChart3 className="w-4 h-4" aria-hidden />
       </a>
-      {post.post_url && (
-        <a href={post.post_url} target="_blank" rel="noreferrer" aria-label="Open the video on YouTube"
-          className="p-1 text-gray-400 hover:text-white border border-gray-800 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF]">
-          <ExternalLink className="w-3 h-3" aria-hidden />
+      {post.post_url ? (
+        <a href={post.post_url} target="_blank" rel="noreferrer" title="Open the video on YouTube"
+          aria-label="Open the video on YouTube"
+          className={`${icona} text-gray-300 hover:text-white border border-gray-700 bg-black/40 focus-visible:outline-[#00E5FF]`}>
+          <ExternalLink className="w-4 h-4" aria-hidden />
         </a>
-      )}
+      ) : <span className="w-8 h-8" aria-hidden />}
     </div>
   );
 }
@@ -125,16 +128,16 @@ function Video({ post }: { post: Riga }) {
 }
 
 /** Le colonne dedicate a ciascuna vista (HOME-1). */
-function colonne(vista: Vista): { titolo: string; destra?: boolean; cella: (p: Riga) => React.ReactNode }[] {
+function colonne(vista: Vista): { titolo: string; destra?: boolean; classe?: string; cella: (p: Riga) => React.ReactNode }[] {
   if (vista === 'charting') return [
     { titolo: 'Day', cella: (p) => <span className="whitespace-nowrap text-white">day {p.day_n ?? '—'}</span> },
     { titolo: 'Current VPI · level', cella: (p) => <CellaVpi post={p} /> },
-    { titolo: 'Views', destra: true, cella: (p) => <span className="text-white">{formatCount(viewsPubblicate(p))}</span> },
+    { titolo: 'Views', destra: true, classe: 'w-24 pr-8', cella: (p) => <span className="text-white tabular-nums" data-views>{formatCount(viewsPubblicate(p))}</span> },
     { titolo: 'First observed', cella: (p) => <span className="whitespace-nowrap text-gray-300">{dataBreve(p.entered_on)}</span> },
   ];
   if (vista === 'left') return [
     { titolo: 'Highest VPI observed · level', cella: (p) => <CellaVpi post={p} /> },
-    { titolo: 'Views', destra: true, cella: (p) => <span className="text-white">{formatCount(viewsPubblicate(p))}</span> },
+    { titolo: 'Views', destra: true, classe: 'w-24 pr-8', cella: (p) => <span className="text-white tabular-nums" data-views>{formatCount(viewsPubblicate(p))}</span> },
     { titolo: 'Days in Most Popular', cella: (p) => <span className="text-white">{p.day_n ?? '—'}</span> },
     { titolo: 'Left on', cella: (p) => <span className="whitespace-nowrap text-gray-300">{dataBreve(p.left_on)}</span> },
     { titolo: 'Claim open until', cella: (p) => <span className="whitespace-nowrap text-gray-300">{vpiPubblicato(p) === null ? 'no plaque (no VPI)' : dataBreve(p.claim_open_until)}</span> },
@@ -142,7 +145,7 @@ function colonne(vista: Vista): { titolo: string; destra?: boolean; cella: (p: R
   return [
     { titolo: 'Status', cella: (p) => <span className="whitespace-nowrap text-gray-300">{inClassifica(p) ? `since ${dataBreve(p.entered_on)}` : `left ${dataBreve(p.left_on)}`}</span> },
     { titolo: 'VPI · level', cella: (p) => <CellaVpi post={p} /> },
-    { titolo: 'Views', destra: true, cella: (p) => <span className="text-white">{formatCount(viewsPubblicate(p))}</span> },
+    { titolo: 'Views', destra: true, classe: 'w-24 pr-8', cella: (p) => <span className="text-white tabular-nums" data-views>{formatCount(viewsPubblicate(p))}</span> },
   ];
 }
 
@@ -316,8 +319,8 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
               <tr>
                 <th scope="col" className="px-3 py-2 font-bold w-14">#</th>
                 <th scope="col" className="px-3 py-2 font-bold w-[38%]">Video</th>
-                {cols.map((c) => <th key={c.titolo} scope="col" className={`px-3 py-2 font-bold ${c.destra ? 'text-right' : ''}`}>{c.titolo}</th>)}
-                <th scope="col" className="px-3 py-2 w-28"><span className="sr-only">Links</span></th>
+                {cols.map((c) => <th key={c.titolo} scope="col" className={`px-3 py-2 font-bold ${c.destra ? 'text-right' : ''} ${c.classe ?? ''}`}>{c.titolo}</th>)}
+                <th scope="col" className="pl-4 pr-3 py-2 w-[6.5rem]"><span className="sr-only">Links</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/60">
@@ -331,8 +334,8 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
                     <tr key={post.id} className={`${ALTEZZA_RIGA} hover:bg-gray-900/40 align-middle`}>
                       <td className="px-3 text-gray-600 font-bold">#{fmt(primo + i)}</td>
                       <td className="px-3"><Video post={post} /></td>
-                      {cols.map((c) => <td key={c.titolo} className={`px-3 ${c.destra ? 'text-right' : ''}`}>{c.cella(post)}</td>)}
-                      <td className="px-3"><Azioni post={post} /></td>
+                      {cols.map((c) => <td key={c.titolo} className={`px-3 ${c.destra ? 'text-right' : ''} ${c.classe ?? ''}`}>{c.cella(post)}</td>)}
+                      <td className="pl-4 pr-3"><Azioni post={post} /></td>
                     </tr>
                   ))}
             </tbody>

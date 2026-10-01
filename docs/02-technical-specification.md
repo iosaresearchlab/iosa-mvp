@@ -1014,6 +1014,10 @@ Now (`components/HomeArchive.tsx`, `lib/home-query.ts`):
   current while charting, highest observed after the exit). Also "First
   observed (oldest)". Counts from `archive_facets()`, with per-band counts.
   This amends the "never VPI" sort above, by the owner's decision.
+- *(UI-10, owner decision 01/10/2026)* the views column has its own width,
+  right-aligned, with space before the actions; "Analysis" and the link to
+  YouTube are two icon buttons of the same size (32 px), side by side, each
+  with a tooltip and an accessible label. The row height does not change.
 Migrations `20261001203056`, `20261001203706` (trigram search index, the
 owner's call on size), `20261001203752`; timings in the task log.
 

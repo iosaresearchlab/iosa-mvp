@@ -243,3 +243,15 @@ def test_the_vpi_cell():
 def test_the_nc_tooltip_names_the_real_minimum():
     import vpi_core
     assert f"fewer than {vpi_core.MIN_BASELINE_SAMPLES} long-form videos" in read("components/VpiCell.tsx")
+
+
+def test_views_and_actions():
+    """UI-10: a views column of its own; two icon buttons of the same size, with tooltips."""
+    home = read("components/HomeArchive.tsx")
+    assert home.count("classe: 'w-24 pr-8'") == 3 and home.count("data-views") == 3   # every view
+    assert "const ALTEZZA_RIGA = 'h-[84px]';" in home                                   # row height unchanged
+    azioni = home[home.index("function Azioni("):home.index("function Video(")]
+    assert azioni.count("${icona}") == 2 and "w-8 h-8" in azioni and "gap-2" in azioni
+    assert 'title="Analysis" aria-label="Analysis of this measurement"' in azioni
+    assert 'title="Open the video on YouTube"' in azioni and 'aria-label="Open the video on YouTube"' in azioni
+    assert "> Analysis" not in azioni                                                    # an icon, no text label
