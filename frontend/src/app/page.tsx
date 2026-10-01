@@ -34,6 +34,7 @@ type ModalType = 'faq' | 'methodology' | null;
 
 export default function Home() {
   const [totale, setTotale] = useState<{ n: number; vista: Vista } | null>(null);
+  const [ordinato, setOrdinato] = useState<string | null>(null);   // UI-12: the sort in use
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
   const suTotale = useCallback((n: number, vista: Vista) => setTotale({ n, vista }), []);
@@ -157,7 +158,7 @@ export default function Home() {
 
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
                 <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">ORDERED BY</div>
-                <div className="text-sm md:text-base font-black text-[#00E5FF]">VIEWS</div>
+                <div className="text-sm md:text-base font-black text-[#00E5FF] uppercase" data-ordered-by>{ordinato ?? '\u2014'}</div>
               </div>
 
               <div className="flex flex-col justify-center items-center">
@@ -174,7 +175,7 @@ export default function Home() {
 
         {/* The index: server-side pages, filters and counts (UI-3) */}
         <Suspense fallback={<div className="h-[600px] rounded-xl border border-gray-800 bg-[#070A10]" />}>
-          <HomeArchive onTotale={suTotale} />
+          <HomeArchive onTotale={suTotale} onOrdine={setOrdinato} />
         </Suspense>
 
         {/* How It Works Section - Aggiornato con la nuova metodologia di campionamento trasparente */}

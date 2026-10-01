@@ -1212,6 +1212,11 @@ always with views and days in Most Popular (01 §4.1).
   checkout strings of `main.py`, the weekly digest). The floor works on the
   shortest decimal of the number, in string arithmetic. The CSV export and
   the API's numeric fields keep the full value.
+- **UI-12** *(owner decision, 02/10/2026)* — the "ORDERED BY" box of the
+  home shows the sort in use, with the Sort menu's label (`ORDINI`, reported
+  by `HomeArchive` through `onOrdine`); a dash until the archive has read
+  its state. The country and category pages have no sort control: they are
+  ordered by views (`outlierDi`) and their subtitle says so.
 
 ---
 

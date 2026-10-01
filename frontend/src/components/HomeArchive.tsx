@@ -151,7 +151,11 @@ function colonne(vista: Vista): { titolo: string; destra?: boolean; classe?: str
 
 const fmt = (n: number) => n.toLocaleString('en-US');
 
-export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista: Vista) => void }) {
+export default function HomeArchive({ onTotale, onOrdine }: {
+  onTotale?: (n: number, vista: Vista) => void;
+  /** UI-12: the label of the sort in use, as the Sort menu writes it. */
+  onOrdine?: (etichetta: string) => void;
+}) {
   const { stato, cambia } = useStatoArchivio();
   const [righe, setRighe] = useState<Riga[]>([]);
   const [totale, setTotale] = useState<number | null>(null);
@@ -187,6 +191,9 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
   }, [chiave]);
 
   useEffect(() => { if (totale !== null) onTotale?.(totale, stato.vista); }, [totale, stato.vista, onTotale]);
+  useEffect(() => {
+    onOrdine?.(ORDINI.find((o) => o.valore === stato.ordine)?.etichetta ?? ORDINI[0].etichetta);
+  }, [stato.ordine, onOrdine]);
 
   const pagine = Math.max(1, Math.ceil((totale ?? 0) / stato.perPagina));
   useEffect(() => {   // una pagina oltre l'ultima (link vecchio, filtro nuovo) torna all'ultima

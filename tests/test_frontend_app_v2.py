@@ -255,3 +255,16 @@ def test_views_and_actions():
     assert 'title="Analysis" aria-label="Analysis of this measurement"' in azioni
     assert 'title="Open the video on YouTube"' in azioni and 'aria-label="Open the video on YouTube"' in azioni
     assert "> Analysis" not in azioni                                                    # an icon, no text label
+
+
+def test_ordered_by_follows_the_sort_in_use():
+    """UI-12: the ORDERED BY box shows the label of the active sort, from the Sort menu's list."""
+    page = read("app/page.tsx")
+    assert ">VIEWS<" not in page and "data-ordered-by>{ordinato ?? '\\u2014'}" in page
+    assert "onOrdine={setOrdinato}" in page
+    home = read("components/HomeArchive.tsx")
+    assert "onOrdine?.(ORDINI.find((o) => o.valore === stato.ordine)?.etichetta" in home
+    # the segment pages have no sort control: they are ordered by views and say so
+    seg = read("lib/supabase-server.ts")
+    body = seg[seg.index("export async function outlierDi("):]
+    assert body[:body.index("\n}\n")].count(".order(") == 1 and ".order('engagement_score'" in body
