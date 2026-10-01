@@ -66,7 +66,6 @@ import {
   CheckCircle2,
   Building2,
   Trophy,
-  TrendingUp,
 } from 'lucide-react';
 import { SERIES_FLOOR, INDEX_START_DATE } from '@/lib/index-start';
 
@@ -380,13 +379,6 @@ export default function Home() {
             <span className="hidden sm:inline">Top 10</span>
           </Link>
 
-          <Link
-            href="/insights"
-            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full text-gray-200 font-mono text-xs transition-colors cursor-pointer"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-[#00E5FF]" />
-            <span className="hidden sm:inline">Insights</span>
-          </Link>
 
           <button
             onClick={() => setActiveModal('faq')}
@@ -839,7 +831,7 @@ export default function Home() {
 
             <div className="bg-[#070A10] border border-gray-800 p-3 rounded-xl relative overflow-hidden">
               <Award className="w-4 h-4 text-[#00E5FF] mb-1.5" />
-              <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Insights & Rankings</h3>
+              <h3 className="font-bold text-xs text-white mb-1 font-mono">3. Rankings</h3>
               <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
                 The ranking by VPI is read on the first day each video is observed, the one reading every record has. VPI is not age-adjusted.
               </p>

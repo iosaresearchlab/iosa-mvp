@@ -1061,6 +1061,9 @@ always with views and days in Most Popular (01 §4.1).
   file and their method line. The signatures of the render functions only
   gain optional parameters: the Printify path (`trophy_pipeline`) is
   unchanged.
+- **APP-1** — `/insights` leaves the navigation and the sitemap and is not
+  indexed. It comes back rebuilt on the per-band × format cells (n and
+  median, long-form only), never on pooled figures.
 
 ---
 

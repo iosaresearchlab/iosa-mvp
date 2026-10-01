@@ -27,9 +27,6 @@ export function PageShell({
             <Link href="/outliers" className="text-gray-400 hover:text-[#00E5FF]">
               Browse
             </Link>
-            <Link href="/insights" className="text-gray-400 hover:text-[#00E5FF]">
-              Insights
-            </Link>
             <Link href="/leaderboard" className="text-gray-400 hover:text-[#00E5FF]">
               Leaderboard
             </Link>

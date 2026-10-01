@@ -70,3 +70,11 @@ def test_the_claim_page_after_the_exit():
     assert "`Claim open until ${tokenWindow.openUntil}`" in CLAIM
     assert "'Highest VPI observed in Most Popular \\u2014 independent measurement'" in CLAIM
     assert "isV2 ? post.vpi_max" in CLAIM          # no fallback to the day's VPI after the exit
+
+
+# --- APP-1 ---------------------------------------------------------------------
+
+def test_insights_is_out_of_the_nav_and_the_sitemap():
+    for rel in ("app/page.tsx", "components/PageShell.tsx", "app/layout.tsx", "app/sitemap.ts"):
+        assert 'href="/insights"' not in read(rel) and "/insights`" not in read(rel), rel
+    assert "indicizzabile: false" in read("app/insights/layout.tsx")

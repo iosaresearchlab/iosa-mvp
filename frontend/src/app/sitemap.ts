@@ -41,7 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const fisse: MetadataRoute.Sitemap = [
     { url: `${SITO}/`, lastModified: adesso, changeFrequency: 'hourly', priority: 1 },
     { url: `${SITO}/outliers`, lastModified: adesso, changeFrequency: 'hourly', priority: 0.9 },
-    { url: `${SITO}/insights`, lastModified: adesso, changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITO}/leaderboard`, lastModified: adesso, changeFrequency: 'daily', priority: 0.7 },
   ];
 
