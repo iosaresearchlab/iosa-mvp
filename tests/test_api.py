@@ -448,3 +448,26 @@ def test_reprocess_endpoint_needs_the_token_and_a_date(api, monkeypatch):
     r = client.post("/api/ingest/reprocess/2026-09-28", headers=AUTH)
     assert r.status_code == 200 and started == [date(2026, 9, 28)]
     main._ingestione_in_corso = False
+
+
+# --- CLAIM-2: no order while charting, none without a VPI ---------------------
+
+
+@pytest.mark.parametrize("record, code", [
+    ({"method_version": "v2", "status": "ACTIVE", "vpi_ratio": 3.0}, 409),
+    ({"method_version": "v2", "status": "CLOSED", "vpi_max": None}, 409),
+])
+def test_no_order_unless_the_plaque_is_open(api, monkeypatch, record, code):
+    client, db = api
+    monkeypatch.setattr(main, "ENABLE_ORDERS", True)
+    db.data["posts"] = [{"id": "p", "claim_token": "tok", **record}]
+    r = client.post("/api/checkout/create-session",
+                    json={"claimToken": "tok", "email": "a@example.com", "name": "A"})
+    assert r.status_code == code and "plaque" in r.json()["detail"]
+
+
+def test_the_plaque_states():
+    assert main._plaque_state({"method_version": "v2", "status": "ACTIVE"}) == "charting"
+    assert main._plaque_state({"method_version": "v2", "status": "CLOSED", "vpi_max": None}) == "no_vpi"
+    assert main._plaque_state({"method_version": "v2", "status": "CLOSED", "vpi_max": 2.0}) == "open"
+    assert main._plaque_state({"method_version": "v1", "vpi_ratio": 3.2}) == "open"

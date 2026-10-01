@@ -1021,6 +1021,31 @@ async def initialize_claim_product(token: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
+def plaque_state_v2(record):
+    """CLAIM-2 (01/10/2026), v2 records only: "open" once the record has closed
+    with a VPI; "charting" while it is in Most Popular (no plaque, no order);
+    "no_vpi" when it closed without a computable baseline (no plaque)."""
+    if record.get("status") != "CLOSED":
+        return "charting"
+    if record.get("vpi_max") is None:
+        return "no_vpi"
+    return "open"
+
+
+def _plaque_state(record):
+    """v1 archive records all closed under v1 and keep their plaque."""
+    if (record or {}).get("method_version") != "v2":
+        return "open"
+    return plaque_state_v2(record)
+
+
+PLAQUE_REFUSED = {
+    "charting": "Measurement in progress. The plaque and the claim window open "
+                "when the video leaves Most Popular.",
+    "no_vpi": "There is no plaque for a record without a VPI.",
+}
+
+
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
     if not ENABLE_ORDERS:
@@ -1038,12 +1063,14 @@ def create_checkout_session(req: CheckoutSessionRequest):
         e_act_meta = "N/A"
         e_base_meta = "N/A"
 
+        refused = None
         if supabase and req.claimToken:
             try:
                 res = _claim_lookup(req.claimToken)
                 if res.data and len(res.data) > 0:
                     p = res.data[0]
-                    raw_vpi = p.get("vpi_ratio", 8.7)
+                    refused = PLAQUE_REFUSED.get(_plaque_state(p))
+                    raw_vpi = p.get("vpi_max") if p.get("vpi_max") is not None else p.get("vpi_ratio", 8.7)
                     try:
                         v_float = float(raw_vpi)
                         vpi_ratio = f"+{v_float:.1f}x"
@@ -1058,10 +1085,15 @@ def create_checkout_session(req: CheckoutSessionRequest):
                         date_str = str(p.get("created_at"))[:10]
                     if p.get("engagement_score") is not None:
                         e_act_meta = str(p.get("engagement_score"))
+                    if p.get("views_max") is not None:
+                        e_act_meta = str(p.get("views_max"))
                     if p.get("baseline_score") is not None:
                         e_base_meta = str(p.get("baseline_score"))
             except Exception as err:
                 log.info(f"Error fetching metadata for checkout session: {err}")
+        if refused:
+            # no order while the video is in Most Popular, none without a VPI
+            raise HTTPException(status_code=409, detail=refused)
 
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -1102,6 +1134,8 @@ def create_checkout_session(req: CheckoutSessionRequest):
             cancel_url=f'{FRONTEND_URL}/claim/{req.claimToken}?status=cancelled',
         )
         return {"checkout_url": checkout_session.url}
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))

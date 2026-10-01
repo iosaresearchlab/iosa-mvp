@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import { livelloDaRatio, NESSUN_LIVELLO, stileBadge } from '@/lib/vpi-scale';
+import { etichettaStato, motivoSenzaVpi, dataBreve } from '@/lib/record-status';
 import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -33,7 +34,7 @@ export default function ClaimPage({
   // Tab state switcher
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
 
-  const [tokenWindow, setTokenWindow] = useState({ start: '', end: '', days: 0 });
+  const [tokenWindow, setTokenWindow] = useState({ start: '', end: '', openUntil: '', days: 0 });
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
@@ -179,9 +180,10 @@ export default function ClaimPage({
   }, [token, post?.id, passaggioAutomatico]);
 
   useEffect(() => {
-    // La finestra del claim e' calcolata dal backend (docs/02 §6.4):
-    // entered_on + CLAIM_DAYS, dal primo giorno osservato. La misurazione non
-    // scade; scade solo il token. Qui si disegna solo il conto alla rovescia.
+    // La finestra del claim e' calcolata dal backend (docs/02 §6.4, CLAIM-1):
+    // left_on + CLAIM_DAYS, dall'uscita da Most Popular; un record ancora in
+    // classifica non ha finestra. La misurazione non scade; scade solo il
+    // token. Qui si disegna solo il conto alla rovescia.
     if (!post || !token) return;
     let timer: ReturnType<typeof setInterval> | undefined;
     let annullato = false;
@@ -192,7 +194,12 @@ export default function ClaimPage({
         const inizio = new Date(`${w.start}T00:00:00Z`);
         const fine = new Date(`${w.expires_on}T00:00:00Z`);
         const fmt = (d: Date) => d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-        setTokenWindow({ start: fmt(inizio), end: fmt(fine), days: w.claim_days });
+        setTokenWindow({
+          start: fmt(inizio),
+          end: fmt(fine),
+          openUntil: w.open_until ? fmt(new Date(`${w.open_until}T00:00:00Z`)) : fmt(fine),
+          days: w.claim_days,
+        });
         setIsExpired(Boolean(w.expired));
         const aggiorna = () => {
           const diff = fine.getTime() - Date.now();
@@ -234,9 +241,10 @@ export default function ClaimPage({
         <div className="max-w-md w-full bg-[#070A10] border border-amber-500/30 rounded-xl p-8 text-center shadow-2xl flex flex-col items-center gap-4">
           <h1 className="text-xl font-bold text-amber-400">MEASUREMENT NOT FOUND</h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            No record carries this link. Records are never deleted, so the link
-            is probably mistyped: check it against the one you received, or
-            search your channel on the index.
+            No public record carries this link. Records are never deleted: the
+            link is probably mistyped, or the record was hidden from public
+            pages at its creator&apos;s request. Check it against the one you
+            received, or search your channel on the index.
           </p>
           <div className="flex flex-col sm:flex-row gap-2 mt-2">
             <Link
@@ -257,12 +265,25 @@ export default function ClaimPage({
     );
   }
 
-  // Il valore pubblicato e' il VPI piu' alto osservato, sempre con le views e
-  // i giorni in Most Popular (docs/01 §4.1). I record v1 non hanno vpi_max.
-  const vpiPubblicato = post.vpi_max ?? post.vpi_ratio;
-  const viewsPubblicate = post.views_max ?? post.engagement_score ?? post.e_act;
+  // CLAIM-2 (01/10/2026). Mentre il video e' in Most Popular la pagina mostra
+  // la traiettoria: il VPI del giorno, nessun premio, nessuna targa, nessun
+  // ordine. Quando esce, il valore pubblicato e' il VPI piu' alto osservato,
+  // sempre con le views e i giorni in Most Popular (docs/01 §4.1), e si
+  // aprono la targa e la finestra del claim. Senza vpi_max non c'e' targa.
+  // I record v1 (archivio) sono tutti chiusi e non hanno vpi_max.
+  const isV2 = post.method_version === 'v2';
+  const inMostPopular = isV2 && post.status !== 'CLOSED';
+  const vpiPubblicato = inMostPopular ? post.vpi_ratio : isV2 ? post.vpi_max : (post.vpi_max ?? post.vpi_ratio);
+  const viewsPubblicate = inMostPopular
+    ? post.engagement_score
+    : (post.views_max ?? post.engagement_score ?? post.e_act);
+  const senzaVpi = vpiPubblicato === null || vpiPubblicato === undefined;
+  const targaDisponibile = !inMostPopular && !senzaVpi;
   const giorniInClassifica: number | null = post.day_n ?? post.days_charting ?? null;
-  const livelloPubblicato = livelloDaRatio(vpiPubblicato) ?? NESSUN_LIVELLO;
+  const livelloPubblicato = senzaVpi
+    ? { livello: 0, nome: motivoSenzaVpi(post) ?? NESSUN_LIVELLO.nome, colore: NESSUN_LIVELLO.colore }
+    : (livelloDaRatio(vpiPubblicato) ?? NESSUN_LIVELLO);
+  const statoPagina = isV2 ? etichettaStato(post).toUpperCase() : 'LEFT MOST POPULAR';
   const formattedVpi = formatVPI(vpiPubblicato);
   const postTitle = post.content_text || post.title || post.content_title || 'Measured Video';
 
@@ -347,34 +368,60 @@ export default function ClaimPage({
         </div>
       )}
 
-      {/* Validity Banner */}
+      {/* Status and claim window (CLAIM-2) */}
       <div className="max-w-5xl mx-auto w-full mb-3 grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
-        <div className="bg-gradient-to-r from-cyan-950/40 via-blue-950/20 to-cyan-950/40 border border-cyan-500/30 rounded-xl p-3 flex items-center gap-3 shadow-md">
-          <Calendar className="w-3.5 h-3.5 text-[#00E5FF] shrink-0" />
+        <div
+          data-claim-status={inMostPopular ? 'charting' : 'left'}
+          className={`border rounded-xl p-3 flex items-center gap-3 shadow-md ${inMostPopular ? 'bg-emerald-950/30 border-emerald-500/40' : 'bg-gray-900/60 border-gray-700'}`}
+        >
+          <Calendar className={`w-3.5 h-3.5 shrink-0 ${inMostPopular ? 'text-emerald-400' : 'text-gray-300'}`} />
           <div>
-            <span className="text-gray-400 block text-[9px] mb-0.5">
-              CLAIM WINDOW{tokenWindow.days ? ` (${tokenWindow.days} DAYS FROM FIRST OBSERVATION)` : ''}
+            <span className={`block font-bold text-[11px] tracking-wider ${inMostPopular ? 'text-emerald-300' : 'text-white'}`}>{statoPagina}</span>
+            <span className="text-gray-400 block text-[9px] mt-0.5">
+              {inMostPopular
+                ? `First observed ${dataBreve(post.entered_on)}`
+                : isV2
+                  ? `First observed ${dataBreve(post.entered_on)} \u00b7 left ${dataBreve(post.left_on)}`
+                  : 'Measured before the current series (archive)'}
             </span>
-            <span className="text-white font-bold text-[11px]">
-              {tokenWindow.start ? `${tokenWindow.start} - ${tokenWindow.end}` : '\u2014'}
-            </span>
-            <span className="text-gray-500 block text-[9px] mt-0.5">The measurement never expires; the claim token does.</span>
           </div>
         </div>
 
-        <div className={`bg-gradient-to-r ${isExpired ? 'from-red-950/40 via-red-950/20 to-red-950/40 border-amber-500/30 text-red-400' : 'from-amber-950/40 via-red-950/20 to-amber-950/40 border-amber-500/30 text-amber-300'} border rounded-xl p-3 flex items-center gap-3 shadow-md`}>
-          <Timer className={`w-3.5 h-3.5 ${isExpired ? 'text-red-400' : 'text-amber-400 animate-pulse'} shrink-0`} />
-          <div>
-            <span className="opacity-80 block text-[9px] mb-0.5">CLAIM TOKEN EXPIRES IN</span>
-            <span className="font-bold text-[11px]">
-              {isExpired
-                ? 'EXPIRED'
-                : timeLeft
-                  ? `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`
-                  : '\u2014'}
-            </span>
+        {inMostPopular ? (
+          <div className="bg-black/40 border border-gray-800 rounded-xl p-3 flex items-center gap-3 shadow-md" data-claim-pending>
+            <Timer className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <p className="text-[11px] text-gray-300 leading-relaxed font-sans">
+              Measurement in progress. The plaque and the claim window open when the video leaves Most Popular.
+            </p>
           </div>
-        </div>
+        ) : senzaVpi ? (
+          <div className="bg-black/40 border border-gray-800 rounded-xl p-3 flex items-center gap-3 shadow-md">
+            <Timer className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <p className="text-[11px] text-gray-300 leading-relaxed font-sans">
+              {livelloPubblicato.nome}: there is no plaque for this record. The record stays published.
+            </p>
+          </div>
+        ) : (
+          <div className={`border rounded-xl p-3 flex items-center gap-3 shadow-md ${isExpired ? 'bg-red-950/30 border-red-500/30 text-red-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'}`}>
+            <Timer className={`w-3.5 h-3.5 shrink-0 ${isExpired ? 'text-red-400' : 'text-amber-400'}`} />
+            <div>
+              <span className="block font-bold text-[11px]" data-claim-until>
+                {!tokenWindow.openUntil
+                  ? 'Claim window \u2014'
+                  : isExpired
+                    ? `Claim closed after ${tokenWindow.openUntil}`
+                    : `Claim open until ${tokenWindow.openUntil}`}
+              </span>
+              <span className="opacity-80 block text-[9px] mt-0.5">
+                {isExpired
+                  ? 'The measurement stays published; the claim token has expired.'
+                  : timeLeft
+                    ? `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m left \u00b7 ${tokenWindow.days} days from the exit`
+                    : `${tokenWindow.days || ''} days from the exit from Most Popular`}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch pb-2">
@@ -383,7 +430,8 @@ export default function ClaimPage({
         <div className="bg-[#070A10] border border-gray-800 rounded-xl p-4 flex flex-col justify-between items-center text-center shadow-xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-32 h-32 bg-[#00E5FF]/10 rounded-full blur-2xl pointer-events-none" />
 
-          {/* Switcher Tab */}
+          {/* Switcher Tab: no plaque while charting, none without a VPI (CLAIM-2) */}
+          {targaDisponibile && (<>
           <div className="flex items-center gap-2 p-1 bg-black/60 border border-gray-800 rounded-xl mb-3 w-full">
             <button
               onClick={() => { setActiveTab('plaque'); setArtifactLoading(true); }}
@@ -448,6 +496,9 @@ export default function ClaimPage({
             <p className="text-[10px] font-mono text-gray-400 mb-2 flex items-center justify-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes a QR code linking back to this measurement page.
             </p>
+            </div>
+            </>)}
+            <div className="w-full flex flex-col items-center flex-grow justify-center mb-2">
 
             <span
               className="text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase mb-1.5 border"
@@ -459,10 +510,14 @@ export default function ClaimPage({
             <h2 className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white mb-1">
               {formattedVpi} <span className="text-[#00E5FF]">VPI</span>
             </h2>
-            <p className="text-[11px] font-mono text-gray-400">Peak VPI observed in Most Popular &mdash; independent measurement</p>
+            <p className="text-[11px] font-mono text-gray-400">
+              {inMostPopular
+                ? `Current VPI, ${etichettaStato(post)} \u2014 measurement in progress`
+                : 'Highest VPI observed in Most Popular \u2014 independent measurement'}
+            </p>
             <div className="mt-2 grid grid-cols-3 gap-2 w-full font-mono text-[10px]" data-plaque-figures>
               <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
-                <span className="block text-gray-500">PEAK VPI</span>
+                <span className="block text-gray-500">{inMostPopular ? 'CURRENT VPI' : 'HIGHEST VPI OBSERVED'}</span>
                 <span className="text-[#00E5FF] font-bold">{formattedVpi}</span>
               </div>
               <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
@@ -470,7 +525,7 @@ export default function ClaimPage({
                 <span className="text-white font-bold">{formatCount(viewsPubblicate)}</span>
               </div>
               <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
-                <span className="block text-gray-500">DAYS IN MOST POPULAR</span>
+                <span className="block text-gray-500">{inMostPopular ? 'DAY IN MOST POPULAR' : 'DAYS IN MOST POPULAR'}</span>
                 <span className="text-white font-bold">{giorniInClassifica ?? '\u2014'}</span>
               </div>
             </div>
@@ -538,14 +593,20 @@ export default function ClaimPage({
               </p>
             </div>
 
-            {!ORDERS_ENABLED ? (
+            {!targaDisponibile ? (
+              <div className="bg-black/40 border border-gray-800 rounded-xl p-4 text-center text-xs font-mono text-gray-300" data-no-order>
+                {inMostPopular
+                  ? 'Measurement in progress. The plaque and the claim window open when the video leaves Most Popular.'
+                  : 'There is no plaque for a record without a VPI.'}
+              </div>
+            ) : !ORDERS_ENABLED ? (
               <WaitlistForm
                 claimToken={token}
                 authorHandle={post.author_handle || undefined}
               />
             ) : isExpired ? (
               <div className="bg-red-950/40 border border-red-500/50 rounded-xl p-4 text-center text-xs font-mono text-red-400 shadow-inner">
-                This claim token has expired: the {tokenWindow.days || ''}-day claim window from first observation has closed. The measurement stays published.
+                This claim token has expired: the {tokenWindow.days || ''}-day claim window from the exit from Most Popular has closed. The measurement stays published.
               </div>
             ) : (
               <ClaimForm 

@@ -50,3 +50,23 @@ def test_one_table_with_three_views_and_dedicated_columns():
 
 def test_the_same_badge_on_the_segment_pages():
     assert "<StatusBadge post={post} />" in HOME and "<StatusBadge post={post} />" in LIST
+
+
+# --- CLAIM-2 -------------------------------------------------------------------
+
+CLAIM = read("app/claim/[token]/page.tsx")
+
+
+def test_the_claim_page_while_charting():
+    assert "Measurement in progress. The plaque and the claim window open when the video leaves Most Popular." in CLAIM
+    assert "const inMostPopular = isV2 && post.status !== 'CLOSED';" in CLAIM
+    # no plaque download and no order unless the plaque is available
+    assert "const targaDisponibile = !inMostPopular && !senzaVpi;" in CLAIM
+    assert CLAIM.count("{targaDisponibile && (<>") == 1
+    assert "{!targaDisponibile ? (" in CLAIM
+
+
+def test_the_claim_page_after_the_exit():
+    assert "`Claim open until ${tokenWindow.openUntil}`" in CLAIM
+    assert "'Highest VPI observed in Most Popular \\u2014 independent measurement'" in CLAIM
+    assert "isV2 ? post.vpi_max" in CLAIM          # no fallback to the day's VPI after the exit

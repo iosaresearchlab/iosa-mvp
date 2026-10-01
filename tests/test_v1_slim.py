@@ -24,6 +24,8 @@ MAIN = (ROOT / "backend" / "main.py").read_text(encoding="utf-8")
 PAGE = (ROOT / "frontend" / "src" / "app" / "claim" / "[token]" / "page.tsx").read_text(encoding="utf-8")
 # Fallback props the page reads when a field is missing; not columns anywhere.
 NOT_COLUMNS = {"title", "content_title", "e_act", "e_base"}
+# Read by the claim page only behind isV2 (CLAIM-2): never from a v1 record.
+V2_ONLY_PAGE_FIELDS = {"status", "left_on"}
 
 
 def _claim_functions():
@@ -45,8 +47,15 @@ def fields_read():
         names |= set(re.findall(r'\b(?:post|p|record|post_data)\.get\(\s*"(\w+)"', src))
         names |= set(re.findall(r'\(record or \{\}\)\.get\(\s*"(\w+)"', src))
         names |= set(re.findall(r'\brecord\["(\w+)"\]', src))
-    names |= set(re.findall(r"\bpost\??\.(\w+)", PAGE))
+    names |= set(re.findall(r"\bpost\??\.(\w+)", PAGE)) - V2_ONLY_PAGE_FIELDS
     return names
+
+
+def test_the_v2_only_fields_are_read_behind_the_v2_guard():
+    assert "const inMostPopular = isV2 && post.status !== 'CLOSED';" in PAGE
+    for line in PAGE.splitlines():
+        if re.search(r"\bpost\??\.(status|left_on)\b", line):
+            assert "isV2" in line or "inMostPopular" in line or "isV2" in PAGE[:PAGE.index(line)][-400:], line
 
 
 def columns(db, table):

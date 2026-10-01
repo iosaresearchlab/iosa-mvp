@@ -15,7 +15,8 @@ def test_expiry_comes_from_the_backend():
 
 def test_the_plaque_carries_peak_vpi_views_and_days_in_most_popular():
     block = PAGE[PAGE.index("data-plaque-figures"):][:1500]
-    for label in ("PEAK VPI", "VIEWS", "DAYS IN MOST POPULAR"):
+    # CLAIM-2 (01/10/2026): "highest VPI observed", the owner's wording
+    for label in ("HIGHEST VPI OBSERVED", "VIEWS", "DAYS IN MOST POPULAR"):
         assert label in block
     assert "post.vpi_max ?? post.vpi_ratio" in PAGE
 

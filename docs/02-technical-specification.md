@@ -1038,6 +1038,15 @@ always with views and days in Most Popular (01 §4.1).
   views. The status badge is the same on the outliers, country, category and
   creator pages (`OutlierList`). The CSV carries the status, both VPIs, left
   on and claim open until.
+- **CLAIM-2** — the claim page. While the record is `ACTIVE`: a status block
+  "IN MOST POPULAR - DAY N", the current VPI and its level, and *"Measurement
+  in progress. The plaque and the claim window open when the video leaves
+  Most Popular."* No plaque download, no order. After the exit: "LEFT MOST
+  POPULAR - N DAYS", the highest VPI observed with views and days, the
+  plaque, *"Claim open until <date>"* (`claim_window.open_until`). No plaque
+  when `vpi_max` is null. The backend refuses the order the same way
+  (`_plaque_state`: 409 while charting and without a VPI); v1 archive
+  records keep their plaque.
 
 ---
 
