@@ -21,7 +21,7 @@ import {
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   aParametri, applicaFiltri, applicaOrdine, daParametri, pagineVisibili, parametriFacet, pulisci,
-  CAMPI_HOME, ORDINI, PAGE_SIZES, VISTE, type StatoArchivio, type Vista,
+  BANDE, CAMPI_HOME, ORDINI, PAGE_SIZES, SUGGERIMENTO_VPI, VISTE, ordineAmmesso, type StatoArchivio, type Vista,
 } from '@/lib/home-query';
 
 const supabase = createClient(
@@ -31,7 +31,7 @@ const supabase = createClient(
 );
 
 type Riga = Record<string, any>;
-type Facet = { kind: 'status' | 'country' | 'category'; value: string; n: number };
+type Facet = { kind: 'status' | 'country' | 'category' | 'band'; value: string; n: number };
 
 const ALTEZZA_RIGA = 'h-[84px]';
 
@@ -180,7 +180,7 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       applicaFiltri(supabase.from('public_records').select(CAMPI_HOME, { count: 'exact' }) as any, stato), stato
     ).range(da, da + stato.perPagina - 1);
-    Promise.all([query, supabase.rpc('home_facets', parametriFacet(stato))])
+    Promise.all([query, supabase.rpc('archive_facets', parametriFacet(stato))])
       .then(([pagina, faccette]) => {
         if (mio !== turno.current) return;
         if (pagina.error) throw pagina.error;
@@ -214,6 +214,7 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
     document.getElementById('directory-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const ordini = ORDINI.filter((o) => o.viste.includes(stato.vista));
+  const contoBanda = (b: string) => facet.find((f) => f.kind === 'band' && f.value === b)?.n;
   const pulsante = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#00E5FF]';
 
   return (
@@ -224,7 +225,7 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
       <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs flex flex-wrap items-center gap-2 bg-black/40" role="group" aria-label="Which records">
         {VISTE.map(({ valore, etichetta }) => (
           <button key={valore} type="button" data-vista={valore} aria-pressed={stato.vista === valore}
-            onClick={() => cambia({ vista: valore, ordine: ORDINI.find((o) => o.valore === stato.ordine)!.viste.includes(valore) ? stato.ordine : 'views' })}
+            onClick={() => cambia({ vista: valore, ordine: ordineAmmesso(stato.ordine, valore, stato.banda) ? stato.ordine : 'views' })}
             className={`px-2.5 py-1 rounded border text-[11px] cursor-pointer ${pulsante} ${stato.vista === valore ? 'text-black bg-[#00E5FF] border-[#00E5FF] font-bold' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/40 hover:text-white'}`}>
             {etichetta}{facet.length > 0 && <span className="opacity-70"> ({fmt(contoVista(valore))})</span>}
           </button>
@@ -260,10 +261,30 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
           </select>
         </label>
         <label className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-1 rounded-md col-span-1">
+          <span className="text-gray-500 whitespace-nowrap">Baseline band</span>
+          <select value={stato.banda ?? ''} data-band-filter
+            onChange={(e) => {
+              const banda = e.target.value || null;
+              cambia({ banda, ordine: ordineAmmesso(stato.ordine, stato.vista, banda) ? stato.ordine : 'views' });
+            }}
+            className={`bg-transparent text-white font-bold min-w-0 w-full cursor-pointer ${pulsante}`}>
+            <option value="" className="bg-gray-900">All</option>
+            {BANDE.map((b) => (
+              <option key={b.valore} value={b.valore} className="bg-gray-900">
+                {b.etichetta}{contoBanda(b.valore) !== undefined ? ` (${fmt(contoBanda(b.valore)!)})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-1 rounded-md col-span-1">
           <span className="text-gray-500">Sort</span>
           <select value={stato.ordine} onChange={(e) => cambia({ ordine: e.target.value as StatoArchivio['ordine'] })}
             className={`bg-transparent text-white font-bold min-w-0 w-full cursor-pointer ${pulsante}`}>
-            {ordini.map((o) => <option key={o.valore} value={o.valore} className="bg-gray-900">{o.etichetta}</option>)}
+            {ordini.map((o) => (
+              <option key={o.valore} value={o.valore} disabled={o.soloInBanda && !stato.banda} className="bg-gray-900">
+                {o.etichetta}{o.soloInBanda && !stato.banda ? ' \u2014 choose a baseline band' : ''}
+              </option>
+            ))}
           </select>
         </label>
         <label className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-1 rounded-md col-span-1">
@@ -273,8 +294,11 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
             {PAGE_SIZES.map((n) => <option key={n} value={n} className="bg-gray-900">{n}</option>)}
           </select>
         </label>
-        {(stato.paese || stato.categoria || stato.q) && (
-          <button type="button" onClick={() => cambia({ paese: null, categoria: null, q: '' })}
+        <p className="col-span-2 md:basis-full text-[10px] text-gray-500" data-vpi-hint>
+          {SUGGERIMENTO_VPI}{stato.banda ? '.' : ': choose a baseline band to sort by VPI.'}
+        </p>
+        {(stato.paese || stato.categoria || stato.q || stato.banda) && (
+          <button type="button" onClick={() => cambia({ paese: null, categoria: null, q: '', banda: null, ordine: ordineAmmesso(stato.ordine, stato.vista, null) ? stato.ordine : 'views' })}
             className={`text-cyan-300 hover:text-white underline text-[11px] ${pulsante}`}>
             Clear filters
           </button>

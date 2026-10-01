@@ -1005,6 +1005,15 @@ Now (`components/HomeArchive.tsx`, `lib/home-query.ts`):
 - no realtime subscription: the data changes once a day.
 - *(UI-6, 01/10/2026)* the default view is **All**: the URL without `view`
   opens All; `?view=charting` and `?view=left` narrow it.
+- *(UI-8, owner decision 01/10/2026)* a **Baseline band** filter (the bands
+  of the disclosure box and of `BASELINE_BANDS`) and a VPI sort, high to low
+  and low to high, allowed **only within one band**: the options are
+  disabled until a band is chosen, a one-line hint says "VPI is compared
+  only within a baseline band", and a URL cannot force a VPI sort without a
+  band. The sort uses the VPI the table shows (`public_records.vpi_shown`:
+  current while charting, highest observed after the exit). Also "First
+  observed (oldest)". Counts from `archive_facets()`, with per-band counts.
+  This amends the "never VPI" sort above, by the owner's decision.
 Migrations `20261001203056`, `20261001203706` (trigram search index, the
 owner's call on size), `20261001203752`; timings in the task log.
 

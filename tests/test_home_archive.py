@@ -70,7 +70,7 @@ def test_no_row_cap_no_client_filter_no_realtime():
     for gone in ("MAX_RIGHE", "postgres_changes", ".channel(", "filteredPosts", "range(0, MAX"):
         assert gone not in HOME and gone not in ARCHIVE, gone
     assert "count: 'exact'" in ARCHIVE and ".range(da, da + stato.perPagina - 1)" in ARCHIVE
-    assert "supabase.rpc('home_facets'" in ARCHIVE
+    assert "supabase.rpc('archive_facets'" in ARCHIVE
 
 
 def test_state_in_the_url_and_the_controls():
@@ -85,10 +85,40 @@ def test_state_in_the_url_and_the_controls():
     assert "{fmt(primo)}&ndash;{fmt(ultimo)} of" in ARCHIVE
 
 
-def test_no_vpi_ordering_of_the_mixed_population():
-    # 02 section 6.2: a VPI ranking is day 1 only (Top VPI)
-    assert "vpi_ratio'" not in QUERY.split("export function applicaOrdine")[1].split("}")[0]
-    assert "order('vpi" not in QUERY
+def test_vpi_is_sorted_only_within_one_baseline_band():
+    # UI-8 (owner, 01/10/2026): VPI is compared only within a baseline band
+    assert "(s.ordine === 'vpi_desc' || s.ordine === 'vpi_asc') && s.banda" in QUERY
+    assert "soloInBanda: true" in QUERY and QUERY.count("soloInBanda: true") == 2
+    assert "return !!def && def.viste.includes(vista) && (!def.soloInBanda || !!banda);" in QUERY
+    assert "if (!ordineAmmesso(ordine, vista, banda)) ordine = 'views';" in QUERY      # a URL cannot force it
+    assert "disabled={o.soloInBanda && !stato.banda}" in ARCHIVE
+    assert "VPI is compared only within a baseline band" in QUERY and "{SUGGERIMENTO_VPI}" in ARCHIVE
+    assert "First observed (oldest)" in QUERY
+    bands = [b[2] for b in __import__("main").BASELINE_BANDS]
+    for b in bands:
+        assert f"valore: '{b}'" in QUERY, b
+
+
+def test_archive_facets_counts_bands_and_filters_by_band(db):
+    with db.cursor() as cur:
+        cur.execute("grant select on public.posts, public.post_daily to anon")
+        _record(cur, "a", "ACTIVE", ["IT"], ["Gaming"], "x")                    # baseline 100: band 100-1k
+        cur.execute("update posts set baseline_score = 50 where external_post_id = 'a'")
+        _record(cur, "b", "ACTIVE", ["IT"], ["Gaming"], "y")
+        _record(cur, "c", "CLOSED", ["IT"], ["Gaming"], "z")
+        cur.execute("savepoint s")
+        cur.execute("set local role anon")
+        cur.execute("select kind, value, n from archive_facets('2026-09-27', null, null, null, null, null, null, null)")
+        f = {(k, v): n for k, v, n in cur.fetchall()}
+        cur.execute("select kind, value, n from archive_facets('2026-09-27', null, null, null, null, null, 100, 1000)")
+        g = {(k, v): n for k, v, n in cur.fetchall()}
+        cur.execute("select external_post_id from public_records where baseline_score >= 100 and baseline_score < 1000 "
+                    "order by vpi_shown desc nulls last")
+        rows = [r[0] for r in cur.fetchall()]
+        cur.execute("rollback to savepoint s")
+    assert f[("band", "<100")] == 1 and f[("band", "100-1k")] == 2
+    assert g[("status", "ACTIVE")] == 1 and g[("status", "CLOSED")] == 1 and g[("band", "<100")] == 1
+    assert set(rows) == {"b", "c"}
 
 
 def test_csv_covers_the_whole_filtered_set_server_side():
