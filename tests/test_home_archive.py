@@ -96,3 +96,9 @@ def test_csv_covers_the_whole_filtered_set_server_side():
     assert ".range(da, da + BLOCCO - 1)" in EXPORT and "if (!data || data.length < BLOCCO) break;" in EXPORT
     assert "claim_token" not in QUERY.split("export const COLONNE_CSV")[1]
     assert "pagina: 1, perPagina: 50" in ARCHIVE                                 # the link drops page and rows
+
+
+def test_the_default_view_is_all():
+    # UI-6 (owner, 01/10/2026)
+    assert "vista: 'all', paese: null" in QUERY
+    assert "if (s.vista !== DEFAULT.vista) p.set('view', s.vista);" in QUERY

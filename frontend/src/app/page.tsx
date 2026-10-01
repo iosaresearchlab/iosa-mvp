@@ -151,7 +151,7 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{!totale || totale.vista === 'charting' ? 'IN MOST POPULAR NOW' : totale.vista === 'left' ? 'LEFT MOST POPULAR' : 'RECORDS'}</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{!totale || totale.vista === 'all' ? 'RECORDS' : totale.vista === 'charting' ? 'IN MOST POPULAR NOW' : 'LEFT MOST POPULAR'}</div>
                 <div className="text-sm md:text-base font-black text-white">{totale ? totale.n.toLocaleString('en-US') : '\u2014'}</div>
               </div>
 

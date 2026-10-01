@@ -29,7 +29,8 @@ export type StatoArchivio = {
 };
 
 export const DEFAULT: StatoArchivio = {
-  vista: 'charting', paese: null, categoria: null, q: '', ordine: 'views', pagina: 1, perPagina: 50,
+  // UI-6 (owner, 01/10/2026): the archive opens on All; ?view=charting / ?view=left narrow it
+  vista: 'all', paese: null, categoria: null, q: '', ordine: 'views', pagina: 1, perPagina: 50,
 };
 
 export const VISTE: { valore: Vista; etichetta: string }[] = [
