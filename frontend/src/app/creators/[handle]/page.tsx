@@ -109,15 +109,16 @@ export default async function PaginaCreator({
         <p className="text-sm text-gray-300 leading-relaxed">
           Every measurement above has its own analysis page with the full
           breakdown, and a free digital plaque you can download. Nothing is
-          gated and nothing is for sale. If you would rather not appear here at
-          all, write to{' '}
+          gated and nothing is for sale. If you would rather not appear here,
+          write to{' '}
           <a
             href="mailto:iosa.research.lab@gmail.com"
             className="text-[#00E5FF] underline"
           >
             iosa.research.lab@gmail.com
           </a>{' '}
-          and we remove the channel.
+          and your records are hidden from public pages. They are never
+          deleted: the index is a research series and stays complete.
         </p>
       </div>
     </PageShell>

@@ -484,7 +484,9 @@ def _claim_lookup(token):
     already sent must still resolve (08 T-20). claim_record_v1 returns the one
     archived row with that token and nothing else. Both answers carry .data.
     """
-    res = supabase.table("posts").select("*").eq("claim_token", token).execute()
+    # A record hidden on a removal request (OPTOUT-1) resolves to nothing.
+    res = (supabase.table("posts").select("*").eq("claim_token", token)
+           .eq("hidden", False).execute())
     if (res and res.data) or not token:
         return res
     return supabase.rpc("claim_record_v1", {"p_token": token}).execute()
@@ -503,7 +505,9 @@ PUBLIC_POST_COLUMNS = (
     "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
     "vpi_max_on,views_max,views_final,reprocessed_at"
 )
-PRIVATE_POST_COLUMNS = ("printify_product_id", "comment_sent")
+# hidden / hidden_on (OPTOUT-1): /api/posts returns only hidden = false, and
+# the day a removal request was honoured is nobody else's business.
+PRIVATE_POST_COLUMNS = ("printify_product_id", "comment_sent", "hidden", "hidden_on")
 
 
 @app.get("/api/posts")
@@ -525,6 +529,7 @@ def get_posts(
             return {"posts": [], "total": 0}
         query = (supabase.table("posts").select(PUBLIC_POST_COLUMNS, count="exact")
                  .eq("method_version", "v2")
+                 .eq("hidden", False)                      # OPTOUT-1
                  .gte("entered_on", vpi_core.series_floor()))
         if min_vpi and min_vpi > 0:
             query = query.gte("vpi_ratio", min_vpi)
@@ -608,6 +613,7 @@ def _day1_rows(since=None, country=None, category=None, format=None):
              .select(f"day, day_index, views, vpi_ratio, posts!inner({DAY1_POST_COLUMNS})")
              .eq("day_index", 1)
              .eq("posts.method_version", "v2")
+             .eq("posts.hidden", False)                     # OPTOUT-1
              .eq("posts.entry_certain", True))
         floor = vpi_core.series_floor()
         q = q.gte("posts.entered_on", max(since, floor) if since else floor)

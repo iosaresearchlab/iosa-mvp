@@ -305,6 +305,17 @@ the video appeared in) so existing queries and pages keep working;
 gone. `EXPIRED` leaves the measurement and survives only as a claim-token
 state.
 
+**Removal requests** *(OPTOUT-1, owner decision 01/10/2026)*: `hidden boolean
+not null default false` and `hidden_on date`. A removal request sets
+`hidden = true`: the record disappears from every public page and from the
+public API, and is never deleted. The engine keeps measuring it. RLS is the
+guarantee, because the site reads with the public key: the select policy on
+`posts` is `not hidden`, and the one on `post_daily` requires its record not
+hidden. The backend's public reads (`/api/posts`, the day-1 analytics, the
+claim lookup behind the plaque, the window and the order) filter
+`hidden = false` too. A claim link of a hidden record resolves to nothing.
+Migration `20261001010027_v2_optout1_hidden`, `tests/test_optout.py`.
+
 ### 3.3 The daily series
 
 ```sql

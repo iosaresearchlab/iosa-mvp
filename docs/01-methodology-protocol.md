@@ -219,7 +219,7 @@ switch. **The choice becomes a result, not an opinion.**
 | Baseline | **frozen** at first sighting |
 | Views | **updated daily** while the video is in the chart |
 | VPI | recomputed daily: today's views / frozen baseline |
-| The record | permanent, never deleted, never expires |
+| The record | permanent, never deleted, never expires; a removal request hides it from every public page and the public API (`hidden`), never deletes it *(OPTOUT-1, 01/10/2026)* |
 
 ---
 
