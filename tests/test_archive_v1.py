@@ -34,7 +34,10 @@ def test_posts_holds_no_v1_row_and_the_archive_holds_them_all(db):
 def test_blanked_links_are_kept_with_the_original_post_id(db):
     with db.cursor() as cur:
         assert one(cur, "select count(*) from outreach where post_id is not null") == [(0,)]
-        assert one(cur, "select count(*) from claim_visite where post_id is not null") == [(0,)]
+        # claim_visite got its id back from the token at APP-12 (01/10/2026):
+        # the archived id, no longer blank
+        assert one(cur, "select count(*) from claim_visite c join posts_v1 v on v.id = c.post_id "
+                        "and v.claim_token = c.claim_token") == [(1,)]
         rows = one(cur, "select l.source_table, v.author_handle, l.claim_token = v.claim_token "
                         "from posts_v1_links l join posts_v1 v on v.id = l.post_id order by 1")
         assert rows == [("claim_visite", "@a", True), ("outreach", "@a", True)]

@@ -134,7 +134,9 @@ export default function ClaimPage({
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
         automatico: passaggioAutomatico(),
       })
-      .then(() => {}, () => {});   // una visita non registrata non rompe la pagina
+      // Una visita non registrata non rompe la pagina, ma si vede in console:
+      // dal 25/09 al 01/10 un vincolo le rifiutava tutte in silenzio (APP-12).
+      .then(({ error }) => { if (error) console.warn('claim visit not recorded:', error.message); }, () => {});
   }, [token, post?.id, passaggioAutomatico]);
 
   // Registra un gesto compiuto sulla pagina (per ora: lo scarico della targa).
@@ -173,7 +175,7 @@ export default function ClaimPage({
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
         automatico: passaggioAutomatico(),
       })
-      .then(() => {}, () => {});
+      .then(({ error }) => { if (error) console.warn('claim event not recorded:', error.message); }, () => {});
   }, [token, post?.id, passaggioAutomatico]);
 
   useEffect(() => {

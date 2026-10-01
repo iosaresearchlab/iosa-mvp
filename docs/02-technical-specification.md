@@ -464,6 +464,12 @@ migration before the delete.
 - `posts_v1_links`: the `outreach`, `claim_visite` and `claim_eventi` rows
   that pointed at a v1 post, with that post id. Their `post_id` is set null
   by the foreign key (`ON DELETE SET NULL`); the link stays reconstructable.
+  *(APP-12, 01/10/2026: that same foreign key then refused every new visit
+  to a v1 claim page, whose `post_id` is a `posts_v1` id: `claim_visite` has
+  no row after 24/09. `claim_visite.post_id` and `claim_eventi.post_id` now
+  name the record in `posts` or `posts_v1` and carry no foreign key; the 5
+  nulled visits got their id back from their token. Migration
+  `20261001010218_v2_app12_claim_visits`.)*
 - `claim_record_v1(token)`: the one archived record with that token, for the
   claim page and the checkout, so a v1 claim token still resolves (`08`
   T-20). Lookup by token only: the archive cannot be listed.
