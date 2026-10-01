@@ -1,142 +1,48 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { formatVPI, formatCount } from '@/lib/format';
-import { stileBadge } from '@/lib/vpi-scale';
-import {
-  inClassifica,
-  vpiPubblicato,
-  viewsPubblicate,
-  livelloPubblicato,
-  dataBreve,
-} from '@/lib/record-status';
-import { StatusBadge } from '@/components/StatusBadge';
-import { PAESI } from '@/lib/segments';
-
-// Nessuna soglia sul VPI (docs/01 §7): l'indice non e' censurato dal basso e
-// un record senza baseline calcolabile resta in tabella, senza VPI.
-//
-// La home e' la nostra classifica generale (docs/02 §6.2): l'unione delle
-// classifiche di categoria ordinata per views, con il VPI di ogni video
-// accanto. Il dato quantitativo e' di YouTube, quello qualitativo e' nostro.
-// Si caricano le prime MAX_RIGHE per views; il conteggio resta esatto.
-const MAX_RIGHE = 5000;
-
-// HOME-1 (01/10/2026): una tabella, tre viste, colonne dedicate a ciascuna.
-type Vista = 'charting' | 'left' | 'all';
-const VISTE: { valore: Vista; etichetta: string }[] = [
-  { valore: 'charting', etichetta: 'In Most Popular now' },
-  { valore: 'left', etichetta: 'Left Most Popular' },
-  { valore: 'all', etichetta: 'All' },
-];
-
-const CAMPI_HOME =
-  'id,external_post_id,platform,format,author_handle,author_name,channel_id,content_text,post_url,country,category,countries,categories,engagement_score,baseline_score,baseline_rule,vpi_ratio,vpi_level,vpi_max,views_max,days_charting,day_n,claim_open_until,entered_on,left_on,status,claim_token';
-
-// Quante righe si disegnano per volta.
-//
-// Prima la tabella renderizzava tutti i record insieme: 11.565 righe, circa
-// 300.000 nodi DOM e una pagina alta quasi due chilometri sul telefono. Una
-// pagina in quelle condizioni non viene nemmeno valutata da un motore di
-// ricerca, oltre a essere inusabile.
-const PER_PAGINA = 100;
-import { createClient } from '@supabase/supabase-js';
 import ContenutoMetodologia from '@/components/MetodologiaModal';
 import { DisclosureBox } from '@/components/DisclosureBox';
+import HomeArchive, { SearchBox } from '@/components/HomeArchive';
+import type { Vista } from '@/lib/home-query';
 import {
   Award,
-  ExternalLink,
-  Filter,
-  Globe,
   BarChart3,
-  Search,
   Zap,
-  Sparkles,
   ArrowDown,
   ArrowUp,
   X,
   Calendar,
   HelpCircle,
-  Heart,
   Mail,
   ShieldCheck,
   FileText,
   Info,
-  Download,
   CheckCircle2,
   Building2,
   Trophy,
 } from 'lucide-react';
-import { SERIES_FLOOR, INDEX_START_DATE } from '@/lib/index-start';
+import { INDEX_START_DATE } from '@/lib/index-start';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// La home e' la nostra classifica generale (docs/02 §6.2): l'unione delle
+// classifiche di categoria ordinata per views, con il VPI di ogni video
+// accanto. L'archivio e' paginato sul server (UI-3, components/HomeArchive).
 
-// English comment: Define active modal state type for transparent user policy dialogs
 type ModalType = 'faq' | 'methodology' | null;
 
-// English comment: Level badge styling aligned strictly with the 10-tier high-contrast VPI color hierarchy
 export default function Home() {
-  const [posts, setPosts] = useState<any[]>([]);
-  const [totalIndexed, setTotalIndexed] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('ALL');
-  const [selectedCountry, setSelectedCountry] = useState<string>('ALL');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [lastUpdated, setLastUpdated] = useState<string>('');
-
-  const [vista, setVista] = useState<Vista>('charting');
-  
-  // English comment: Modal management state for transparent governance popups
+  const [totale, setTotale] = useState<{ n: number; vista: Vista } | null>(null);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-
-  // English comment: State for floating scroll-to-top button visibility
   const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
-  const [pagina, setPagina] = useState<number>(1);
+  const suTotale = useCallback((n: number, vista: Vista) => setTotale({ n, vista }), []);
 
   useEffect(() => {
     document.title = 'IOSA — Viral Performance Index';
   }, []);
 
-  function VPILoader() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 space-y-4">
-      <div className="relative flex items-center justify-center">
-        {/* Anelli animati ad impulso neon */}
-        <div className="absolute w-16 h-16 rounded-full bg-[#00E5FF]/20 animate-ping" />
-        <div className="absolute w-24 h-24 rounded-full bg-cyan-500/10 animate-pulse" />
-        
-        {/* Badge Centrale VPI */}
-        <div className="relative z-10 w-12 h-12 rounded-xl bg-black border border-[#00E5FF]/50 flex items-center justify-center shadow-[0_0_20px_rgba(0,229,255,0.4)]">
-          <span className="text-transparent bg-clip-text bg-gradient-to-tr from-[#00E5FF] via-cyan-300 to-white font-black text-base font-mono">
-            VPI
-          </span>
-        </div>
-      </div>
-
-      <div className="text-center space-y-1">
-        <p className="text-xs font-mono font-bold tracking-widest text-white uppercase animate-pulse">
-          Reading Most Popular...
-        </p>
-        <p className="text-[10px] text-gray-400 font-mono">
-          IOSA Research Lab • one reading a day at 23:59 UTC
-        </p>
-      </div>
-    </div>
-  );
-  }
-
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 300) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
-    };
+    const handleScroll = () => setShowScrollTop(window.scrollY > 300);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -151,190 +57,6 @@ export default function Home() {
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const loadData = async () => {
-    try {
-      // Verificato sul progetto: max_rows non e' limitato e la query restituisce
-      // tutte le righe. Nessun range, ma chiediamo comunque il conteggio esatto
-      // cosi' la statistica resta corretta anche se un domani il tetto cambia.
-      let query = supabase
-        .from('public_records')
-        .select(CAMPI_HOME, { count: 'exact' })
-        .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR);
-      if (vista === 'charting') query = query.eq('status', 'ACTIVE');
-      if (vista === 'left') query = query.eq('status', 'CLOSED');
-      const { data, error, count } = await query
-        .order('engagement_score', { ascending: false })
-        .range(0, MAX_RIGHE - 1);
-
-      if (!error && data) {
-        setPosts(data);
-        setTotalIndexed(count ?? data.length);
-        setLastUpdated(new Date().toLocaleTimeString());
-      }
-    } catch (e) {
-      console.error('Error loading live data:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-
-    // Niente polling: la sottoscrizione realtime basta e non moltiplica
-    // le letture Supabase per ogni scheda aperta.
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'posts' },
-        () => {
-          loadData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista]);
-
-  // Le voci dei filtri si ricavano dai record caricati, non da un elenco
-  // scritto a mano. Un elenco fisso si scolla dai dati al primo paese nuovo
-  // che il motore trova, e soprattutto offre voci che non restituiscono
-  // niente: bastava scrivere "People" al posto di "People & Blogs" perche'
-  // quel filtro svuotasse la tabella. Il conteggio accanto al nome dice
-  // quante righe ci sono dietro, cosi' una voce vuota non puo' esistere.
-  const opzioniFiltri = useMemo(() => {
-    // Paese e categoria dagli array: un video presente in piu' fette compare
-    // sotto ciascuna (docs/02 §6.1).
-    const conta = (chiave: 'platform' | 'countries' | 'categories') => {
-      const mappa = new Map<string, number>();
-      for (const post of posts) {
-        const grezzo = post[chiave];
-        const valori: unknown[] = Array.isArray(grezzo) ? grezzo : [grezzo];
-        for (const valore of valori) {
-          if (typeof valore !== 'string' || !valore.trim()) continue;
-          mappa.set(valore, (mappa.get(valore) ?? 0) + 1);
-        }
-      }
-      return Array.from(mappa.entries())
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([valore, quanti]) => ({ valore, quanti }));
-    };
-    return {
-      piattaforme: conta('platform'),
-      paesi: conta('countries'),
-      categorie: conta('categories'),
-    };
-  }, [posts]);
-
-  // Se un valore selezionato sparisce dai dati (un paese che esce dalla
-  // finestra di 15 giorni) si torna a TUTTI, altrimenti la tabella resta
-  // vuota senza che si capisca perche'.
-  useEffect(() => {
-    if (!posts.length) return;
-    const presente = (elenco: { valore: string }[], scelto: string) =>
-      scelto === 'ALL' || elenco.some((o) => o.valore.toLowerCase() === scelto.toLowerCase());
-    if (!presente(opzioniFiltri.piattaforme, selectedPlatform)) setSelectedPlatform('ALL');
-    if (!presente(opzioniFiltri.paesi, selectedCountry)) setSelectedCountry('ALL');
-    if (!presente(opzioniFiltri.categorie, selectedCategory)) setSelectedCategory('ALL');
-  }, [opzioniFiltri, posts.length, selectedPlatform, selectedCountry, selectedCategory]);
-
-  const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
-      const matchPlatform =
-        selectedPlatform === 'ALL' ||
-        (post.platform &&
-          post.platform.toLowerCase() === selectedPlatform.toLowerCase());
-      const matchCountry =
-        selectedCountry === 'ALL' ||
-        (post.countries || []).some((c: string) => c.toUpperCase() === selectedCountry.toUpperCase());
-      const matchCategory =
-        selectedCategory === 'ALL' ||
-        (post.categories || []).some((c: string) => c.toLowerCase() === selectedCategory.toLowerCase());
-
-      const query = searchQuery.toLowerCase().trim();
-      const matchSearch =
-        !query ||
-        (post.author_handle && post.author_handle.toLowerCase().includes(query)) ||
-        (post.author_name && post.author_name.toLowerCase().includes(query)) ||
-        (post.content_text && post.content_text.toLowerCase().includes(query)) ||
-        (post.post_url && post.post_url.toLowerCase().includes(query));
-
-      return matchPlatform && matchCountry && matchCategory && matchSearch;
-    });
-  }, [posts, selectedPlatform, selectedCountry, selectedCategory, searchQuery]);
-
-  // Cambiando filtro o ricerca si riparte dalla prima pagina, altrimenti si
-  // resta su una pagina che nel nuovo risultato non esiste piu'.
-  useEffect(() => {
-    setPagina(1);
-  }, [selectedPlatform, selectedCountry, selectedCategory, searchQuery]);
-
-  const pagineTotali = Math.max(1, Math.ceil(filteredPosts.length / PER_PAGINA));
-  const paginaCorrente = Math.min(pagina, pagineTotali);
-  const primoIndice = (paginaCorrente - 1) * PER_PAGINA;
-  const postsVisibili = useMemo(
-    () => filteredPosts.slice(primoIndice, primoIndice + PER_PAGINA),
-    [filteredPosts, primoIndice]
-  );
-
-  // La vetrina in alto mostra un record per canale. Senza questo vincolo un
-  // broadcaster che pubblica molte clip con la stessa baseline bassa occupa da
-  // solo quasi tutte e cinque le posizioni, e la prima cosa che vede chi arriva
-  // e' lo stesso programma ripetuto invece di cinque casi diversi.
-  // Il vincolo vale solo qui: l'indice completo, il conteggio e l'export
-  // restano integrali, perche' togliere record falserebbe il dataset.
-  const topCinque = useMemo(() => {
-    const visti = new Set<string>();
-    const fuori: typeof filteredPosts = [];
-    for (const post of filteredPosts) {
-      const canale = post.channel_id || post.author_handle || post.id;
-      if (visti.has(canale)) continue;
-      visti.add(canale);
-      fuori.push(post);
-      if (fuori.length === 5) break;
-    }
-    return fuori;
-  }, [filteredPosts]);
-
-  const exportToCSV = () => {
-    if (!filteredPosts || filteredPosts.length === 0) return;
-    // Nessun claim_token nell'export: e' il codice che autorizza il claim del creator.
-    const headers = ['Rank by views', 'Status', 'Platform', 'Format', 'Countries', 'Categories', 'Creator Handle', 'Views', 'Baseline', 'VPI today', 'Highest VPI observed', 'Days in Most Popular', 'First observed', 'Left on', 'Claim open until', 'Baseline rule', 'Post URL'];
-    const rows = filteredPosts.map((post, idx) => [
-      idx + 1,
-      inClassifica(post) ? 'In Most Popular' : 'Left Most Popular',
-      `"${post.platform || ''}"`,
-      `"${post.format || ''}"`,
-      `"${(post.countries || []).join(' ')}"`,
-      `"${(post.categories || []).join(' | ')}"`,
-      `"${(post.author_handle || '').replace(/"/g, '""')}"`,
-      post.engagement_score ?? '',
-      post.baseline_score ?? '',
-      inClassifica(post) ? (post.vpi_ratio ?? '') : '',
-      post.vpi_max ?? '',
-      post.day_n ?? '',
-      post.entered_on ?? '',
-      post.left_on ?? '',
-      post.claim_open_until ?? '',
-      post.baseline_rule ?? '',
-      `"${post.post_url || ''}"`
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `iosa_outliers_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const scrollToDirectory = () => {
@@ -460,60 +182,15 @@ export default function Home() {
               Search a handle or a video link among the long-form videos first observed in YouTube&apos;s Most Popular charts.
             </p>
 
-            {/* Search Bar Container */}
+            {/* Search: writes q into the URL, the archive below reads it (UI-3) */}
             <div className="relative max-w-xl mx-auto z-30 mb-3.5">
-              <div className="relative flex items-center bg-black/90 border border-cyan-500/50 rounded-xl p-1 shadow-2xl focus-within:border-[#00E5FF] transition-all">
-                <Search className="w-4 h-4 text-[#00E5FF] ml-2.5 mr-2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search handle (e.g. @MrBeast) or video link..."
-                  className="w-full bg-transparent text-white placeholder-gray-500 text-xs md:text-sm focus:outline-none font-mono py-1"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 text-gray-500 hover:text-white font-mono"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {searchQuery.trim().length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0B101B] border border-cyan-500/50 rounded-xl shadow-2xl z-50 overflow-hidden text-left p-2.5 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex justify-between items-center pb-1.5 border-b border-gray-800 text-[10px] font-mono text-gray-400">
-                    <span>SEARCH RESULTS: <strong className="text-[#00E5FF]">{filteredPosts.length} FOUND</strong></span>
-                    <button
-                      onClick={scrollToDirectory}
-                      className="text-[#00E5FF] hover:underline flex items-center gap-1 font-bold"
-                    >
-                      Jump to table <ArrowDown className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {filteredPosts.length > 0 ? (
-                    <div className="divide-y divide-gray-800/60 max-h-48 overflow-y-auto">
-                      {topCinque.map((post, idx) => (
-                        <div key={idx} className="py-1.5 flex items-center justify-between text-xs hover:bg-black/40 px-1 rounded transition-colors">
-                          <div className="truncate mr-2">
-                            <span className="font-bold text-white font-mono text-[11px]">{post.author_handle || post.author_name}</span>
-                            <p className="text-[9px] text-gray-400 truncate">{post.content_text || post.title}</p>
-                          </div>
-                          <span className="font-mono text-[#00E5FF] font-bold text-[10px] bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 shrink-0">
-                            {formatVPI(vpiPubblicato(post))}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-2.5 text-center text-[10px] text-gray-500 font-mono">
-                      No matching registered outliers found.
-                    </div>
-                  )}
-                </div>
-              )}
+              <Suspense fallback={<div className="h-[38px] rounded-xl border border-cyan-500/50 bg-black/90" />}>
+                <SearchBox />
+              </Suspense>
+              <button type="button" onClick={scrollToDirectory}
+                className="mt-1.5 text-[10px] font-mono text-[#00E5FF] hover:underline inline-flex items-center gap-1">
+                Jump to the index <ArrowDown className="w-3 h-3" aria-hidden />
+              </button>
             </div>
 
             {/* VPI Formula & Key Stats Box Grid */}
@@ -528,8 +205,8 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col justify-center items-center md:border-r border-gray-800/80 pr-2">
-                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{vista === 'charting' ? 'IN MOST POPULAR NOW' : vista === 'left' ? 'LEFT MOST POPULAR' : 'RECORDS'}</div>
-                <div className="text-sm md:text-base font-black text-white">{totalIndexed || posts.length}</div>
+                <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{!totale || totale.vista === 'charting' ? 'IN MOST POPULAR NOW' : totale.vista === 'left' ? 'LEFT MOST POPULAR' : 'RECORDS'}</div>
+                <div className="text-sm md:text-base font-black text-white">{totale ? totale.n.toLocaleString('en-US') : '\u2014'}</div>
               </div>
 
               <div className="flex flex-col justify-center items-center border-r border-gray-800/80 pr-2">
@@ -549,263 +226,10 @@ export default function Home() {
         {/* APP-6: how to read a level, live day-1 figures per baseline band */}
         <DisclosureBox />
 
-        {/* Filter Controls */}
-        <section className="bg-[#070A10] border border-gray-800 rounded-lg p-2 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
-          <div className="flex items-center gap-1.5 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
-            <Filter className="w-3 h-3 text-[#00E5FF]" /> Filters:
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-0.5 rounded-md text-[10px]">
-              <span className="text-gray-500">PLATFORM:</span>
-              <select
-                value={selectedPlatform}
-                onChange={(e) => setSelectedPlatform(e.target.value)}
-                className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
-              >
-                <option value="ALL" className="bg-gray-900">ALL</option>
-                {opzioniFiltri.piattaforme.map(({ valore, quanti }) => (
-                  <option key={valore} value={valore} className="bg-gray-900">
-                    {valore.toUpperCase()} ({quanti})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-0.5 rounded-md text-[10px]">
-              <Globe className="w-3 h-3 text-gray-500" />
-              <span className="text-gray-500">COUNTRY:</span>
-              <select
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
-                className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
-              >
-                <option value="ALL" className="bg-gray-900">GLOBAL</option>
-                {opzioniFiltri.paesi.map(({ valore, quanti }) => (
-                  <option key={valore} value={valore} className="bg-gray-900">
-                    {valore.toUpperCase()}
-                    {PAESI[valore.toUpperCase()] ? ` \u2014 ${PAESI[valore.toUpperCase()]}` : ''} ({quanti})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1 bg-black/60 border border-gray-800 px-2 py-0.5 rounded-md text-[10px]">
-              <span className="text-gray-500">CATEGORY:</span>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
-              >
-                <option value="ALL" className="bg-gray-900">ALL</option>
-                {opzioniFiltri.categorie.map(({ valore, quanti }) => (
-                  <option key={valore} value={valore} className="bg-gray-900">
-                    {valore.toUpperCase()} ({quanti})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </section>
-
-        {/* Directory Table */}
-        <section id="directory-table" className="bg-[#070A10] border border-gray-800 rounded-xl overflow-hidden shadow-2xl">
-          <div className="p-2.5 px-3 border-b border-gray-800 font-mono text-xs text-gray-400 flex flex-wrap justify-between items-center gap-2 bg-black/40">
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                {VISTE.map(({ valore: v, etichetta }) => (
-                  <button
-                    key={v}
-                    data-vista={v}
-                    onClick={() => { setIsLoading(true); setVista(v); }}
-                    className={`px-2 py-0.5 rounded border text-[10px] cursor-pointer ${vista === v ? 'text-black bg-[#00E5FF] border-[#00E5FF]' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/40'}`}
-                  >
-                    {etichetta}
-                  </button>
-                ))}
-              </span>
-              <span>
-                <strong className="text-white">{filteredPosts.length.toLocaleString('en-US')}</strong> videos, by views{' '}
-                <Link href="/outliers" className="text-[#00E5FF] hover:underline ml-1">
-                  browse by country and category
-                </Link>
-              </span>
-            </div>
-
-            <button
-              onClick={exportToCSV}
-              className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-700 text-cyan-300 hover:text-white px-2.5 py-1 rounded text-[10px] font-mono transition-colors cursor-pointer"
-            >
-              <Download className="w-3 h-3 text-[#00E5FF]" />
-              <span>Export Dataset (.CSV)</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            {isLoading ? (
-              <VPILoader />
-            ) : filteredPosts.length > 0 ? (
-              <table className="w-full text-left font-mono text-[11px]" data-home-table={vista}>
-                <thead className="bg-black/40 text-[9px] uppercase tracking-wider text-gray-500">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">#</th>
-                    <th className="px-3 py-2 font-bold">Video</th>
-                    {vista === 'charting' && (
-                      <>
-                        <th className="px-3 py-2 font-bold">Day</th>
-                        <th className="px-3 py-2 font-bold">Current VPI &middot; level</th>
-                        <th className="px-3 py-2 font-bold text-right">Views</th>
-                        <th className="px-3 py-2 font-bold">First observed</th>
-                      </>
-                    )}
-                    {vista === 'left' && (
-                      <>
-                        <th className="px-3 py-2 font-bold">Highest VPI observed &middot; level</th>
-                        <th className="px-3 py-2 font-bold text-right">Views</th>
-                        <th className="px-3 py-2 font-bold">Days in Most Popular</th>
-                        <th className="px-3 py-2 font-bold">Left on</th>
-                        <th className="px-3 py-2 font-bold">Claim open until</th>
-                      </>
-                    )}
-                    {vista === 'all' && (
-                      <>
-                        <th className="px-3 py-2 font-bold">Status</th>
-                        <th className="px-3 py-2 font-bold">VPI &middot; level</th>
-                        <th className="px-3 py-2 font-bold text-right">Views</th>
-                      </>
-                    )}
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800/60">
-                  {postsVisibili.map((post, indiceLocale) => {
-                    const index = primoIndice + indiceLocale;
-                    const livello = livelloPubblicato(post);
-                    const vpi = vpiPubblicato(post);
-                    const cellaVpi = (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[#00E5FF] font-black text-xs">{vpi === null ? '\u2014' : formatVPI(vpi)}</span>
-                        <span
-                          className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border w-fit"
-                          style={stileBadge(livello.colore)}
-                        >
-                          {livello.nome}
-                        </span>
-                      </div>
-                    );
-                    return (
-                      <tr key={post.id || index} className="hover:bg-gray-900/40 align-top">
-                        <td className="px-3 py-2.5 text-gray-600 font-bold">#{index + 1}</td>
-                        <td className="px-3 py-2.5 min-w-[16rem]">
-                          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                            <StatusBadge post={post} />
-                            <span className="text-[8px] px-1.5 rounded bg-cyan-950/60 text-[#00E5FF] border border-cyan-500/30 font-bold">
-                              {(post.countries || [post.country]).filter(Boolean).join(' ') || 'GLOBAL'}
-                            </span>
-                          </div>
-                          <div className="font-sans font-bold text-xs text-white leading-tight">
-                            {post.content_text || 'Untitled video'}
-                          </div>
-                          <div className="text-[10px] text-gray-400">
-                            {post.author_handle || post.author_name}
-                            {' '}&middot; baseline {post.baseline_score ? formatCount(Number(post.baseline_score)) : '\u2014'}
-                          </div>
-                        </td>
-                        {vista === 'charting' && (
-                          <>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-white">day {post.day_n ?? '\u2014'}</td>
-                            <td className="px-3 py-2.5">{cellaVpi}</td>
-                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.entered_on)}</td>
-                          </>
-                        )}
-                        {vista === 'left' && (
-                          <>
-                            <td className="px-3 py-2.5">{cellaVpi}</td>
-                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
-                            <td className="px-3 py-2.5 text-white">{post.day_n ?? '\u2014'}</td>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">{dataBreve(post.left_on)}</td>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">
-                              {vpi === null ? 'no plaque (no VPI)' : dataBreve(post.claim_open_until)}
-                            </td>
-                          </>
-                        )}
-                        {vista === 'all' && (
-                          <>
-                            <td className="px-3 py-2.5 whitespace-nowrap text-gray-300">
-                              {inClassifica(post) ? `since ${dataBreve(post.entered_on)}` : `left ${dataBreve(post.left_on)}`}
-                            </td>
-                            <td className="px-3 py-2.5">{cellaVpi}</td>
-                            <td className="px-3 py-2.5 text-right text-white">{formatCount(viewsPubblicate(post))}</td>
-                          </>
-                        )}
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-1.5 justify-end">
-                            <a
-                              href={`/claim/${post.claim_token}`}
-                              className="flex items-center gap-1 bg-[#00E5FF] hover:bg-cyan-400 text-black font-bold text-[10px] px-2 py-1 rounded-lg whitespace-nowrap"
-                            >
-                              <BarChart3 className="w-3 h-3" /> Analysis
-                            </a>
-                            {post.post_url && (
-                              <a
-                                href={post.post_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-label="Open the video"
-                                className="p-1 text-gray-400 hover:text-white border border-gray-800 rounded-lg"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-8 text-center text-gray-500 font-mono text-xs">
-                NO RECORDS MATCH YOUR SEARCH OR FILTERS.
-              </div>
-            )}
-          </div>
-
-          {filteredPosts.length > PER_PAGINA && (
-            <div className="flex items-center justify-between gap-3 px-3 py-3 border-t border-gray-800/60 font-mono text-[11px]">
-              <button
-                onClick={() => {
-                  setPagina(paginaCorrente - 1);
-                  document.getElementById('directory-table')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                disabled={paginaCorrente <= 1}
-                className="px-3 py-1.5 rounded-lg border border-gray-800 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-500/40 hover:text-white transition-colors"
-              >
-                Previous
-              </button>
-
-              <span className="text-gray-500">
-                {primoIndice + 1}&ndash;{Math.min(primoIndice + PER_PAGINA, filteredPosts.length)}{' '}
-                of {filteredPosts.length.toLocaleString('en-US')}
-                <span className="hidden sm:inline">
-                  {' '}&middot; page {paginaCorrente} of {pagineTotali}
-                </span>
-              </span>
-
-              <button
-                onClick={() => {
-                  setPagina(paginaCorrente + 1);
-                  document.getElementById('directory-table')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                disabled={paginaCorrente >= pagineTotali}
-                className="px-3 py-1.5 rounded-lg border border-gray-800 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed hover:border-cyan-500/40 hover:text-white transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </section>
+        {/* The index: server-side pages, filters and counts (UI-3) */}
+        <Suspense fallback={<div className="h-[600px] rounded-xl border border-gray-800 bg-[#070A10]" />}>
+          <HomeArchive onTotale={suTotale} />
+        </Suspense>
 
         {/* How It Works Section - Aggiornato con la nuova metodologia di campionamento trasparente */}
         <section id="how-it-works" className="pt-2">

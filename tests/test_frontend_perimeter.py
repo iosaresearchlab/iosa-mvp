@@ -10,7 +10,7 @@ MODAL = (SRC / "components" / "MetodologiaModal.tsx").read_text(encoding="utf-8"
 
 def test_the_front_page_states_it_before_everything_else():
     notice = HOME.index("data-perimeter-notice")
-    assert notice < HOME.index("WHO WE ARE") and notice < HOME.index('id="directory-table"')
+    assert notice < HOME.index("WHO WE ARE") and notice < HOME.index('<HomeArchive')
     block = HOME[notice:notice + 900]
     assert "long-form videos only" in block and "Shorts are not measured" in block
 

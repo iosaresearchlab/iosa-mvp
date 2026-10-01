@@ -95,6 +95,7 @@ returns bigint language sql as
    on conflict (jobname) do update set schedule = excluded.schedule,
      command = excluded.command, active = true
    returning jobid';
+create schema if not exists extensions;
 create schema storage;
 create table storage.buckets (id text primary key, name text not null,
   public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
@@ -178,8 +179,15 @@ def db():
                 "insert into claim_visite (post_id, claim_token) "
                 "select id, claim_token from posts where external_post_id = 'v1_old_a'"
             )
+            cur.execute("select count(*) from pg_available_extensions where name = 'pg_trgm'")
+            trgm = cur.fetchone()[0] > 0
             for f in MIGRATIONS:
-                cur.execute(f.read_text(encoding="utf-8"))
+                sql_text = f.read_text(encoding="utf-8")
+                # Search indexes need the pg_trgm contrib module: CI's postgres has it,
+                # a minimal local build may not. Nothing else depends on them.
+                if "pg_trgm" in sql_text and not trgm:
+                    continue
+                cur.execute(sql_text)
         yield conn
     finally:
         conn.rollback()

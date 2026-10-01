@@ -17,6 +17,8 @@ def read(rel):
 
 
 HOME = read("app/page.tsx")
+# UI-3 (01/10/2026): the home table lives in HomeArchive, its state and query in home-query
+TABLE = read("components/HomeArchive.tsx") + read("lib/home-query.ts")
 STATUS = read("lib/record-status.ts")
 LIST = read("components/OutlierList.tsx")
 
@@ -39,17 +41,17 @@ def test_status_words_never_qualify_with_hot_trending_or_popular():
 
 
 def test_one_table_with_three_views_and_dedicated_columns():
-    for label in ("In Most Popular now", "Left Most Popular", "'All'"):
-        assert label in HOME, label
-    for col in ("Day", "Current VPI &middot; level", "First observed",
-                "Highest VPI observed &middot; level", "Days in Most Popular",
+    for label in ("'In Most Popular now'", "'Left Most Popular'", "'All'"):
+        assert label in TABLE, label
+    for col in ("Day", "Current VPI · level", "First observed",
+                "Highest VPI observed · level", "Days in Most Popular",
                 "Left on", "Claim open until"):
-        assert f">{col}<" in HOME, col
-    assert ".eq('status', 'CLOSED')" in HOME and ".eq('status', 'ACTIVE')" in HOME
+        assert f"titolo: '{col}'" in TABLE, col
+    assert "charting: 'ACTIVE', left: 'CLOSED', all: null" in TABLE
 
 
 def test_the_same_badge_on_the_segment_pages():
-    assert "<StatusBadge post={post} />" in HOME and "<StatusBadge post={post} />" in LIST
+    assert "<StatusBadge post={post} />" in TABLE and "<StatusBadge post={post} />" in LIST
 
 
 # --- CLAIM-2 -------------------------------------------------------------------
@@ -113,7 +115,7 @@ def test_no_vpi_says_why_never_no_level():
     assert "'No VPI (baseline not computable)'" in STATUS
     assert "'No VPI yet (baseline still to be read)'" in STATUS
     # "No level" only for a VPI below the first threshold: every list page goes through livelloPubblicato
-    for rel in ("app/page.tsx", "components/OutlierList.tsx"):
+    for rel in ("components/HomeArchive.tsx", "components/OutlierList.tsx"):
         assert "livelloPubblicato(post)" in read(rel) and "livelloDiRecord" not in read(rel), rel
     assert "without a computable baseline" in read("app/leaderboard/page.tsx")
     assert "without a computable baseline" in read("components/DisclosureBox.tsx")
