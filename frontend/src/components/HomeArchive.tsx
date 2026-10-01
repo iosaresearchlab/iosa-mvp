@@ -12,13 +12,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { BarChart3, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, ExternalLink, Search, X } from 'lucide-react';
-import { formatCount, formatVPI } from '@/lib/format';
-import { stileBadge } from '@/lib/vpi-scale';
+import { formatCount } from '@/lib/format';
 import { PAESI } from '@/lib/segments';
 import {
-  inClassifica, vpiPubblicato, viewsPubblicate, livelloPubblicato, dataBreve,
+  inClassifica, vpiPubblicato, viewsPubblicate, dataBreve,
 } from '@/lib/record-status';
 import { StatusBadge } from '@/components/StatusBadge';
+import { VpiCell } from '@/components/VpiCell';
 import {
   aParametri, applicaFiltri, applicaOrdine, daParametri, pagineVisibili, parametriFacet, pulisci,
   BANDE, CAMPI_HOME, ORDINI, PAGE_SIZES, SUGGERIMENTO_VPI, VISTE, ordineAmmesso, type StatoArchivio, type Vista,
@@ -87,17 +87,7 @@ export function SearchBox() {
 }
 
 function CellaVpi({ post }: { post: Riga }) {
-  const livello = livelloPubblicato(post);
-  const vpi = vpiPubblicato(post);
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[#00E5FF] font-black text-xs">{vpi === null ? '—' : formatVPI(vpi)}</span>
-      <span className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border w-fit max-w-[11rem] truncate"
-        style={stileBadge(livello.colore)} title={livello.nome}>
-        {livello.nome}
-      </span>
-    </div>
-  );
+  return <VpiCell post={post} />;
 }
 
 function Azioni({ post }: { post: Riga }) {

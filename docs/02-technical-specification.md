@@ -1153,6 +1153,13 @@ always with views and days in Most Popular (01 §4.1).
   every n: *"+ M without a computable baseline"* (`without_vpi` in
   `/api/analytics/top10` and `/day1-bands`). No claim date for a closed
   record without a VPI: there is no plaque.
+  *(UI-9, owner decision 01/10/2026: in the tables the level column shows
+  only level badges, Lvl 1-10. A record without a computable baseline shows
+  "n/c", muted, tooltip "No VPI: the channel has fewer than 5 long-form
+  videos in the baseline window" (`MIN_BASELINE_SAMPLES`); one waiting for
+  its baseline, "pending"; a VPI under 1.5x, the value alone, tooltip
+  "Below level 1". No "No VPI ..." or "No level ..." badge. The VPI value is
+  the row's main figure, in a larger font. `components/VpiCell.tsx`.)*
 - **APP-8** — creator pages list every record of the channel, charting and
   closed, highest VPI observed first, records without a VPI last
   (`recordDelCreator`). A page no longer 404s when its videos leave Most

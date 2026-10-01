@@ -114,9 +114,9 @@ def test_the_disclosure_box_is_on_top_vpi_home_and_the_methodology():
 def test_no_vpi_says_why_never_no_level():
     assert "'No VPI (baseline not computable)'" in STATUS
     assert "'No VPI yet (baseline still to be read)'" in STATUS
-    # "No level" only for a VPI below the first threshold: every list page goes through livelloPubblicato
+    # UI-9: the lists show n/c / pending / the value alone through VpiCell, never "No level"
     for rel in ("components/HomeArchive.tsx", "components/OutlierList.tsx"):
-        assert "livelloPubblicato(post)" in read(rel) and "livelloDiRecord" not in read(rel), rel
+        assert "<VpiCell post={post}" in read(rel) and "livelloDiRecord" not in read(rel), rel
     assert "without a computable baseline" in read("app/leaderboard/page.tsx")
     assert "without a computable baseline" in read("components/DisclosureBox.tsx")
 
@@ -224,3 +224,22 @@ def test_two_states_two_icons_with_labels():
     for rel in ("components/HomeArchive.tsx", "components/OutlierList.tsx"):
         assert "<StatusBadge post={post} />" in read(rel), rel
     assert "<StatusIcon post={post}" in read("app/claim/[token]/page.tsx")
+
+
+# --- UI-9 ----------------------------------------------------------------------
+
+def test_the_vpi_cell():
+    cell = read("components/VpiCell.tsx")
+    assert "'No VPI: the channel has fewer than 5 long-form videos in the baseline window'" in cell
+    assert "'Below level 1'" in cell and "testo={pending ? 'pending' : 'n/c'}" in cell
+    assert "const livello = livelloDaRatio(vpi);" in cell and "if (!livello) {" in cell   # badge only for Lvl 1-10
+    assert "text-base" in cell                                                           # the main figure
+    for rel in ("components/HomeArchive.tsx", "components/OutlierList.tsx", "components/VpiCell.tsx"):
+        text = read(rel)
+        assert "NESSUN_LIVELLO" not in text and "No level (VPI" not in text, rel
+        assert "baseline not computable)" not in text, rel
+
+
+def test_the_nc_tooltip_names_the_real_minimum():
+    import vpi_core
+    assert f"fewer than {vpi_core.MIN_BASELINE_SAMPLES} long-form videos" in read("components/VpiCell.tsx")

@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { stileBadge } from '@/lib/vpi-scale';
-import { inClassifica, livelloPubblicato, vpiPubblicato, viewsPubblicate } from '@/lib/record-status';
+import { inClassifica, viewsPubblicate } from '@/lib/record-status';
+import { VpiCell } from '@/components/VpiCell';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ExternalLink } from 'lucide-react';
-import { formatVPI, formatCount } from '@/lib/format';
+import { formatCount } from '@/lib/format';
 import type { Post } from '@/lib/supabase-server';
 import { slugCreator } from '@/lib/segments';
 
@@ -40,11 +40,11 @@ export function OutlierList({
                 #{i + 1}
               </div>
 
-              <div className="w-14 h-11 rounded-lg bg-black border border-cyan-500/30 flex flex-col items-center justify-center font-mono font-black text-sm text-[#00E5FF] shrink-0">
-                {formatVPI(vpiPubblicato(post))}
-                <span className="text-[7px] text-gray-500 font-normal -mt-0.5">
-                  {inClassifica(post) ? 'VPI' : 'PEAK VPI'}
+              <div className="w-24 shrink-0 flex flex-col gap-0.5">
+                <span className="text-[7px] font-mono text-gray-500 uppercase">
+                  {inClassifica(post) ? 'VPI' : 'Peak VPI'}
                 </span>
+                <VpiCell post={post} />
               </div>
 
               <div className="min-w-0">
@@ -55,12 +55,6 @@ export function OutlierList({
                   </span>
                   <span className="text-[8px] font-mono px-1.5 rounded bg-gray-900 text-gray-400 border border-gray-800 uppercase font-bold">
                     {post.format === 'LONG' ? 'Long' : 'Short'}
-                  </span>
-                  <span
-                    className="text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase border"
-                    style={stileBadge(livelloPubblicato(post).colore)}
-                  >
-                    {livelloPubblicato(post).nome}
                   </span>
                 </div>
 
