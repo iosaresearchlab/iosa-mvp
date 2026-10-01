@@ -28,6 +28,7 @@ from supabase import create_client
 import archivio_targhe
 import vpi_core
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
+from generate_trophy import METHOD_TEXT_V1, METHOD_TEXT_V2
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
 from vpi_engine import (ReprocessRefused, RunAlreadyExists, esegui_un_ciclo, reading_day,
@@ -815,6 +816,9 @@ async def get_trophy_preview(
         req_date = recorded_date
         misura_date = None
         req_misura = measured_date
+        plaque_v2 = None        # the closed v2 record's figures (APP-2)
+        refused = None
+        metodo = None
 
         if supabase and claim_token:
             try:
@@ -822,6 +826,9 @@ async def get_trophy_preview(
                 
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
+                    refused = _plaque_state(post)
+                    plaque_v2 = _plaque_figures_v2(post)
+                    metodo = METHOD_TEXT_V2 if plaque_v2 else METHOD_TEXT_V1
                     author = post.get("author_handle") or author
                     resolved_title = post.get("content_text") or resolved_title
                     resolved_record_id = post.get("claim_token") or claim_token
@@ -854,6 +861,15 @@ async def get_trophy_preview(
                         misura_date = str(post.get("detected_at"))[:10]
             except Exception as db_err:
                 log.info(f"Error fetching post details for trophy preview: {db_err}")
+
+        # No plaque while the video is in Most Popular, none without a VPI.
+        if refused == "charting":
+            raise HTTPException(status_code=409, detail=PLAQUE_REFUSED["charting"])
+        if refused == "no_vpi":
+            raise HTTPException(status_code=404, detail=PLAQUE_REFUSED["no_vpi"])
+        if plaque_v2:
+            vpi, e_act = plaque_v2["vpi"], plaque_v2["views"]
+            req_date, misura_date = plaque_v2["entered_on"], plaque_v2["left_on"]
         
         if not resolved_title:
             resolved_title = "Viral Content Title"
@@ -870,7 +886,11 @@ async def get_trophy_preview(
                 str(req_date), str(req_misura),
             ]).encode("utf-8")).hexdigest()[:12]
             cache_key = _safe_record_id(f"preview_{impronta}")
-        nome_archivio = f"{cache_key}.png"
+        # The archive key of a v2 plaque is tied to the closed state: it names
+        # the day the record left Most Popular, so no plaque rendered under
+        # another state (or before APP-2) is ever served for it.
+        file_key = f"{cache_key}_closed_{plaque_v2['left_on']}" if plaque_v2 else cache_key
+        nome_archivio = f"{file_key}.png"
 
         # 1. Archivio su Storage: sopravvive ai riavvii ed e' servito dal CDN,
         #    quindi il backend esce dal percorso. E' il caso normale.
@@ -880,7 +900,7 @@ async def get_trophy_preview(
 
         # 2. File locale: vale solo finche' vive questo processo, ma evita di
         #    rendere due volte la stessa targa nello stesso minuto.
-        cached = _cached_render(cache_key)
+        cached = _cached_render(file_key)
         if cached:
             archivio_targhe.carica(nome_archivio, cached)
             return FileResponse(str(cached), media_type="image/png")
@@ -888,16 +908,20 @@ async def get_trophy_preview(
         # 3. Si rende. Dodici-venti secondi, e deve capitare una volta sola
         #    per targa nella vita del progetto.
         async with RENDER_SEMAPHORE:
-            cached = _cached_render(cache_key)
+            cached = _cached_render(file_key)
             if not cached:
                 cached = await generate_trophy_png(
                     record_id=cache_key,
+                    file_id=file_key,
+                    days_charting=(plaque_v2 or {}).get("days"),
+                    entered_on=(plaque_v2 or {}).get("entered_on"),
+                    left_on=(plaque_v2 or {}).get("left_on"),
+                    method_text=metodo,
                     vpi_score=vpi,
                     user_handle=author,
                     content_title=resolved_title,
                     e_act=e_act,
                     e_base=e_base,
-                    gamma=gamma,
                     recorded_date=req_date or "2026-08-20",
                     measured_date=misura_date or req_misura or req_date or "2026-08-20",
                     level_name=resolved_level_name
@@ -909,6 +933,8 @@ async def get_trophy_preview(
         # Archiviazione non riuscita: si serve comunque il file appena reso e
         # si riprovera' alla prossima richiesta.
         return FileResponse(str(cached), media_type="image/png")
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
@@ -1030,6 +1056,20 @@ def plaque_state_v2(record):
     if record.get("vpi_max") is None:
         return "no_vpi"
     return "open"
+
+
+def _plaque_figures_v2(record):
+    """APP-2: what the plaque of a closed v2 record carries - the highest VPI
+    observed, the views, the days in Most Popular, first observed and left.
+    None for anything else (a v1 archive record, an open record)."""
+    if (record or {}).get("method_version") != "v2" or plaque_state_v2(record) != "open":
+        return None
+    return {"vpi": f"+{float(record['vpi_max']):.1f}x",
+            "views": str(record.get("views_max") if record.get("views_max") is not None
+                         else record.get("engagement_score")),
+            "days": record.get("days_charting"),
+            "entered_on": str(record.get("entered_on"))[:10],
+            "left_on": str(record.get("left_on"))[:10]}
 
 
 def _plaque_state(record):

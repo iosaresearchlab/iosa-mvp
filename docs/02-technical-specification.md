@@ -811,7 +811,9 @@ the reference and an entry not written would not return.)*
   tie it to `left_on + CLAIM_DAYS` (01 §4.1; no window while the record is
   `ACTIVE`)
 - `printify_service.py`, `trophy_pipeline.py`, `generate_trophy.py`,
-  `archivio_targhe.py`, `scalda_targhe.py` — **unchanged**
+  `archivio_targhe.py`, `scalda_targhe.py` — **unchanged** *(01/10/2026:
+  `generate_trophy.py` changed at APP-2, §6.7: no gamma, the v2 figures;
+  optional parameters only)*
 
 ---
 
@@ -1047,6 +1049,18 @@ always with views and days in Most Popular (01 §4.1).
   when `vpi_max` is null. The backend refuses the order the same way
   (`_plaque_state`: 409 while charting and without a VPI); v1 archive
   records keep their plaque.
+- **APP-2** — the plaque image (`/api/trophy/preview`, `generate_trophy.py`)
+  of a closed v2 record renders `vpi_max` (the highest VPI observed),
+  `views_max`, `days_charting`, `entered_on` (first observed) and `left_on`
+  (left Most Popular). Method line: *"median of the same channel's long-form
+  videos published 7-90 days before this one"*. No gamma: the formula is
+  `VPI = E_act / E_base`. Rendered only for closed records with a VPI (409
+  while charting, 404 without a VPI); the archive name is
+  `<token>_closed_<left_on>.png`, so a plaque rendered under another state is
+  never served; the QR still names the token. v1 archive plaques keep their
+  file and their method line. The signatures of the render functions only
+  gain optional parameters: the Printify path (`trophy_pipeline`) is
+  unchanged.
 
 ---
 

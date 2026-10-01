@@ -27,6 +27,16 @@ DEFAULT_CLAIM_BASE_URL = (
 )
 
 
+# APP-2 (01/10/2026): the plaque of a closed v2 record. No gamma: VPI is views
+# over the baseline and nothing else (01 section 3). The method line says
+# what the baseline is.
+METHOD_TEXT_V2 = ("Highest VPI observed while in Most Popular: views over the median of the same "
+                  "channel&#39;s long-form videos published 7-90 days before this one.")
+# v1 archive plaques keep the sentence of the method they were measured under.
+METHOD_TEXT_V1 = ("Independent measurement of this video against the median of the same "
+                  "channel&#39;s recent Shorts.")
+
+
 def format_count(val) -> str:
     """Helper for formatting raw numbers into human-readable compact notation (e.g., 32593211 -> 32.6M, 79976 -> 80.0K)."""
     if val is None:
@@ -164,7 +174,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="bg-white p-5 rounded-2xl border border-gray-300 space-y-3 shadow-sm">
           <div class="text-emerald-800 font-extrabold text-sm tracking-wider">FORMULA</div>
           <div class="text-gray-900 font-mono text-lg bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 text-center font-black">
-            VPI = (E<sub>act</sub> / E<sub>base</sub>) &times; &gamma;
+            VPI = E<sub>act</sub> / E<sub>base</sub>
           </div>
         </div>
 
@@ -172,11 +182,11 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
           <div class="text-gray-700 text-sm font-black tracking-wider mb-2">BREAKDOWN DATA</div>
           <div class="flex justify-between font-semibold"><span class="text-gray-500">E<sub>act</sub>:</span> <span class="text-gray-900 font-bold">{e_act}</span></div>
           <div class="flex justify-between font-semibold"><span class="text-gray-500">E<sub>base</sub>:</span> <span class="text-gray-900 font-bold">{e_base}</span></div>
-          <div class="flex justify-between font-semibold"><span class="text-gray-500">&gamma; (Gamma):</span> <span class="text-emerald-700 font-bold">{gamma}</span></div>
+          {extra_rows}
         </div>
 
         <p class="text-gray-600 text-sm leading-relaxed font-sans-tech bg-white p-4 rounded-2xl border border-gray-200 italic">
-          Independent measurement of this video against the median of the same channel&#39;s recent Shorts.
+          {method_text}
         </p>
 
         <div class="pt-4 border-t border-gray-200 flex items-center justify-between">
@@ -221,7 +231,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
         
         <div class="pt-2 space-y-2">
           <div class="text-cyan-100/90 font-mono-tech text-2xl font-bold tracking-wider uppercase">
-            Viral Performance Measurement for
+            {value_caption}
           </div>
           <div class="text-4xl text-white font-bold italic max-w-4xl mx-auto px-4 line-clamp-3 leading-tight font-sans-tech">
             "{content_title}"
@@ -257,8 +267,8 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
            misura, quindi dire solo la data di pubblicazione lascerebbe
            credere che le visualizzazioni siano di quel giorno. -->
       <div class="text-sm font-mono-tech text-gray-500 font-bold border-t border-gray-200 pt-4 w-full space-y-1">
-        <div class="flex justify-between"><span>PUBLISHED:</span> <span class="text-gray-800">{recorded_date}</span></div>
-        <div class="flex justify-between"><span>MEASURED:</span> <span class="text-gray-800">{measured_date}</span></div>
+        <div class="flex justify-between"><span>{date1_label}:</span> <span class="text-gray-800">{recorded_date}</span></div>
+        <div class="flex justify-between"><span>{date2_label}:</span> <span class="text-gray-800">{measured_date}</span></div>
       </div>
     </div>
 
@@ -304,6 +314,28 @@ MUG_PREVIEW_HTML_TEMPLATE = """<!DOCTYPE html>
 # ------------------------------------------------------------------------------
 # PLAQUE RENDERING (SYNC & ASYNC)
 # ------------------------------------------------------------------------------
+def plaque_fields(days_charting=None, entered_on=None, left_on=None, method_text=None):
+    """The template fields that depend on the kind of plaque (APP-2).
+
+    A closed v2 record: the value is the highest VPI observed, shown with the
+    views and the days in Most Popular, and the two dates are first observed
+    and left. Without left_on (an example plaque or a v1 archive record) the
+    dates stay published and measured.
+    """
+    if left_on:
+        rows = ""
+        if days_charting is not None:
+            rows = ('<div class="flex justify-between font-semibold"><span class="text-gray-500">'
+                    'Days in Most Popular:</span> <span class="text-gray-900 font-bold">'
+                    f'{int(days_charting)}</span></div>')
+        return {"extra_rows": rows, "method_text": method_text or METHOD_TEXT_V2,
+                "value_caption": "Highest VPI observed in Most Popular for",
+                "date1_label": "FIRST OBSERVED", "date2_label": "LEFT MOST POPULAR"}
+    return {"extra_rows": "", "method_text": method_text or METHOD_TEXT_V2,
+            "value_caption": "Viral Performance Measurement for",
+            "date1_label": "PUBLISHED", "date2_label": "MEASURED"}
+
+
 def _render_png_sync(
     record_id: str,
     vpi_score: str,
@@ -316,7 +348,12 @@ def _render_png_sync(
     measured_date: str = "",
     output_dir: str = "renders",
     level_name: str = None,
-    claim_base_url: str = None
+    claim_base_url: str = None,
+    file_id: str = None,
+    days_charting=None,
+    entered_on: str = None,
+    left_on: str = None,
+    method_text: str = None,
 ) -> str:
     log.info("\n" + "="*80)
     log.debug("[DEBUG TROPHY] Invocata _render_png_sync con i seguenti parametri:")
@@ -339,7 +376,7 @@ def _render_png_sync(
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
 
-    final_output_path = out_path / f"trophy_{record_id}.png"
+    final_output_path = out_path / f"trophy_{file_id or record_id}.png"
     record_hash = f"0x{uuid.uuid4().hex[:8].upper()}"
 
     if content_title and len(content_title) > 130:
@@ -357,7 +394,9 @@ def _render_png_sync(
     claim_url = f"{clean_base_url}/claim/{record_id}"
     encoded_claim_url = urllib.parse.quote(claim_url, safe='')
 
-    html_content = TROPHY_HTML_TEMPLATE.format(
+    html_content = TROPHY_HTML_TEMPLATE.format(**plaque_fields(
+        days_charting=days_charting, entered_on=entered_on, left_on=left_on,
+        method_text=method_text), **dict(
         record_id=record_id,
         vpi_score=vpi_score,
         user_handle=user_handle,
@@ -373,7 +412,7 @@ def _render_png_sync(
         record_hash=record_hash,
         encoded_claim_url=encoded_claim_url,
         domain_display=domain_display
-    )
+    ))
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -404,7 +443,12 @@ async def generate_trophy_png(
     measured_date: str = "",
     output_dir: str = "renders",
     level_name: str = None,
-    claim_base_url: str = None
+    claim_base_url: str = None,
+    file_id: str = None,
+    days_charting=None,
+    entered_on: str = None,
+    left_on: str = None,
+    method_text: str = None,
 ) -> str:
     log.info("\n" + "="*80)
     log.debug("[DEBUG TROPHY] Invocata generate_trophy_png con i seguenti parametri:")
@@ -435,7 +479,12 @@ async def generate_trophy_png(
         measured_date=measured_date or recorded_date,
         output_dir=output_dir,
         level_name=level_name,
-        claim_base_url=claim_base_url
+        claim_base_url=claim_base_url,
+        file_id=file_id,
+        days_charting=days_charting,
+        entered_on=entered_on,
+        left_on=left_on,
+        method_text=method_text,
     )
 
 
