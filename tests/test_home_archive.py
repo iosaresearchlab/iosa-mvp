@@ -132,3 +132,10 @@ def test_the_default_view_is_all():
     # UI-6 (owner, 01/10/2026)
     assert "vista: 'all', paese: null" in QUERY
     assert "if (s.vista !== DEFAULT.vista) p.set('view', s.vista);" in QUERY
+
+
+def test_the_trigram_search_index_is_dropped(db):
+    """DB-1: the search works by scanning; the trigram index does not exist after the migrations."""
+    with db.cursor() as cur:
+        cur.execute("select count(*) from pg_indexes where indexname = 'posts_v2_search_trgm_idx'")
+        assert cur.fetchone()[0] == 0

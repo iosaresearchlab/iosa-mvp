@@ -1020,6 +1020,9 @@ Now (`components/HomeArchive.tsx`, `lib/home-query.ts`):
   with a tooltip and an accessible label. The row height does not change.
 Migrations `20261001203056`, `20261001203706` (trigram search index, the
 owner's call on size), `20261001203752`; timings in the task log.
+*(DB-1, owner decision 01/10/2026)* the trigram index is dropped
+(`20261001225000`): the search scans `search_text`, about 30 ms a page at
+14,136 records (task log).
 
 ### 6.3 `app/leaderboard/page.tsx`
 
