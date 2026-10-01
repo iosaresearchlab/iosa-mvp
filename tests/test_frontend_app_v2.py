@@ -117,3 +117,16 @@ def test_no_vpi_says_why_never_no_level():
         assert "livelloPubblicato(post)" in read(rel) and "livelloDiRecord" not in read(rel), rel
     assert "without a computable baseline" in read("app/leaderboard/page.tsx")
     assert "without a computable baseline" in read("components/DisclosureBox.tsx")
+
+
+# --- APP-8 ---------------------------------------------------------------------
+
+def test_creator_pages_keep_closed_records_peak_first():
+    lib = read("lib/supabase-server.ts")
+    body = lib[lib.index("export async function recordDelCreator"):][:700]
+    assert ".eq('status'" not in body
+    assert ".order('vpi_max', { ascending: false, nullsFirst: false })" in body
+    creator = read("app/creators/[handle]/page.tsx")
+    assert "outlierDi" not in creator and creator.count("recordDelCreator(author)") == 2
+    sitemap = read("app/sitemap.ts")
+    assert ".eq('status', 'ACTIVE')" not in sitemap

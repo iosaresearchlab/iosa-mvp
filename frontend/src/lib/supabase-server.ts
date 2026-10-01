@@ -96,6 +96,26 @@ export async function outlierDi(
   return (data || []) as Post[];
 }
 
+/**
+ * Tutti i record v2 di un creator, in classifica e usciti (APP-8, 01/10/2026):
+ * una pagina creator non sparisce quando i suoi video lasciano Most Popular.
+ * Prima il picco: ordinati per VPI piu' alto osservato, i record senza VPI in
+ * fondo.
+ */
+export async function recordDelCreator(author: string, limite = 100): Promise<Post[]> {
+  const { data, error } = await supabaseServer
+    .from(TABELLA_PUBBLICA)
+    .select(CAMPI)
+    .eq('method_version', 'v2')
+    .gte('entered_on', SERIES_FLOOR)
+    .eq('author_handle', author)
+    .order('vpi_max', { ascending: false, nullsFirst: false })
+    .order('engagement_score', { ascending: false })
+    .limit(limite);
+  if (error) return [];
+  return (data || []) as Post[];
+}
+
 /** Quanti record v2 di un segmento sono ancora in classifica. */
 export async function contaDi(
   colonna: 'country' | 'category' | 'author_handle',

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PageShell } from '@/components/PageShell';
 import { OutlierList } from '@/components/OutlierList';
-import { outlierDi } from '@/lib/supabase-server';
+import { recordDelCreator } from '@/lib/supabase-server';
 import { handleDaSlug, SITO } from '@/lib/segments';
 
 export const revalidate = 3600;
@@ -19,8 +19,8 @@ export function generateStaticParams() {
 /**
  * Una pagina con una sola misurazione non ha abbastanza sostanza per essere
  * proposta a un motore di ricerca: resta raggiungibile dai link del sito ma
- * non viene indicizzata. Solo i creator con piu' di un outlier finiscono
- * nella sitemap.
+ * non viene indicizzata. Solo i creator con piu' di un record finiscono
+ * nella sitemap. I record usciti da Most Popular contano (APP-8).
  */
 const MIN_OUTLIER_PER_INDICIZZARE = 2;
 
@@ -31,7 +31,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { handle } = await params;
   const author = handleDaSlug(handle);
-  const posts = await outlierDi('author_handle', author, 50);
+  const posts = await recordDelCreator(author);
   if (posts.length === 0) return { robots: { index: false, follow: false } };
 
   const indicizzabile = posts.length >= MIN_OUTLIER_PER_INDICIZZARE;
@@ -39,7 +39,7 @@ export async function generateMetadata({
   const titolo = `${author} — VPI measurements | IOSA`;
   const descrizione = `Independent measurements of ${author}: ${posts.length} long-form video${
     posts.length === 1 ? '' : 's'
-  } first observed in Most Popular, each with its views and its VPI against the channel's own median.`;
+  } first observed in Most Popular, in the charts now or since left, each with its views and its VPI against the channel's own median.`;
 
   return {
     title: titolo,
@@ -70,7 +70,7 @@ export default async function PaginaCreator({
 }) {
   const { handle } = await params;
   const author = handleDaSlug(handle);
-  const posts = await outlierDi('author_handle', author, 50);
+  const posts = await recordDelCreator(author);
   if (posts.length === 0) notFound();
 
   const paese = posts.find((p) => p.country)?.country;
@@ -81,7 +81,7 @@ export default async function PaginaCreator({
       titolo={`${author}`}
       sottotitolo={`${posts.length} long-form video${
         posts.length === 1 ? '' : 's'
-      } from this channel first observed in Most Popular${
+      } from this channel first observed in Most Popular, still charting or since left${
         categoria ? ` (${categoria}` : ''
       }${paese ? `${categoria ? ', ' : ' ('}${paese}` : ''}${categoria || paese ? ')' : ''}. Each one is measured against the median of the same channel's long-form videos published 7-90 days before it. The figures come from the official YouTube API and compare the channel only with itself.`}
     >

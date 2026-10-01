@@ -13,7 +13,7 @@ import { SERIES_FLOOR } from '@/lib/index-start';
 
 export const revalidate = 3600;
 
-/** Creator con almeno due outlier attivi: sotto non c'e' contenuto a sufficienza. */
+/** Creator con almeno due record, in classifica o usciti: sotto non c'e' contenuto a sufficienza. */
 const MIN_OUTLIER = 2;
 
 async function creatorDaIndicizzare(): Promise<string[]> {
@@ -21,8 +21,7 @@ async function creatorDaIndicizzare(): Promise<string[]> {
     .from('public_records')
     .select('author_handle')
     .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-    .eq('status', 'ACTIVE');
+    .gte('entered_on', SERIES_FLOOR);   // in Most Popular or left (APP-8)
 
   const conteggio = new Map<string, number>();
   for (const riga of (data || []) as { author_handle: string | null }[]) {

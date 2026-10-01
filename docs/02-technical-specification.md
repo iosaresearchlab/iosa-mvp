@@ -1082,6 +1082,10 @@ always with views and days in Most Popular (01 §4.1).
   every n: *"+ M without a computable baseline"* (`without_vpi` in
   `/api/analytics/top10` and `/day1-bands`). No claim date for a closed
   record without a VPI: there is no plaque.
+- **APP-8** — creator pages list every record of the channel, charting and
+  closed, highest VPI observed first, records without a VPI last
+  (`recordDelCreator`). A page no longer 404s when its videos leave Most
+  Popular; the sitemap counts closed records too.
 
 ---
 
