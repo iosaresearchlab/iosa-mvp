@@ -4,7 +4,6 @@ import { PageShell } from '@/components/PageShell';
 import { OutlierList } from '@/components/OutlierList';
 import { outlierDi } from '@/lib/supabase-server';
 import { handleDaSlug, SITO } from '@/lib/segments';
-import { formatVPI, formatCount } from '@/lib/format';
 
 export const revalidate = 3600;
 
@@ -35,17 +34,12 @@ export async function generateMetadata({
   const posts = await outlierDi('author_handle', author, 50);
   if (posts.length === 0) return { robots: { index: false, follow: false } };
 
-  const migliore = posts[0];
   const indicizzabile = posts.length >= MIN_OUTLIER_PER_INDICIZZARE;
 
-  const titolo = `${author} — viral performance measurements | IOSA`;
-  const descrizione = `Independent measurements of ${author}: ${
-    posts.length
-  } short video${posts.length === 1 ? '' : 's'} that outperformed the channel's own recent median. Best result ${formatVPI(
-    migliore.vpi_ratio
-  )} — ${formatCount(migliore.engagement_score)} views against a ${formatCount(
-    migliore.baseline_score
-  )} baseline.`;
+  const titolo = `${author} — VPI measurements | IOSA`;
+  const descrizione = `Independent measurements of ${author}: ${posts.length} long-form video${
+    posts.length === 1 ? '' : 's'
+  } first observed in Most Popular, each with its views and its VPI against the channel's own median.`;
 
   return {
     title: titolo,
@@ -79,24 +73,17 @@ export default async function PaginaCreator({
   const posts = await outlierDi('author_handle', author, 50);
   if (posts.length === 0) notFound();
 
-  const migliore = posts[0];
   const paese = posts.find((p) => p.country)?.country;
   const categoria = posts.find((p) => p.category)?.category;
 
   return (
     <PageShell
       titolo={`${author}`}
-      sottotitolo={`IOSA has measured ${posts.length} short video${
+      sottotitolo={`${posts.length} long-form video${
         posts.length === 1 ? '' : 's'
-      } from this channel currently outperforming its own recent baseline${
-        categoria ? ` in ${categoria}` : ''
-      }${paese ? ` (${paese})` : ''}. The strongest measurement reached ${formatCount(
-        migliore.engagement_score
-      )} views against a channel median of ${formatCount(
-        migliore.baseline_score
-      )}, a VPI of ${formatVPI(
-        migliore.vpi_ratio
-      )}. These numbers come from the public platform API and compare the channel only with itself.`}
+      } from this channel first observed in Most Popular${
+        categoria ? ` (${categoria}` : ''
+      }${paese ? `${categoria ? ', ' : ' ('}${paese}` : ''}${categoria || paese ? ')' : ''}. Each one is measured against the median of the same channel's long-form videos published 7-90 days before it. The figures come from the official YouTube API and compare the channel only with itself.`}
     >
       <div className="rounded-xl border border-gray-800 bg-gray-950/40 overflow-hidden">
         <OutlierList posts={posts} mostraCreator={false} />

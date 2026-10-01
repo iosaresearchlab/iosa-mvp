@@ -4,7 +4,6 @@ import { PageShell } from '@/components/PageShell';
 import { OutlierList } from '@/components/OutlierList';
 import { outlierDi, contaDi } from '@/lib/supabase-server';
 import { PAESI, slugPaese, paeseDaSlug, SITO } from '@/lib/segments';
-import { formatVPI, formatCount } from '@/lib/format';
 
 export const revalidate = 3600;
 
@@ -21,15 +20,8 @@ export async function generateMetadata({
   const codice = paeseDaSlug(country);
   if (!codice) return {};
   const nome = PAESI[codice];
-  const posts = await outlierDi('country', codice, 1);
-  const migliore = posts[0];
-
-  const titolo = `Viral outliers in ${nome} — IOSA`;
-  const descrizione = migliore
-    ? `Long-form videos measured against their own channel baseline in ${nome}. Top measurement: ${
-        migliore.author_handle ?? 'a channel'
-      } at ${formatVPI(migliore.vpi_ratio)} its usual views.`
-    : `Long-form videos measured against their own channel baseline in ${nome}.`;
+  const titolo = `${nome}: videos in Most Popular now — IOSA`;
+  const descrizione = `Long-form videos in YouTube's Most Popular charts in ${nome}, ordered by views, with each video's VPI against its own channel baseline beside it.`;
 
   return {
     title: titolo,
@@ -67,30 +59,19 @@ export default async function PaginaPaese({
     contaDi('country', codice),
   ]);
 
-  const migliore = posts[0];
-  const sottotitolo = migliore
-    ? `${totale.toLocaleString(
-        'en-US'
-      )} active outliers measured in ${nome}. The strongest one right now is ${
-        migliore.author_handle ?? 'a channel'
-      }, whose video reached ${formatCount(
-        migliore.engagement_score
-      )} views against a channel median of ${formatCount(
-        migliore.baseline_score
-      )} — a VPI of ${formatVPI(
-        migliore.vpi_ratio
-      )}. Every measurement below compares a video with the recent videos of the same format on its own channel, so channel size does not decide the ranking.`
-    : `No active outliers measured in ${nome} right now.`;
+  const sottotitolo = totale
+    ? `${totale.toLocaleString('en-US')} long-form videos in Most Popular in ${nome} right now. Ordered by views, VPI beside each video: the VPI compares a video with the same channel's long-form videos published 7-90 days before it.`
+    : `No long-form video in Most Popular in ${nome} right now.`;
 
   return (
-    <PageShell titolo={`Viral outliers in ${nome}`} sottotitolo={sottotitolo}>
+    <PageShell titolo={`${nome}: videos in Most Popular now`} sottotitolo={sottotitolo}>
       <div className="rounded-xl border border-gray-800 bg-gray-950/40 overflow-hidden">
         <OutlierList posts={posts} />
       </div>
       {totale > posts.length ? (
         <p className="mt-4 font-mono text-[11px] text-gray-500">
-          Showing the top {posts.length} of {totale.toLocaleString('en-US')}{' '}
-          measurements in {nome}.
+          Showing the first {posts.length} of {totale.toLocaleString('en-US')}{' '}
+          videos by views in {nome}.
         </p>
       ) : null}
     </PageShell>

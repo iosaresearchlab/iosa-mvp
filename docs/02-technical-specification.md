@@ -1064,6 +1064,11 @@ always with views and days in Most Popular (01 §4.1).
 - **APP-1** — `/insights` leaves the navigation and the sitemap and is not
   indexed. It comes back rebuilt on the per-band × format cells (n and
   median, long-form only), never on pooled figures.
+- **APP-5** — copy. Home footer and search line: long-form, "first
+  observed". Creator pages: "long-form videos first observed in Most
+  Popular", no "best" or "outperforming". Country and category pages:
+  "Ordered by views, VPI beside each video", no "strongest" or "top
+  measurement". The outliers index: "videos charting now".
 
 ---
 

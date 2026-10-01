@@ -78,3 +78,21 @@ def test_insights_is_out_of_the_nav_and_the_sitemap():
     for rel in ("app/page.tsx", "components/PageShell.tsx", "app/layout.tsx", "app/sitemap.ts"):
         assert 'href="/insights"' not in read(rel) and "/insights`" not in read(rel), rel
     assert "indicizzabile: false" in read("app/insights/layout.tsx")
+
+
+# --- APP-5 ---------------------------------------------------------------------
+
+def test_copy_home_creator_segments_outliers():
+    home = read("app/page.tsx")
+    assert "long-form videos first observed in YouTube&apos;s Most Popular charts" in home
+    assert "short-form" not in home
+    creator = read("app/creators/[handle]/page.tsx")
+    assert "first observed in Most Popular" in creator
+    for word in ("Best result", "strongest", "outperform"):
+        assert word.lower() not in creator.lower(), word
+    for rel in ("app/outliers/[country]/page.tsx", "app/categories/[category]/page.tsx"):
+        page = read(rel)
+        assert "Ordered by views, VPI beside each video" in page, rel
+        for word in ("strongest", "Top measurement"):
+            assert word.lower() not in page.lower(), (rel, word)
+    assert "videos charting now" in read("app/outliers/page.tsx")

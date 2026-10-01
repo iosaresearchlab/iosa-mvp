@@ -4,7 +4,6 @@ import { PageShell } from '@/components/PageShell';
 import { OutlierList } from '@/components/OutlierList';
 import { outlierDi, contaDi } from '@/lib/supabase-server';
 import { CATEGORIE, slugCategoria, categoriaDaSlug, SITO } from '@/lib/segments';
-import { formatVPI, formatCount } from '@/lib/format';
 
 export const revalidate = 3600;
 
@@ -20,15 +19,8 @@ export async function generateMetadata({
   const { category } = await params;
   const nome = categoriaDaSlug(category);
   if (!nome) return {};
-  const posts = await outlierDi('category', nome, 1);
-  const migliore = posts[0];
-
-  const titolo = `${nome} videos that broke out — IOSA viral outliers`;
-  const descrizione = migliore
-    ? `${nome} long-form videos measured against their own channel baseline. Top measurement: ${
-        migliore.author_handle ?? 'a channel'
-      } at ${formatVPI(migliore.vpi_ratio)} its usual views.`
-    : `${nome} long-form videos measured against their own channel baseline.`;
+  const titolo = `${nome}: videos in Most Popular now — IOSA`;
+  const descrizione = `${nome} long-form videos in YouTube's Most Popular charts, ordered by views, with each video's VPI against its own channel baseline beside it.`;
 
   return {
     title: titolo,
@@ -65,28 +57,19 @@ export default async function PaginaCategoria({
     contaDi('category', nome),
   ]);
 
-  const migliore = posts[0];
-  const sottotitolo = migliore
-    ? `${totale.toLocaleString(
-        'en-US'
-      )} active outliers measured in ${nome}. The strongest one right now reached ${formatCount(
-        migliore.engagement_score
-      )} views against a channel median of ${formatCount(
-        migliore.baseline_score
-      )}, a VPI of ${formatVPI(
-        migliore.vpi_ratio
-      )}. Ranking is by how far a video beat its own channel, not by raw views.`
-    : `No active outliers measured in ${nome} right now.`;
+  const sottotitolo = totale
+    ? `${totale.toLocaleString('en-US')} long-form ${nome} videos in Most Popular right now. Ordered by views, VPI beside each video: the VPI compares a video with the same channel's long-form videos published 7-90 days before it.`
+    : `No long-form ${nome} video in Most Popular right now.`;
 
   return (
-    <PageShell titolo={`${nome} outliers`} sottotitolo={sottotitolo}>
+    <PageShell titolo={`${nome}: videos in Most Popular now`} sottotitolo={sottotitolo}>
       <div className="rounded-xl border border-gray-800 bg-gray-950/40 overflow-hidden">
         <OutlierList posts={posts} />
       </div>
       {totale > posts.length ? (
         <p className="mt-4 font-mono text-[11px] text-gray-500">
-          Showing the top {posts.length} of {totale.toLocaleString('en-US')}{' '}
-          measurements in {nome}.
+          Showing the first {posts.length} of {totale.toLocaleString('en-US')}{' '}
+          videos by views in {nome}.
         </p>
       ) : null}
     </PageShell>

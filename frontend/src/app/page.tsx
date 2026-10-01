@@ -456,7 +456,7 @@ export default function Home() {
             </h1>
 
             <p className="text-gray-400 text-xs md:text-xs leading-relaxed mb-3 font-sans max-w-2xl mx-auto">
-              Search a handle or a video link among the videos we observed entering YouTube&apos;s Most Popular charts.
+              Search a handle or a video link among the long-form videos first observed in YouTube&apos;s Most Popular charts.
             </p>
 
             {/* Search Bar Container */}
@@ -940,7 +940,7 @@ export default function Home() {
               <span className="font-mono font-black text-base text-white">IOSA — Institute for Open Social Analytics</span>
             </div>
             <p className="text-[11px] text-gray-400 font-sans leading-relaxed max-w-md">
-              An independent, self-funded research project with no profit purpose, measuring how short-form content performs against each channel&apos;s own baseline.
+              An independent, self-funded research project with no profit purpose, measuring how long-form videos first observed in YouTube&apos;s Most Popular charts perform against each channel&apos;s own baseline.
             </p>
             <div className="flex items-center gap-2 text-[10px] text-[#00E5FF] pt-1">
               <Mail className="w-3.5 h-3.5" />

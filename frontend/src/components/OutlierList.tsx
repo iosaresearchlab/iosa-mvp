@@ -20,7 +20,7 @@ export function OutlierList({
   if (posts.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-gray-500 font-mono">
-        No active outliers in this segment right now.
+        No video of this segment in Most Popular right now.
       </p>
     );
   }
