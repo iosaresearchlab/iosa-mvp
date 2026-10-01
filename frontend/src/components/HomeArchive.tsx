@@ -226,7 +226,7 @@ export default function HomeArchive({ onTotale }: { onTotale?: (n: number, vista
           <button key={valore} type="button" data-vista={valore} aria-pressed={stato.vista === valore}
             onClick={() => cambia({ vista: valore, ordine: ORDINI.find((o) => o.valore === stato.ordine)!.viste.includes(valore) ? stato.ordine : 'views' })}
             className={`px-2.5 py-1 rounded border text-[11px] cursor-pointer ${pulsante} ${stato.vista === valore ? 'text-black bg-[#00E5FF] border-[#00E5FF] font-bold' : 'text-cyan-300 border-cyan-500/30 bg-cyan-950/40 hover:text-white'}`}>
-            {etichetta} <span className="opacity-70">({fmt(contoVista(valore))})</span>
+            {etichetta}{facet.length > 0 && <span className="opacity-70"> ({fmt(contoVista(valore))})</span>}
           </button>
         ))}
       </div>
