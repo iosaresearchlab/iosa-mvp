@@ -376,7 +376,7 @@ export default function InsightsPage() {
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
                     <h3 className="font-bold text-white text-sm font-mono mb-1">How is the VPI Ratio calculated?</h3>
                     <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
-                      VPI = Actual Views / Historical Baseline Views. If a creator averages 10,000 views and a video reaches 150,000 views within 15 days, their VPI is 15.0x.
+                      VPI = E<sub>act</sub> / E<sub>base</sub>: views divided by the median views of the same channel&apos;s long-form videos published 7-90 days before it. If that median is 10,000 views and the video reaches 150,000, its VPI is 15.0x.
                     </p>
                   </div>
                 </div>

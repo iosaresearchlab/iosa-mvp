@@ -272,7 +272,7 @@ export default function Home() {
                       <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> How is the VPI Ratio calculated?
                     </h3>
                     <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
-                      VPI = views / channel baseline, within the same format. If a channel&apos;s recent videos have a median of 10,000 views and a video reaches 150,000, its VPI is 15.0x. It is recalculated every day the video stays in Most Popular.
+                      VPI = views / channel baseline, within the same format. If the same channel&apos;s long-form videos published 7-90 days before it have a median of 10,000 views and the video reaches 150,000, its VPI is 15.0x. It is recalculated every day the video stays in Most Popular.
                     </p>
                   </div>
 

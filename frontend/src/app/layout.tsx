@@ -94,8 +94,8 @@ const DATI_STRUTTURATI = {
       isAccessibleForFree: true,
       creator: { "@id": `${SITE_URL}/#organization` },
       variableMeasured: [
-        { "@type": "PropertyValue", name: "VPI ratio", description: "Video views divided by the median views of the same channel's recent videos of the same format." },
-        { "@type": "PropertyValue", name: "Baseline score", description: "Median views of the channel's recent videos of the same format." },
+        { "@type": "PropertyValue", name: "VPI ratio", description: "Video views divided by the median views of the same channel's long-form videos published 7-90 days before it." },
+        { "@type": "PropertyValue", name: "Baseline score", description: "Median views of the same channel's long-form videos published 7-90 days before it." },
         { "@type": "PropertyValue", name: "Engagement score", description: "Public view count at measurement time." },
       ],
     },

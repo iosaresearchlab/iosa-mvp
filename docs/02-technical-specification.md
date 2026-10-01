@@ -1141,6 +1141,11 @@ always with views and days in Most Popular (01 §4.1).
   (142×96) and 2x (284×192) in `public/brand`, explicit width and height,
   alt "IOSA - Institute for Open Social Analytics". No spike drawn beside
   text anywhere (it read "IIOSA"). The site is dark only (`globals.css`).
+- **UI-1** — the formula stays as it is, "VPI = E_act / E_base" (owner
+  decision). Only the baseline is described as measured: "median views of
+  the same channel's long-form videos published 7-90 days before it" (the
+  shared footer, the structured data, the FAQ of the home and of insights),
+  never "recent videos of the same format".
 
 ---
 

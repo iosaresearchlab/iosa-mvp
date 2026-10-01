@@ -164,3 +164,18 @@ def test_one_header_one_footer_one_logo():
     pub = ROOT / "frontend" / "public" / "brand"
     for name in ("iosa-logo@1x.png", "iosa-logo@2x.png", "iosa-logo@1x.webp", "iosa-logo@2x.webp"):
         assert (pub / name).stat().st_size > 0, name
+
+
+# --- UI-1 ----------------------------------------------------------------------
+
+def test_formula_kept_baseline_described_as_measured():
+    sources = {f: f.read_text(encoding="utf-8") for f in SRC.rglob("*.ts*")}
+    for f, text in sources.items():
+        low = text.lower()
+        for gone in ("recent videos of the same format", "recent videos have a median",
+                     "historical baseline views", "averages 10,000"):
+            assert gone not in low, (f, gone)
+    footer = read("components/SiteFooter.tsx")
+    assert "VPI = E<sub>act</sub> / E<sub>base</sub>" in footer                   # owner: formula as it is
+    assert "long-form videos published 7-90 days before it" in footer
+    assert "long-form videos published 7-90 days before it" in read("app/layout.tsx")
