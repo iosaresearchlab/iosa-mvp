@@ -1217,6 +1217,14 @@ always with views and days in Most Popular (01 §4.1).
   by `HomeArchive` through `onOrdine`); a dash until the archive has read
   its state. The country and category pages have no sort control: they are
   ordered by views (`outlierDi`) and their subtitle says so.
+- **FAQ-1** *(owner decision, 02/10/2026)* — the home FAQ states YouTube's
+  change of view counting (from 24 August 2026 a long-form view counts as
+  soon as playback starts; earlier views not recounted) and what it does to
+  VPI: for videos published before 22 November 2026 (24 August +
+  `BASELINE_MAX_AGE_DAYS`) the baseline includes videos counted mostly under
+  the old rule, which tends to lower the baseline and raise VPI, not
+  measured; baselines stay frozen. No change to the method or to the code
+  that computes VPI.
 
 ---
 

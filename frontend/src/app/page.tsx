@@ -278,6 +278,19 @@ export default function Home() {
                     </p>
                   </div>
 
+                  {/* FAQ-1 (owner decision 02/10/2026): a platform change that bears on the measurement */}
+                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl" data-faq="view-count-change">
+                    <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Did YouTube&apos;s change in how views are counted affect VPI?
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Yes, for a while. Since 24 August 2026 YouTube counts a long-form view as soon as playback starts. Before, a view was counted only after a viewer kept watching for a while (YouTube has not published the threshold), and views collected before that date were not recounted.
+                    </p>
+                    <p className="text-gray-300 leading-relaxed mt-2">
+                      A video&apos;s baseline is the median of the same channel&apos;s long-form videos published 7 to 90 days before it. For videos published before 22 November 2026, the baseline includes videos that collected most of their views under the old, stricter rule, while the video itself is counted under the new one. This tends to lower the baseline and raise VPI; we have not measured by how much. Baselines are frozen when a record opens, so these records keep it. For videos published from 22 November 2026, both sides use the same definition. We read the view count YouTube publishes; we do not decide what a view is.
+                    </p>
+                  </div>
+
                   <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
                     <h3 className="font-bold text-white text-sm font-mono mb-1 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#00E5FF]" /> Are physical mementos mandatory?

@@ -268,3 +268,20 @@ def test_ordered_by_follows_the_sort_in_use():
     seg = read("lib/supabase-server.ts")
     body = seg[seg.index("export async function outlierDi("):]
     assert body[:body.index("\n}\n")].count(".order(") == 1 and ".order('engagement_score'" in body
+
+
+def test_faq_on_the_view_count_change():
+    """FAQ-1: the home FAQ states YouTube's view-count change; its dates come from the baseline window."""
+    from datetime import date, timedelta
+    import vpi_core
+    page = read("app/page.tsx")
+    faq = page[page.index('data-faq="view-count-change"'):]
+    faq = faq[:faq.index("</div>")]
+    change = date(2026, 8, 24)
+    same_definition = change + timedelta(days=vpi_core.BASELINE_MAX_AGE_DAYS)
+    assert "Did YouTube&apos;s change in how views are counted affect VPI?" in faq
+    assert "Since 24 August 2026 YouTube counts a long-form view as soon as playback starts" in faq
+    assert f"published {vpi_core.BASELINE_MIN_AGE_DAYS} to {vpi_core.BASELINE_MAX_AGE_DAYS} days before it" in faq
+    assert f"{same_definition.day} {same_definition:%B %Y}" == "22 November 2026"
+    assert faq.count("22 November 2026") == 2
+    assert "we have not measured by how much" in faq and "we do not decide what a view is" in faq
