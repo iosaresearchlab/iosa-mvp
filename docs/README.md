@@ -85,11 +85,17 @@ long-form for YouTube, called Shorts by the old rule and never measured.
   those opened before).
 - **Live broadcasts are recorded, not reclassified**: `posts.was_live`. 17 of
   100 long-form entries of 03/10 had been live broadcasts.
-- **The records opened before FMT-1 keep the old rule for now.** The database
-  holds no shape for them (`03` §11.1): bringing them under the new rule needs
-  a re-read, decided on its cost (FMT-2, owner, 04/10/2026).
+- **Every record from the start of the series is brought under the rule**
+  (FMT-2, owner, 04/10/2026, option A of three): the videos the old rule left
+  out are measured as of their first observation, the old records are
+  recomputed where their samples change, with the quota the daily reading
+  leaves (`02` §4.10). The database holds no shape for them (`03` §11.1), so
+  it costs a re-read: ~8,000 units, *estimated*.
+- **Snapshot retention is not suspended** (owner's condition: suspend only if
+  archiving harmed the recovery; it does not). The archive is an exact copy,
+  and the recovery already needs it for 26/09.
 - *(Corrected: `01` §1 population, §1.1 new, §2 inventory note, §7;
-  `02` §0, §3.1.2, §4.3, §4.4, §4.9 new; `03` §11 new; `04` filter table;
+  `02` §0, §3.1.2, §4.3, §4.4, §4.9 and §4.10 new; `03` §11 new; `04` filter table;
   `05` formats and limitation; `06` project description; root `README.md`.)*
 
 ### 29 September 2026 — INC-1: the reading of 28/09, and the census as the reference (Migert)

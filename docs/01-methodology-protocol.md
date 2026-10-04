@@ -86,9 +86,13 @@ long-form entries had been live broadcasts.
 
 **From when.** The rule applies to every record opened from the first reading
 after it is deployed; each record carries the rule that classified it
-(`format_rule`). Records opened before carry the duration-only rule. Whether
-and how they are brought under this rule is decided separately, on the cost
-measured in `03` (owner, 04/10/2026), and declared with its date.
+(`format_rule`). **Every record from the start of the series is brought
+under it** (owner, 04/10/2026): the long-form videos the old rule left out
+are measured as of the day they were first observed, and the records opened
+under the old rule are checked, and recomputed where their baseline samples
+change. Baselines read in this recovery are read late, and recorded as such
+(`baseline_computed_at`). It runs on the quota the daily reading leaves
+unused (`02` §4.10); its end is declared with its date.
 
 *(Replaces the duration-only rule, "Shorts ≤180s", in force from 23/09 to
 04/10/2026. Owner decision, 04/10/2026.)*

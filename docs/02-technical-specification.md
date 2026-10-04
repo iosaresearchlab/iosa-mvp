@@ -973,8 +973,96 @@ not reach is `quota_stop` and is finished by the morning pass, as today
 in the task log.
 
 **Not in FMT-1: the records opened before it.** They keep `format_rule =
-'duration_180'`. Bringing them under the new rule costs a re-read (`03`
-§11.1) and is decided separately (FMT-2).
+'duration_180'` until FMT-2 (§4.10) brings them under the new rule.
+
+### 4.10 Bringing the past under the rule *(FMT-2, owner decision 04/10/2026)*
+
+Owner decision: **every** record from the start of the series follows `01`
+§1.1, paid with the quota the daily reading leaves unused. Starts after
+FMT-1 is deployed and closed. Two phases, in this order:
+
+**Phase 1 — the records never opened.** Videos up to 180 s, wider than tall,
+first observed from `INDEX_START_DATE` to the last day read before FMT-1:
+long-form for YouTube, never measured.
+
+1. For each day D in that range, oldest first: the entries of D (present in
+   D's snapshot, absent from the last complete reading before D — the
+   definition of `entries_of_day`, with its `gap_days` and `entry_certain`)
+   that the snapshot stores as `SHORT` and that have no record.
+2. `videos.list` on them (blocks of 50, `part=snippet,contentDetails,player,
+   liveStreamingDetails`, `maxHeight=1000`); `formato()` of §4.9. Only the
+   `LONG` ones go on.
+3. Each opens the record the night of D would have opened, with
+   `reprocess_day`'s own machinery: country and category from
+   `_first_slice` (canonical order, as for any reprocessed day); baseline by
+   `baseline.py`, window anchored to the video's publication as always,
+   read now (`baseline_computed_at`, `reprocessed_at` record the late read,
+   `CLAUDE.md` §3); `format_rule = 'youtube_shape'` plus `duration_s`,
+   `shape`, `was_live`; then `_catch_up` over every later day, from the
+   snapshots: daily views into `post_daily`, VPI per day, peak, exit. **The
+   numerators are the views stored each night: no unit is spent on them.**
+
+Days outside the 7-day window are read from the archive
+(`archivio/trend_snapshot/<day>.jsonl.gz`, §3.1), which is an exact copy
+checked line by line before every delete: the entries of 27/09 already need
+26/09 from there. **Retention is not suspended**: the archive serves the
+recovery, and the table stays at 7 days (~7.6 MB a day, measured 04/10/2026:
+53 MB for 192,268 rows), which the database size of §3.8 cannot spare.
+
+**Phase 2 — the records opened under the duration-only rule**
+(`format_rule = 'duration_180'`), oldest `entered_on` first.
+
+1. The inventory items in each record's window whose format is null (the old
+   `SHORT`, nulled by FMT-1 and not yet read by a night) are read once:
+   `videos.list`, `formato()`, stored. A night may already have done it for
+   its own channels; nothing is read twice.
+2. **If no item in the window changed from the old Short to `LONG`, the
+   candidates are the same, so the baseline is the same**: the record gets
+   `format_rule = 'youtube_shape'` and nothing else changes. Exact, not
+   approximate: `baseline_v2()` is a function of the candidate set.
+3. Otherwise the candidates changed, and the baseline is computed again
+   with `baseline_v2()` on the new set: views of every candidate read now
+   (the views of the first computation were never stored per sample),
+   `baseline_score`, `baseline_samples`, `baseline_rule`,
+   `baseline_span_days`, `baseline_video_ids`, `baseline_computed_at`; then
+   every `post_daily` row's `vpi_ratio` and `vpi_level` from its stored
+   views, and `vpi_max`, `vpi_max_on`, the level fields. A `not_computable`
+   record can become `standard` this way, and the reverse. The values
+   replaced are kept first in `fmt2_history` (post id, every replaced
+   column, the time): nothing is lost and the change can be audited or
+   undone.
+
+**Priority to the daily reading.** One run a day, `pg_cron` at **06:00 UTC**,
+calling `POST /api/recover/run`: after the night's reading and its second
+attempt, before the quota resets (07:00 UTC in summer, 08:00 in winter). It
+does nothing unless the reading of the day that has just closed is finished
+with `census_complete`, and no record of that day waits for the morning pass
+(`quota_stop`, `read_failed`): the morning pass comes first.
+
+**Budget: what the quota day has left.** The brake counts per run, not per
+quota day, and a quota day (midnight to midnight, Pacific time) holds the
+morning pass, the night and the second attempt. So every run that spends
+units — reading, second attempt, morning pass, recovery — adds a row to a
+new table `quota_ledger (at timestamptz, source text, units int)` when it
+ends. The recovery's limit is
+
+```
+9,900 - (units in quota_ledger with (at at time zone 'America/Los_Angeles')::date = today's Pacific date) - 200
+```
+
+(200 for calls no run counts: scripts, measurements). It runs on a
+`QuotaCounter` with that limit and stops at it; whatever it did not reach is
+done the next day. Each run writes `fmt2_run` (start, end, units, phase, days
+or records done, records opened, baselines changed) and its ledger row.
+
+**Estimate**, `03` §11.1, to be replaced by the measured cost: phase 1 ~855
+units of shapes plus ~2,100 of baselines (~700 records); phase 2 ~2,800 of
+shapes plus ~2,400 of views. About 8,000 units, 4 to 8 days at the
+1,000-2,900 units a night has left so far.
+
+**Done when** no v2 record has `format_rule = 'duration_180'` and every day
+of phase 1 is marked done in `fmt2_run`. The job then answers "nothing to
+do"; its `pg_cron` entry is removed in the closing commit.
 
 ## 5. Scheduling
 

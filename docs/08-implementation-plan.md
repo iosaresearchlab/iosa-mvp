@@ -329,6 +329,30 @@ built as `02` §4.9, for every record opened from the next reading.
   columns and widens a check; the inventory items it set to null are read
   again by the old code as unknown, which is correct under either rule.
 
+### FMT-2 — the past under the rule *(04/10/2026)*
+Owner decision (option A): every record from `INDEX_START_DATE` follows `01`
+§1.1. Built as `02` §4.10, after FMT-1 is closed.
+
+- **Closing check**, in the loop (0 units): `pytest -q` green with
+  - phase 1 on a fixture of snapshots (table and archive), mocked HTTP: a
+    wide 120 s entry of a past day opens the record that day's night would
+    have opened, `post_daily` from the stored views, exit on the right day;
+    a vertical one opens nothing;
+  - phase 2: a record whose window gains no long-form item keeps every value
+    to the bit and only changes `format_rule`; one that gains one gets the
+    `baseline_v2()` of the new set, its `post_daily` recomputed, the old
+    values in `fmt2_history`;
+  - the budget: with the ledger at 9,000 units the run stops at 700; it does
+    nothing when the night is not finished or a `quota_stop` waits;
+  - negative controls, each failing a test.
+- **Milestone** (outside the loop, the calendar decides): `select count(*)
+  from posts where method_version = 'v2' and format_rule = 'duration_180'`
+  = 0, every phase-1 day done in `fmt2_run`, units spent per day reported
+  against the estimate of `02` §4.10, the date declared in the correction
+  log, the `pg_cron` entry removed.
+- **Rollback**: `fmt2_history` restores every replaced value; records opened
+  by phase 1 are identified by `reprocessed_at` and `fmt2_run`.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 
@@ -462,6 +486,7 @@ own closing check above, and are reported as they do:
 | T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
 | T-25 final review | real distributions in hand, external reviewers | after T-23 |
 | FMT-1 step 3 | the first reading after the deploy | the morning after |
+| FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate) |
 
 The loop itself ends with T-21.
 
