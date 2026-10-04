@@ -37,9 +37,12 @@ def run(channels, measured, store, run_state=None, today=None, **kw):
     return res, rep, fake
 
 
-def warm_and_cold(day_a, measured_a, day_b, measured_b, **kw_b):
+def warm_and_cold(day_a, measured_a, day_b, measured_b, shapes=None, **kw_b):
+    """shapes (FMT-1): the embed shape per video, the same on both days (a
+    shape never changes); every other video is vertical."""
     store = bl.MemoryInventory()
-    run(day_a, measured_a, store, today=NOW.date())
+    kw_b = {**kw_b, "shapes": shapes}
+    run(day_a, measured_a, store, today=NOW.date(), shapes=shapes)
     warm, wrep, wfake = run(day_b, measured_b, store, today=(NOW + DAY).date(), **kw_b)
     cold, crep, cfake = run(day_b, measured_b, bl.MemoryInventory(), today=(NOW + DAY).date(), **kw_b)
     return warm, cold, wfake, cfake, store
@@ -174,7 +177,7 @@ def test_randomised_warm_equals_cold(seed):
     every = rnd.choice([0.2, 0.5, 1.0, 2.0, 4.0])
     ups = []
     for i in range(n):
-        dur = "PT40S" if rnd.random() < 0.7 else rnd.choice(["PT12M", "P0D"])
+        dur = "PT40S" if rnd.random() < 0.6 else rnd.choice(["PT12M", "P0D", "PT2M", "PT3M"])
         ups.append((f"v{i:03d}", NOW - timedelta(days=i * every + rnd.random() * 0.1), dur,
                     rnd.randint(0, 50_000)))
     a = {"UCa": ups}
@@ -191,7 +194,11 @@ def test_randomised_warm_equals_cold(seed):
     fmt = rnd.choice(["SHORT", "SHORT", "LONG"])
     measured_b = [m("yb", "UCa", NOW + DAY - rnd.randint(0, 80) * DAY, fmt),
                   m("zb", "UCa", NOW + DAY - rnd.randint(0, 5) * DAY)]
-    warm, cold, _, _, store = warm_and_cold(a, measured_a, b, measured_b, unlisted=unlisted)
+    # FMT-1: random shapes, the shape returned or not (None)
+    shapes = {v: rnd.choice(["vertical", "vertical", "square", "wide", None])
+              for v, *_ in ups + new}
+    warm, cold, _, _, store = warm_and_cold(a, measured_a, b, measured_b, shapes=shapes,
+                                            unlisted=unlisted)
     assert warm == cold
     assert len(store.data.get("UCa", {"items": {}})["items"]) <= bl.INVENTORY_MAX
 
@@ -210,3 +217,58 @@ def test_declared_exception_an_old_video_reappearing_is_missed_until_a_full_read
     assert cold["x"]["samples"] == warm["x"]["samples"] == 20
     assert warm["x"] != cold["x"]                   # the exception, as declared
     assert "old1" not in warm["x"]["video_ids"]
+
+
+# --- FMT-1: the shape decides the format of a sample (01 section 1.1) --------
+
+
+def test_a_wide_120_s_upload_is_a_long_form_sample_a_vertical_one_is_not():
+    """Same channel, same window: the wide 120 s uploads join the long-form
+    candidates, the vertical 120 s ones join the Shorts, warm and cold."""
+    ups = [(f"w{i:02d}", NOW - timedelta(days=8 + 2 * i), "PT2M", 1000 + i) for i in range(6)] + \
+          [(f"t{i:02d}", NOW - timedelta(days=9 + 2 * i), "PT2M", 50 + i) for i in range(6)]
+    ups.sort(key=lambda u: u[1], reverse=True)
+    shapes = {v: "wide" for v, *_ in ups if v.startswith("w")}
+    measured = [m("L", "UCa", NOW, "LONG"), m("S", "UCa", NOW, "SHORT")]
+    warm, cold, _, _, store = warm_and_cold({"UCa": ups}, [m("x", "UCa", NOW)], {"UCa": ups},
+                                            measured, shapes=shapes)
+    assert warm == cold
+    assert sorted(cold["L"]["video_ids"]) == [f"w{i:02d}" for i in range(6)]
+    assert sorted(cold["S"]["video_ids"]) == [f"t{i:02d}" for i in range(6)]
+    items = store.data["UCa"]["items"]
+    assert {items[f"w{i:02d}"][1] for i in range(6)} == {"LONG"}
+    assert {items[f"t{i:02d}"][1] for i in range(6)} == {"SHORT"}
+
+
+def test_a_shape_not_returned_is_never_a_sample():
+    ups = [(f"u{i:02d}", NOW - timedelta(days=8 + i), "PT2M", 1000) for i in range(8)]
+    res, _, _ = run({"UCa": ups}, [m("L", "UCa", NOW, "LONG"), m("S", "UCa", NOW, "SHORT")],
+                    bl.MemoryInventory(), shapes={v: None for v, *_ in ups})
+    assert res["L"]["rule"] == res["S"]["rule"] == "not_computable"
+    assert res["L"]["samples"] == res["S"]["samples"] == 0
+
+
+
+def test_an_inventory_short_nulled_by_the_migration_is_read_again_and_reclassified():
+    """The FMT-1 migration sets the stored format of every old SHORT to null.
+    The next run reads those in-window items again (formato() with the
+    shape) and computes what a cold read computes."""
+    ups = [(f"w{i:02d}", NOW - timedelta(days=8 + 2 * i), "PT2M", 1000 + i) for i in range(6)] + \
+          [(f"t{i:02d}", NOW - timedelta(days=9 + 2 * i), "PT2M", 50 + i) for i in range(6)]
+    ups.sort(key=lambda u: u[1], reverse=True)
+    shapes = {v: "wide" for v, *_ in ups if v.startswith("w")}
+    # the inventory as the old rule left it: every 120 s upload a SHORT
+    old = {"UCa": {"items": {v: [int(p.timestamp()), "SHORT"] for v, p, *_ in ups},
+                   "covered_back_to": int(ups[-1][1].timestamp()) - 1, "capped": False,
+                   "ended": True, "refreshed_on": NOW.date()}}
+    nulled = {"UCa": {**old["UCa"], "items": {v: [e, None] for v, (e, _) in old["UCa"]["items"].items()}}}
+    measured = [m("L", "UCa", NOW, "LONG")]
+    warm, _, wfake = run({"UCa": ups}, measured, bl.MemoryInventory(nulled), today=NOW.date(),
+                         shapes=shapes)
+    cold, _, _ = run({"UCa": ups}, measured, bl.MemoryInventory(), today=NOW.date(), shapes=shapes)
+    assert warm == cold and sorted(warm["L"]["video_ids"]) == [f"w{i:02d}" for i in range(6)]
+    asked = {i for q in wfake.of("videos") for i in q["id"].split(",")}
+    assert asked == {v for v, *_ in ups}
+    # without the migration the old SHORTs are skipped as known other-format
+    stale, _, _ = run({"UCa": ups}, measured, bl.MemoryInventory(old), today=NOW.date(), shapes=shapes)
+    assert stale["L"]["rule"] == "not_computable"

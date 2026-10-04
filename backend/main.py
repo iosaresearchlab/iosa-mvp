@@ -505,7 +505,8 @@ PUBLIC_POST_COLUMNS = (
     "categories,baseline_computed_at,baseline_samples,baseline_rule,"
     "baseline_span_days,baseline_video_ids,auto_generated_channel,scale_version,"
     "method_version,gap_days,entry_certain,age_at_first_obs_days,vpi_max,"
-    "vpi_max_on,views_max,views_final,reprocessed_at"
+    "vpi_max_on,views_max,views_final,reprocessed_at,"
+    "duration_s,shape,was_live,format_rule"
 )
 # hidden / hidden_on (OPTOUT-1): /api/posts returns only hidden = false, and
 # the day a removal request was honoured is nobody else's business.

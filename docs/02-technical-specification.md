@@ -891,7 +891,8 @@ def formato(seconds, embed_w, embed_h, published_at):
 ```
 
 `embedWidth`/`embedHeight` arrive as strings. `published_at` is compared as a
-UTC date. `formato_da_durata()` and `is_short_duration()` stay, unchanged,
+UTC date; absent (never seen on a chart video), the format is `UNKNOWN`,
+never guessed. `formato_da_durata()` and `is_short_duration()` stay, unchanged,
 for the v1 path only (`vpi_engine.get_channel_video_samples`); nothing in
 the v2 path calls them. `FORMAT_RULE = "youtube_shape"` names the rule;
 records opened before it carry `"duration_180"`.

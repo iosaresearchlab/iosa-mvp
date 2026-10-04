@@ -32,7 +32,7 @@ export default function ContenutoMetodologia() {
             <strong>E<sub>act</sub></strong> is the video&apos;s public view count, read once a day
             from the first day we observe it in Most Popular until the day it leaves every chart:
             a daily series, not a single reading. <strong>E<sub>base</sub></strong> is the median
-            view count of the same channel&apos;s long-form videos (over 180 seconds) published
+            view count of the same channel&apos;s long-form videos (YouTube&apos;s definition: everything that is not a Short) published
             between 7 and 90 days before
             the measured video was published: at least 5 of them, at most 20 spread evenly across
             the window. The baseline is computed once, the first day the video is observed, and
@@ -43,8 +43,10 @@ export default function ContenutoMetodologia() {
         <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl space-y-2">
           <h3 className="font-bold font-mono text-xs text-[#00E5FF]">The population</h3>
           <p>
-            Long-form videos (over 180 seconds) first observed in YouTube&apos;s Most Popular category
-            charts, across 34 countries and the 13 categories that return data. One reading a day,
+            Long-form videos &mdash; everything that is not a Short, as YouTube defines it: a Short is
+            square or vertical and up to 3 minutes &mdash; first observed in YouTube&apos;s Most Popular
+            category charts, across 34 countries and the 13 categories that return data. Until 4 October
+            2026 the split was by duration only (up to 180 seconds = Short). One reading a day,
             at 23:59 UTC, through the official YouTube Data API. &ldquo;First observed&rdquo; is the
             first reading in which a video is present after being absent from the previous one:
             YouTube publishes no entry time. Nothing is filtered on VPI.

@@ -26,6 +26,17 @@ def days_before(ref, n):
     return ref - timedelta(days=n)
 
 
+EMBED = {"vertical": ("563", "1000"), "square": ("1000", "1000"), "wide": ("1000", "563")}
+
+
+def player(shape):
+    """The player part as videos.list returns it with maxHeight=1000 (02 section 4.9)."""
+    if shape is None:
+        return {"embedHtml": "<iframe></iframe>"}
+    w, h = EMBED[shape]
+    return {"embedHtml": "<iframe></iframe>", "embedWidth": w, "embedHeight": h}
+
+
 class FakeYouTube:
     """channels: {channel_id: [(video_id, published_dt, duration, views), ...]}
     newest first, as the uploads playlist returns them.
@@ -33,8 +44,11 @@ class FakeYouTube:
     """
 
     def __init__(self, channels, status=None, missing_playlists=(), unlisted=(), uploads_ids=None,
-                 item_counts=None):
+                 item_counts=None, shapes=None):
         self.channels = channels
+        # FMT-1: the player's embed size per video ("vertical" unless given;
+        # None = the API returns no size, as when the aspect ratio is unknown)
+        self.shapes = dict(shapes or {})
         # the uploads playlist id the API returns (the code never derives it:
         # test_the_uploads_playlist_is_the_one_the_api_returns)
         self.uploads_ids = {c: "UU" + c[2:] for c in channels}
@@ -85,8 +99,11 @@ class FakeYouTube:
                 if vid in self.videos:
                     _, _, dur, views = self.videos[vid]
                     st = {} if views is None else {"viewCount": str(views)}
-                    items.append({"id": vid, "contentDetails": {"duration": dur}, "statistics": st,
-                                  "status": {"privacyStatus": "unlisted" if vid in self.unlisted else "public"}})
+                    it = {"id": vid, "contentDetails": {"duration": dur}, "statistics": st,
+                          "status": {"privacyStatus": "unlisted" if vid in self.unlisted else "public"}}
+                    if "player" in q.get("part", "").split(","):
+                        it["player"] = player(self.shapes.get(vid, "vertical"))
+                    items.append(it)
             return (200, {}, json.dumps({"items": items}))
         return (400, {}, "{}")
 

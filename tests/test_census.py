@@ -18,11 +18,20 @@ import census
 KEY = "test-key-not-real"
 
 
-def item(vid, channel="UCa", duration="PT45S", views="1000", published="2026-09-20T10:00:00Z"):
+EMBED = {"vertical": ("563", "1000"), "square": ("1000", "1000"), "wide": ("1000", "563")}
+
+
+def item(vid, channel="UCa", duration="PT45S", views="1000", published="2026-09-20T10:00:00Z",
+         shape="vertical", live=False):
     it = {"id": vid,
           "snippet": {"channelId": channel, "publishedAt": published},
           "contentDetails": {"duration": duration},
-          "statistics": {}}
+          "statistics": {},
+          "player": {"embedHtml": "<iframe></iframe>"}}
+    if shape is not None:            # None: the API returns no embed size
+        it["player"]["embedWidth"], it["player"]["embedHeight"] = EMBED[shape]
+    if live:
+        it["liveStreamingDetails"] = {"actualStartTime": published, "actualEndTime": published}
     if views is not None:
         it["statistics"]["viewCount"] = views
     return it
@@ -104,7 +113,9 @@ def test_every_request_is_a_category_chart_never_the_general_chart(api):
     for q in fake.calls:
         assert q["chart"] == "mostPopular"
         assert q.get("videoCategoryId"), "general chart requested"
-        assert q["part"] == "snippet,contentDetails,statistics"
+        # FMT-1, 02 section 4.9: the shape and the live flag in the same call
+        assert q["part"] == "snippet,contentDetails,statistics,player,liveStreamingDetails"
+        assert q["maxHeight"] == "1000"
         assert q["maxResults"] == "50"
         assert q["key"] == KEY
 
@@ -211,10 +222,53 @@ def test_videos_without_a_usable_duration_are_discarded_and_counted(api):
     assert rep["discards"]["no_duration"] == 1
 
 
-def test_format_is_classified_by_duration(api):
-    api({("IT", "24"): [[item("s", duration="PT3M"), item("l", duration="PT3M1S")]]})
+def test_format_is_youtubes_short_rule_duration_and_shape(api):
+    """01 section 1.1: a Short is square or vertical and up to 180 s
+    (60 s before 15/10/2024); everything else is long-form."""
+    api({("IT", "24"): [[item("s", duration="PT3M"), item("l", duration="PT3M1S"),
+                         item("w", duration="PT2M", shape="wide"),
+                         item("q", duration="PT2M", shape="square"),
+                         item("old", duration="PT61S", published="2024-10-14T23:00:00Z"),
+                         item("old60", duration="PT60S", published="2024-10-14T23:00:00Z")]]})
+    videos, rep = run(["IT"], ["24"])
+    assert {k: v["format"] for k, v in videos.items()} == {
+        "s": "SHORT", "l": "LONG", "w": "LONG", "q": "SHORT", "old": "LONG", "old60": "SHORT"}
+    assert rep["discards"]["unknown_shape"] == 0
+
+
+def test_shape_duration_and_live_are_carried_for_every_video(api):
+    api({("IT", "24"): [[item("w", duration="PT2M", shape="wide", live=True),
+                         item("l", duration="PT10M", shape=None)]]})
     videos, _ = run(["IT"], ["24"])
-    assert videos["s"]["format"] == "SHORT" and videos["l"]["format"] == "LONG"
+    assert (videos["w"]["duration_s"], videos["w"]["shape"], videos["w"]["live"]) == (120, "wide", True)
+    # over 180 s the shape is not needed: long-form even when it is not returned
+    assert (videos["l"]["format"], videos["l"]["duration_s"], videos["l"]["shape"], videos["l"]["live"]) \
+        == ("LONG", 600, None, False)
+
+
+def test_unknown_shape_is_kept_counted_once_and_never_guessed(api):
+    # the same video in two slices is one video: counted once
+    api({("IT", "24"): [[item("u", duration="PT50S", shape=None), item("s")]],
+         ("US", "24"): [[item("u", duration="PT50S", shape=None)]]})
+    videos, rep = run(["IT", "US"], ["24"])
+    assert videos["u"]["format"] == "UNKNOWN" and videos["u"]["shape"] is None
+    assert videos["u"]["countries"] == {"IT", "US"}
+    assert rep["discards"]["unknown_shape"] == 1
+    assert rep["discards"]["no_duration"] == 0
+
+
+def test_the_snapshot_stores_duration_shape_and_live():
+    videos = {"w": {"channel_id": "UCa", "format": "LONG", "published_at": "2026-09-20T10:00:00Z",
+                    "views": 5, "countries": {"IT"}, "categories": {"24"},
+                    "duration_s": 120, "shape": "wide", "live": True},
+              "u": {"channel_id": "UCa", "format": "UNKNOWN", "published_at": "2026-09-20T10:00:00Z",
+                    "views": 5, "countries": {"IT"}, "categories": {"24"},
+                    "duration_s": 50, "shape": None, "live": False}}
+    db = RecordingClient()
+    census.save_snapshot(db, date(2026, 10, 5), videos)
+    rows = {r["video_id"]: r for op in db.ops if op[0] == "upsert" for r in op[2]}
+    assert (rows["w"]["duration_s"], rows["w"]["shape"], rows["w"]["live"]) == (120, "wide", True)
+    assert (rows["u"]["format"], rows["u"]["shape"]) == ("UNKNOWN", None)
 
 
 def test_missing_api_key_is_an_error_not_a_silent_empty_census(monkeypatch):

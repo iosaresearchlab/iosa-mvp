@@ -35,7 +35,8 @@ from vpi_core import (
     MIN_VPI_FOR_INGESTION,
     FORMATO_SHORT,
     FORMATO_LONG,
-    formato_da_durata,
+    formato_da_durata,   # v1 only (get_channel_video_samples)
+    FORMAT_RULE,
     TTLCache,
     age_in_days,
     calculate_vpi_ratio,
@@ -326,6 +327,12 @@ def _record(vid, v, entry, res, meta, day, observed_iso, baseline_iso=None, repr
         "vpi_max": vf["vpi_ratio"],
         "vpi_max_on": day.isoformat() if vf["vpi_ratio"] is not None else None,
         "views_max": views,
+        # FMT-1 (01 section 1.1): what classified the record, checkable
+        # afterwards without another read
+        "duration_s": v.get("duration_s"),
+        "shape": v.get("shape"),
+        "was_live": v.get("live"),
+        "format_rule": FORMAT_RULE,
     }
 
 
@@ -377,8 +384,10 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         through its baseline_rule. Entries the brake did not reach are
         recorded without a VPI, 'quota_stop' (an incident, counted); entries
         whose reads failed after the retries, 'read_failed'.
-    Perimeter (01 §1, 27/09/2026): only long-form entries (> 180 s) open a
-    record. The census still reads and stores every video, Shorts included.
+    Perimeter (01 §1, 27/09/2026): only long-form entries open a record
+    (01 §1.1, FMT-1: everything that is not a Short as YouTube defines it;
+    UNKNOWN never opens one). The census still reads and stores every video,
+    Shorts included.
     """
     countries = list(countries or census.TARGET_COUNTRIES)
     categories = list(categories or census.CATEGORY_MAP)
@@ -641,14 +650,19 @@ class ReprocessRefused(Exception):
 
 def _snapshot_videos(client, day):
     """The stored census of a day: {video_id: {channel_id, format, published_at,
-    views, countries, categories}}, from trend_snapshot, every row."""
+    views, countries, categories, duration_s, shape, live}}, from
+    trend_snapshot, every row. duration_s, shape and live (FMT-1) are what the
+    census stored, so a day finished from its snapshot writes the same values
+    as the night; absent (None) in a snapshot written before FMT-1."""
     rows = _rpc_all(client, "snapshot_export", {"p_day": day.isoformat()}, "video_id")
     out = {}
     for r in rows:
         x = json.loads(r["line"])
         out[x["video_id"]] = {"channel_id": x["channel_id"], "format": x["format"],
                               "published_at": x["published_at"], "views": x["views"],
-                              "countries": set(x["countries"]), "categories": set(x["categories"])}
+                              "countries": set(x["countries"]), "categories": set(x["categories"]),
+                              "duration_s": x.get("duration_s"), "shape": x.get("shape"),
+                              "live": x.get("live")}
     return out
 
 

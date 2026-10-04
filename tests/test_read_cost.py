@@ -125,7 +125,7 @@ def test_the_proposed_spread_sampling_picks_different_ids_than_the_rule():
     # 20 evenly over those.
     ups = [(f"v{i:03d}", NOW - timedelta(days=8 + i * 0.5), "PT12M" if i % 15 < 8 else "PT40S",
             1000 + 13 * i) for i in range(150)]
-    fmt_of = {v: core.formato_da_durata(core.parse_iso_duration(d)) for v, _, d, _ in ups}
+    fmt_of = {v: core.formato(core.parse_iso_duration(d), "563", "1000", iso(p)) for v, p, d, _ in ups}
     res, _, _ = run({"UCa": ups}, [m("x", "UCa", NOW, "LONG")])
     window = [(p, v) for v, p, _, _ in ups]
     sampled = spread_sampling(window, "LONG", lambda w: fmt_of[w[1]])

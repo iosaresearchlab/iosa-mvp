@@ -20,7 +20,8 @@ KEY = "test-key-not-real"
 
 def chart_item(vid):
     return {"id": vid, "snippet": {"channelId": "UCa", "publishedAt": "2026-09-20T10:00:00Z"},
-            "contentDetails": {"duration": "PT40S"}, "statistics": {"viewCount": "10"}}
+            "contentDetails": {"duration": "PT40S"}, "statistics": {"viewCount": "10"},
+            "player": {"embedWidth": "563", "embedHeight": "1000"}}
 
 
 @pytest.fixture
@@ -87,6 +88,7 @@ def test_one_counter_across_census_and_baseline_no_drift():
             return (200, {}, json.dumps({"items": items}))
         ids = qs["id"].split(",")
         return (200, {}, json.dumps({"items": [{"id": i, "contentDetails": {"duration": "PT30S"},
+                                                "player": {"embedWidth": "563", "embedHeight": "1000"},
                                                 "statistics": {"viewCount": "5"}} for i in ids]}))
 
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:

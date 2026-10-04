@@ -27,7 +27,7 @@ from datetime import date
 import requests
 
 from quota import QuotaCounter, QuotaExhausted
-from vpi_core import formato_da_durata, parse_iso_duration
+from vpi_core import EMBED_MAX_HEIGHT, FORMATO_UNKNOWN, formato, parse_iso_duration, shape_of
 
 API_URL = "https://www.googleapis.com/youtube/v3/videos"
 
@@ -69,11 +69,17 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
 
     videos: {video_id: {channel_id, format, published_at, views,
                         countries: set, categories: set,
-                        title, channel_title, first_slice}}
+                        title, channel_title, first_slice,
+                        duration_s, shape, live}}
+    format is vpi_core.formato() (FMT-1, 01 section 1.1): SHORT, LONG or
+    UNKNOWN (shape not returned: kept in the snapshot, never measured,
+    counted once per video in discards.unknown_shape).
     first_slice = (country, category) of the first slice, in processing
     order, that returned the video: the record's primary country/category.
 
-    One call per page (part=snippet,contentDetails,statistics, maxResults=50),
+    One call per page (part=snippet,contentDetails,statistics,player,
+    liveStreamingDetails, maxHeight=1000, maxResults=50: 1 unit whatever
+    the parts, 02 section 4.9),
     following nextPageToken to exhaustion. Every HTTP attempt costs 1 unit
     and is marked on `quota` (a QuotaCounter shared by the whole run) before
     it is sent; report['quota_charts'] is read from it.
@@ -102,7 +108,7 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
     report = {
         "quota_charts": 0, "slices_ok": 0, "slices_404": 0, "slices_error": 0,
         "slices_unread": 0, "videos_seen": 0, "channels_seen": 0,
-        "discards": {"no_duration": 0, "no_channel": 0},
+        "discards": {"no_duration": 0, "no_channel": 0, "unknown_shape": 0},
         "stop_reason": None, "complete": False, "outcome": None,
     }
 
@@ -144,7 +150,8 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
 
     def read_slice(country, category):
         params = {
-            "part": "snippet,contentDetails,statistics",
+            "part": "snippet,contentDetails,statistics,player,liveStreamingDetails",
+            "maxHeight": EMBED_MAX_HEIGHT,
             "chart": "mostPopular",
             "maxResults": 50,
             "regionCode": country,
@@ -211,7 +218,9 @@ def _merge(videos, item, country, category, discards):
     vid = item.get("id")
     snippet = item.get("snippet", {})
     seconds = parse_iso_duration(item.get("contentDetails", {}).get("duration", ""))
-    fmt = formato_da_durata(seconds)
+    player = item.get("player") or {}
+    w, h = player.get("embedWidth"), player.get("embedHeight")
+    fmt = formato(seconds, w, h, snippet.get("publishedAt"))
     if fmt is None:
         discards["no_duration"] += 1   # live streams, premieres
         return
@@ -223,6 +232,8 @@ def _merge(videos, item, country, category, discards):
     views = int(raw) if raw is not None else None
     v = videos.get(vid)
     if v is None:
+        if fmt == FORMATO_UNKNOWN:
+            discards["unknown_shape"] += 1   # once per video, not per slice
         videos[vid] = {
             "channel_id": channel,
             "format": fmt,
@@ -232,6 +243,9 @@ def _merge(videos, item, country, category, discards):
             "categories": {category},
             "title": snippet.get("title"),
             "channel_title": snippet.get("channelTitle"),
+            "duration_s": seconds,
+            "shape": shape_of(w, h),
+            "live": bool((item.get("liveStreamingDetails") or {}).get("actualStartTime")),
             "_slices": {(country, category)},
         }
         return
@@ -259,6 +273,9 @@ def save_snapshot(client, day: date, videos: dict) -> int:
         "views": v["views"],
         "countries": sorted(v["countries"]),
         "categories": sorted(v["categories"], key=int),
+        "duration_s": v.get("duration_s"),
+        "shape": v.get("shape"),
+        "live": v.get("live"),
     } for vid, v in sorted(videos.items())]
     for i in range(0, len(rows), SNAPSHOT_BATCH):
         client.table("trend_snapshot").upsert(rows[i:i + SNAPSHOT_BATCH]).execute()

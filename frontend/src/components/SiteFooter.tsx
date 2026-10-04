@@ -15,7 +15,7 @@ export function SiteFooter() {
             An independent, self-funded research project with no profit purpose, measuring how long-form videos first observed in YouTube&apos;s Most Popular charts perform against each channel&apos;s own baseline.
           </p>
           <p className="text-[10px] text-gray-500 font-sans leading-relaxed max-w-md" data-vpi-definition>
-            VPI = E<sub>act</sub> / E<sub>base</sub> — a video&apos;s views divided by the median views of the same channel&apos;s long-form videos published 7-90 days before it. For now only long-form videos (over 3 minutes) are measured. It is our own measurement, not a certification issued by any authority.
+            VPI = E<sub>act</sub> / E<sub>base</sub> — a video&apos;s views divided by the median views of the same channel&apos;s long-form videos published 7-90 days before it. For now only long-form videos (not Shorts, as YouTube defines them) are measured. It is our own measurement, not a certification issued by any authority.
           </p>
         </div>
         <div className="space-y-2">

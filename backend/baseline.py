@@ -30,11 +30,13 @@ Phases, each HTTP attempt marked on the run's QuotaCounter (1 unit each):
      stopping at the first page holding an already-known video.
   3. videos.list in blocks of 50 over every candidate a fresh read would
      consider: the in-window ids whose format is unknown or is a measured
-     format (a stored duration never changes, so a known other-format id
-     cannot become a sample), plus all 150 most recent when the cap
-     truncates a window (contentDetails + statistics + status, 1 unit per
-     call). Gone or not public -> removed; if that happens among the 150 most
-     recent while the cap binds, the channel is read again from the newest.
+     format (a stored duration and shape never change, so a known
+     other-format id cannot become a sample), plus all 150 most recent when
+     the cap truncates a window (contentDetails + statistics + status +
+     player with maxHeight: duration, shape, views and privacy, 1 unit per
+     call; the format is vpi_core.formato(), FMT-1, 02 section 4.9). Gone
+     or not public -> removed; if that happens among the 150 most recent
+     while the cap binds, the channel is read again from the newest.
   4. per measured video: public, same format, views readable, 20 evenly.
 
 This module reads no environment and creates no client at import.
@@ -379,7 +381,8 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
         def verify(chs):
             """3. Every candidate a fresh read would consider is checked in this
             run: in-window ids, plus all 150 when the cap truncates a window.
-            Duration, views and privacy in one call (1 unit per 50 ids). Gone
+            Duration, shape, views and privacy in one call (1 unit per 50
+            ids); the format is vpi_core.formato() (FMT-1). Gone
             or no longer public -> removed. Returns the channels that lost an
             upload among their 150 most recent while the cap binds."""
             ids, owner, binding = set(), {}, set()
@@ -407,7 +410,8 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
             lost = set()
             for i in range(0, len(ids), BLOCK):
                 block = ids[i:i + BLOCK]
-                data = get("videos", {"part": "contentDetails,statistics,status",
+                data = get("videos", {"part": "contentDetails,statistics,status,player",
+                                      "maxHeight": core.EMBED_MAX_HEIGHT,
                                       "id": ",".join(block), "maxResults": BLOCK},
                            "quota_videos") or {}
                 if "_error" in data:
@@ -419,7 +423,13 @@ def baselines_for_videos(measured, api_key=None, *, session=None, sleep=time.sle
                         continue
                     seconds = core.parse_iso_duration(it.get("contentDetails", {}).get("duration", ""))
                     raw = it.get("statistics", {}).get("viewCount")
-                    run["inv"][owner[it["id"]]]["items"][it["id"]][1] = core.formato_da_durata(seconds) or "NONE"
+                    player = it.get("player") or {}
+                    held = run["inv"][owner[it["id"]]]["items"][it["id"]]
+                    fmt = core.formato(seconds, player.get("embedWidth"),
+                                       player.get("embedHeight"), _iso(held[0]))
+                    # UNKNOWN (shape not returned) and None (no duration) are
+                    # not samples (02 section 4.9)
+                    held[1] = fmt if fmt in (core.FORMATO_SHORT, core.FORMATO_LONG) else "NONE"
                     run["views"][it["id"]] = int(raw) if raw is not None else None
                     public.add(it["id"])
                 for v in block:

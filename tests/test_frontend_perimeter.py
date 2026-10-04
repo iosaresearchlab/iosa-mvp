@@ -23,3 +23,18 @@ def test_the_methodology_says_it_plainly():
 def test_no_ranking_pools_the_two_formats():
     assert 'value="ALL">Shorts and long-form' not in BOARD
     assert "params.set('format', formato)" in BOARD
+
+
+def test_fmt1_the_public_text_uses_youtubes_definition_of_a_short():
+    """FMT-1 (01 section 1.1): no page says long-form = over 3 minutes any more."""
+    footer = (SRC / "components" / "SiteFooter.tsx").read_text(encoding="utf-8")
+    for name, text in (("home", HOME), ("modal", MODAL), ("footer", footer)):
+        assert "over 3 minutes" not in text and "over 180 seconds" not in text, name
+    assert HOME.count("long-form videos only (not Shorts, as YouTube defines them)") == 1
+    assert HOME.count("long-form videos (not Shorts, as YouTube defines them)") == 1
+    assert "long-form videos (not Shorts, as YouTube defines them)" in footer
+    assert "long-form videos (YouTube&apos;s definition: everything that is not a Short)" in MODAL
+    flat = " ".join(MODAL.split())
+    assert ("everything that is not a Short, as YouTube defines it: a Short is square or vertical "
+            "and up to 3 minutes") in flat
+    assert "Until 4 October 2026 the split was by duration only (up to 180 seconds = Short)." in flat

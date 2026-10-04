@@ -121,10 +121,64 @@ FORMATO_LONG = "LONG"
 
 
 def formato_da_durata(duration_seconds: int) -> str | None:
-    """SHORT, LONG, oppure None se la durata non e' utilizzabile (0 o assente)."""
+    """SHORT, LONG, oppure None se la durata non e' utilizzabile (0 o assente).
+
+    v1 only (vpi_engine.get_channel_video_samples). The v2 path classifies
+    with formato() (FMT-1, 04/10/2026); nothing in it calls this function."""
     if not duration_seconds or duration_seconds <= 0:
         return None
     return FORMATO_SHORT if duration_seconds <= SHORT_MAX_SECONDS else FORMATO_LONG
+
+
+# FMT-1 (owner decision 04/10/2026): a Short is what YouTube calls a Short,
+# a square or vertical video up to three minutes (YouTube Help 15424877).
+# docs/01-methodology-protocol.md section 1.1; 02 section 4.9.
+SHORT_MAX_SECONDS_BEFORE = 60           # uploads before SHORT_3MIN_FROM
+SHORT_3MIN_FROM = "2024-10-15"          # the date YouTube's rule took effect
+EMBED_MAX_HEIGHT = 1000                 # maxHeight sent with part=player
+FORMAT_RULE = "youtube_shape"           # names the rule on every record it opens
+FORMAT_RULE_BEFORE = "duration_180"     # the records opened before it
+FORMATO_UNKNOWN = "UNKNOWN"             # shape not returned: recorded, never measured
+
+
+def _utc_date_iso(published_at) -> str | None:
+    if published_at is None or published_at == "":
+        return None
+    return _as_datetime(published_at).astimezone(timezone.utc).date().isoformat()
+
+
+def formato(seconds, embed_w, embed_h, published_at):
+    """SHORT, LONG, UNKNOWN, or None (01 section 1.1, one rule for every
+    record and every baseline sample).
+
+    seconds: contentDetails.duration in seconds; embed_w / embed_h:
+    player.embedWidth / embedHeight as the API returns them (strings), absent
+    when the aspect ratio is not known; published_at: snippet.publishedAt,
+    compared as a UTC date.
+    """
+    if not seconds or seconds <= 0:
+        return None                         # live in progress, premiere: as before
+    if seconds > SHORT_MAX_SECONDS:
+        return FORMATO_LONG
+    if not embed_w or not embed_h:
+        return FORMATO_UNKNOWN              # never guessed
+    if int(embed_w) > int(embed_h):
+        return FORMATO_LONG                 # wider than tall
+    day = _utc_date_iso(published_at)
+    if day is None:
+        return FORMATO_UNKNOWN              # the date decides the limit: never guessed
+    limit = SHORT_MAX_SECONDS if day >= SHORT_3MIN_FROM else SHORT_MAX_SECONDS_BEFORE
+    return FORMATO_SHORT if seconds <= limit else FORMATO_LONG
+
+
+def shape_of(embed_w, embed_h) -> str | None:
+    """'vertical', 'square', 'wide', or None when the API did not return it."""
+    if not embed_w or not embed_h:
+        return None
+    w, h = int(embed_w), int(embed_h)
+    if w > h:
+        return "wide"
+    return "square" if w == h else "vertical"
 
 
 def calculate_vpi_ratio(views, baseline) -> float:

@@ -50,6 +50,29 @@ CHANNEL = {"a": "UCold", "b": "UCold", "c": "UCold", "n1": "UCnew", "n2": "UCsma
 # 01 section 1 (27/09/2026): only long-form opens a record. s1 is a Short.
 DURATION = {"s1": "PT45S"}
 LONG = "PT12M"
+# FMT-1 (01 section 1.1): the shape the chart returns ("vertical" unless
+# given; None = no embed size returned) and the past live broadcasts.
+SHAPE = {}
+LIVE = set()
+EMBED = {"vertical": ("563", "1000"), "square": ("1000", "1000"), "wide": ("1000", "563")}
+
+
+def player(shape):
+    if shape is None:
+        return {"embedHtml": "<iframe></iframe>"}
+    w, h = EMBED[shape]
+    return {"embedHtml": "<iframe></iframe>", "embedWidth": w, "embedHeight": h}
+
+
+def chart_item(v, views):
+    it = {"id": v, "snippet": {"channelId": CHANNEL[v], "publishedAt": iso(PUB[v]),
+                               "title": f"title {v}", "channelTitle": CHANNEL[v]},
+          "contentDetails": {"duration": DURATION.get(v, LONG)},
+          "statistics": {"viewCount": str(views)},
+          "player": player(SHAPE.get(v, "vertical"))}
+    if v in LIVE:
+        it["liveStreamingDetails"] = {"actualStartTime": iso(PUB[v]), "actualEndTime": iso(PUB[v])}
+    return it
 
 
 class FakeYouTube:
@@ -75,10 +98,9 @@ class FakeYouTube:
             spec = self.charts.get((qs["regionCode"], qs["videoCategoryId"]), [])
             if isinstance(spec, int):
                 return (spec, {}, json.dumps({"error": {"errors": [{"reason": "quotaExceeded"}]}}))
-            items = [{"id": v, "snippet": {"channelId": CHANNEL[v], "publishedAt": iso(PUB[v]),
-                                           "title": f"title {v}", "channelTitle": CHANNEL[v]},
-                      "contentDetails": {"duration": DURATION.get(v, LONG)},
-                      "statistics": {"viewCount": str(views)}} for v, views in spec]
+            assert qs["part"] == "snippet,contentDetails,statistics,player,liveStreamingDetails"
+            assert qs["maxHeight"] == "1000"
+            items = [chart_item(v, views) for v, views in spec]
             return (200, {}, json.dumps({"items": items}))
         if ep == "channels":
             items = [{"id": c, "snippet": self.meta[c], "statistics": {"subscriberCount": "5000"},
@@ -102,7 +124,9 @@ class FakeYouTube:
             return (200, {}, json.dumps({"items": items}))
         if ep == "videos":
             allv = {v: (d, n) for ups in self.uploads.values() for v, _, d, n in ups}
+            assert "player" in qs["part"].split(",") and qs["maxHeight"] == "1000"
             items = [{"id": v, "contentDetails": {"duration": allv[v][0]},
+                      "player": player("vertical"),
                       "statistics": {"viewCount": str(allv[v][1])}}
                      for v in qs["id"].split(",") if v in allv]
             return (200, {}, json.dumps({"items": items}))
@@ -570,3 +594,57 @@ def test_a_second_attempt_never_reads_a_complete_census_again(world, monkeypatch
         eng.run_daily(client, day(1), api_key=KEY, countries=COUNTRIES, categories=CATS,
                       quota=q.QuotaCounter(limit=9900), sleep=lambda s: None, now=at(1, 0), rerun=True)
     assert fake.calls == []                                # not one chart read
+
+
+# --- FMT-1: a Short as YouTube defines it (01 section 1.1, 02 section 4.9) ----
+
+PUB.update({"w1": at(0, 7), "u1": at(0, 6), "o1": datetime(2024, 10, 14, 12, tzinfo=timezone.utc),
+            "q1": at(0, 5)})
+CHANNEL.update({"w1": "UCnew", "u1": "UCnew", "o1": "UCnew", "q1": "UCnew"})
+DURATION.update({"w1": "PT2M", "u1": "PT50S", "o1": "PT90S", "q1": "PT2M"})
+SHAPE.update({"w1": "wide", "u1": None, "q1": "square"})
+LIVE.add("n1")
+
+FMT_DAY1 = {("IT", "24"): [("a", 950), ("n1", 5000), ("s1", 9000), ("w1", 4000), ("u1", 3000)],
+            ("US", "10"): [("c", 720), ("o1", 2000), ("q1", 1500)]}
+# what each record opened on that day must carry: (format, duration_s, shape, was_live, format_rule)
+FMT_EXPECTED = {
+    "n1": ("LONG", 720, "vertical", True, "youtube_shape"),
+    "w1": ("LONG", 120, "wide", False, "youtube_shape"),    # wide up to 180 s: long-form
+    "o1": ("LONG", 90, "vertical", False, "youtube_shape"),  # vertical 90 s before 15/10/2024
+}
+
+
+def fmt_fields(db):
+    return {r[0]: r[1:] for r in one(db, """select external_post_id, format, duration_s, shape,
+        was_live, format_rule from posts where method_version = 'v2'""")}
+
+
+def test_fmt1_records_carry_the_rule_and_what_classified_them(world):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = FMT_DAY1
+    run(client, fake, 1)
+    assert fmt_fields(db) == FMT_EXPECTED            # s1 and q1 are Shorts, u1 unknown: no record
+    snap = {r[0]: r[1:] for r in one(db, "select video_id, format, duration_s, shape, live "
+                                         "from trend_snapshot where day = %s", day(1))}
+    assert snap["u1"] == ("UNKNOWN", 50, None, False)                     # kept, never measured
+    assert snap["q1"] == ("SHORT", 120, "square", False)
+    assert snap["s1"] == ("SHORT", 45, "vertical", False)
+    assert snap["w1"] == ("LONG", 120, "wide", False)
+    assert snap["a"] == ("LONG", 720, "vertical", False)
+    d = one(db, "select discards from ingest_run where day = %s", day(1))[0][0]
+    assert d["unknown_shape"] == 1 and d["out_of_perimeter_short"] == 2
+
+
+def test_fmt1_a_day_finished_from_its_snapshot_writes_the_same_values(world, monkeypatch):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = FMT_DAY1
+    _crash_after_census(monkeypatch)
+    with pytest.raises(RuntimeError):
+        run(client, fake, 1)
+    assert fmt_fields(db) == {}
+    reprocess(client, fake, 1)
+    assert "chart" not in fake.calls
+    assert fmt_fields(db) == FMT_EXPECTED

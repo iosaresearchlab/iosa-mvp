@@ -28,7 +28,7 @@ export type Post = {
   channel_id: string | null;
   /** Handle reale del canale (customUrl). author_handle lo rispecchia quando c'e'. */
   channel_handle: string | null;
-  /** SHORT (<= 180s) oppure LONG. La baseline e' sempre dello stesso formato. */
+  /** SHORT (square or vertical, <= 180s) or LONG. La baseline e' sempre dello stesso formato. */
   format: 'SHORT' | 'LONG' | null;
   author_name: string | null;
   content_text: string | null;

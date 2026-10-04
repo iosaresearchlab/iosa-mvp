@@ -46,6 +46,8 @@ def _api(uploads, calls):
         by_id = {v: (dur, n) for v, _, dur, n in uploads}
         return (200, {}, json.dumps({"items": [
             {"id": v, "contentDetails": {"duration": by_id[v][0]},
+             # FMT-1: every upload vertical, so the format is the duration's
+             "player": {"embedWidth": "563", "embedHeight": "1000"},
              "statistics": {"viewCount": str(by_id[v][1])}} for v in q["id"].split(",")]}))
     return cb
 

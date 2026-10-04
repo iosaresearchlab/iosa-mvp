@@ -221,3 +221,76 @@ def test_un_canale_a_prevalenza_long_non_falsa_i_suoi_short():
     uno_short_virale = 60000.0
     assert calculate_vpi_ratio(uno_short_virale, base_corretta) == 30.0   # Lvl 9
     assert calculate_vpi_ratio(uno_short_virale, base_mista) < 1.0        # invisibile
+
+
+# --- FMT-1: a Short as YouTube defines it (01 section 1.1, 02 section 4.9) ---
+
+V, SQ, W = ("563", "1000"), ("1000", "1000"), ("1000", "563")
+AFTER, BEFORE = "2026-09-20T10:00:00Z", "2024-10-14T10:00:00Z"
+
+
+def _f(seconds, wh, published=AFTER):
+    w, h = wh if wh else (None, None)
+    return core.formato(seconds, w, h, published)
+
+
+def test_formato_duration_0_or_absent_is_not_measured():
+    assert _f(0, V) is None and _f(None, V) is None and _f(-3, W) is None
+
+
+def test_formato_over_180_is_long_whatever_the_shape():
+    assert _f(181, V) == _f(181, SQ) == _f(181, W) == _f(181, None) == "LONG"
+    assert _f(181, V, BEFORE) == "LONG"
+
+
+def test_formato_180_edge():
+    assert _f(180, V) == "SHORT" and _f(180, SQ) == "SHORT"
+    assert _f(180, W) == "LONG"
+
+
+def test_formato_wider_than_tall_is_long_even_at_one_second():
+    assert _f(1, W) == "LONG"
+    assert core.formato(120, "1001", "1000", AFTER) == "LONG"     # one pixel wider
+
+
+def test_formato_square_counts_as_short():
+    assert core.formato(120, "1000", "1000", AFTER) == "SHORT"
+    assert core.formato(120, "1000", "1001", AFTER) == "SHORT"    # one pixel taller
+
+
+def test_formato_before_15_10_2024_the_limit_is_60_s():
+    assert _f(60, V, BEFORE) == "SHORT" and _f(61, V, BEFORE) == "LONG"
+    assert _f(60, SQ, BEFORE) == "SHORT" and _f(61, SQ, BEFORE) == "LONG"
+    assert _f(61, V, "2024-10-15T00:00:00Z") == "SHORT"            # the date itself: 180 s
+    assert _f(61, V, "2024-10-14T23:59:59Z") == "LONG"
+    assert _f(61, V, "2024-10-15T01:00:00+02:00") == "LONG"        # a UTC date: still the 14th
+
+
+def test_formato_shape_missing_is_unknown_never_guessed():
+    assert _f(120, None) == "UNKNOWN"
+    assert core.formato(120, "1000", None, AFTER) == "UNKNOWN"
+    assert core.formato(120, "", "", AFTER) == "UNKNOWN"
+
+
+def test_formato_takes_the_strings_the_api_returns():
+    assert core.formato(90, "360", "640", AFTER) == "SHORT"      # compared as numbers, not text
+    assert core.formato(90, "1000", "563", AFTER) == "LONG"
+
+
+def test_shape_of():
+    assert core.shape_of(*V) == "vertical" and core.shape_of(*SQ) == "square"
+    assert core.shape_of(*W) == "wide" and core.shape_of(None, None) is None
+
+
+def test_the_v2_path_never_calls_the_duration_only_rule():
+    """formato_da_durata / is_short_duration stay for v1 only (02 section 4.9)."""
+    import re
+    root = Path(__file__).resolve().parent.parent
+    for name in ("census.py", "baseline.py", "reprocess_day.py", "retention.py"):
+        text = (root / name).read_text(encoding="utf-8")
+        assert not re.search(r"formato_da_durata|is_short_duration", text), name
+    eng = (root / "vpi_engine.py").read_text(encoding="utf-8")
+    v1 = eng[eng.index("def get_channel_video_samples"):eng.index("def fetch_channels_metadata")]
+    rest = eng.replace(v1, "")
+    calls = re.findall(r"(formato_da_durata|is_short_duration)\(", rest)
+    assert calls == [], calls
