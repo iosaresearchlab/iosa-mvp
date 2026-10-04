@@ -346,8 +346,13 @@ Owner decision (option A): every record from `INDEX_START_DATE` follows `01`
     nothing when the night is not finished or a `quota_stop` waits;
   - negative controls, each failing a test.
 - **Milestone** (outside the loop, the calendar decides): `select count(*)
-  from posts where method_version = 'v2' and format_rule = 'duration_180'`
-  = 0, every phase-1 day done in `fmt2_run`, units spent per day reported
+  from posts where method_version = 'v2' and entered_on >= INDEX_START_DATE
+  and format_rule = 'duration_180'` = the rows of `fmt2_left` (records whose
+  check cannot be complete, `02` §4.10; night 1, before `INDEX_START_DATE`,
+  is out of FMT-2: architect, 04/10/2026), phase 3's pages and calls
+  reported against its estimate, every
+  phase-1 day done in `fmt2_run`, the final count of records left under the
+  old rule declared in the correction log, units spent per day reported
   against the estimate of `02` §4.10, the date declared in the correction
   log, the `pg_cron` entry removed.
 - **Rollback**: `fmt2_history` restores every replaced value; records opened

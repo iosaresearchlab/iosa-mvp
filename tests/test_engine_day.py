@@ -648,3 +648,50 @@ def test_fmt1_a_day_finished_from_its_snapshot_writes_the_same_values(world, mon
     reprocess(client, fake, 1)
     assert "chart" not in fake.calls
     assert fmt_fields(db) == FMT_EXPECTED
+
+
+# --- FMT-2: every run that spends units writes its row in quota_ledger ----------
+
+
+def ledger(db):
+    return one(db, "select source, units from quota_ledger order by id")
+
+
+def test_the_reading_and_the_reprocess_each_write_one_ledger_row_with_their_units(world, monkeypatch):
+    fake, client, db = world
+    _day0(client, fake)
+    assert ledger(db) == [("reading", ingest(db, 0)["quota_total"])]
+    fake.charts = DAY1
+    _crash_after_census(monkeypatch)
+    with pytest.raises(RuntimeError):
+        run(client, fake, 1)                           # failed after the census: still counted
+    charts = ingest(db, 1)["quota_total"]
+    assert ledger(db)[1:] == [("reading", charts)] and charts == len(fake.calls)
+    reprocess(client, fake, 1)
+    assert ledger(db)[2:] == [("reprocess", len(fake.calls))] and len(fake.calls) > 0
+    assert ingest(db, 1)["quota_total"] == charts + len(fake.calls)
+
+
+def test_the_second_attempt_writes_its_own_units_only(world):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = {("IT", "24"): [("a", 950)], ("US", "10"): 503}
+    run(client, fake, 1)
+    first = len(fake.calls)
+    fake.calls = []
+    fake.charts = DAY1
+    eng.run_daily(client, day(1), api_key=KEY, countries=COUNTRIES, categories=CATS, rerun=True,
+                  quota=q.QuotaCounter(limit=9900), rng=random.Random(1), sleep=lambda s: None,
+                  now=at(1, 23), storage=retention.MemoryStorage())
+    assert [s for s, _ in ledger(db)] == ["reading", "reading", "second attempt"]
+    assert ledger(db)[1:] == [("reading", first), ("second attempt", len(fake.calls))]
+
+
+def test_a_missing_ledger_never_fails_a_reading(world):
+    fake, client, db = world
+    with db.cursor() as cur:
+        cur.execute("drop table quota_ledger cascade")
+    fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
+    row = run(client, fake, 0, snapshot_only=True)
+    assert row["outcome"] == "ok"
+    assert "quota_ledger not written" in ingest(db, 0)["notes"]

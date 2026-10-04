@@ -1061,9 +1061,90 @@ units of shapes plus ~2,100 of baselines (~700 records); phase 2 ~2,800 of
 shapes plus ~2,400 of views. About 8,000 units, 4 to 8 days at the
 1,000-2,900 units a night has left so far.
 
-**Done when** no v2 record has `format_rule = 'duration_180'` and every day
-of phase 1 is marked done in `fmt2_run`. The job then answers "nothing to
+**Out of FMT-2** (architect, 04/10/2026). *Night 1*: the records entered
+before `INDEX_START_DATE` (6,138, reference only) keep `duration_180`; phase
+2 does not read them.
+
+**Phase 3 — the windows the cap has dropped** (owner's go-ahead,
+04/10/2026). Phase 2 judges a record with its channel inventory when the
+inventory holds the whole window: it reaches the window's start, or holds no
+upload published after the record's baseline read (the inventory drops an
+old item only when it adds a newer one, so it then holds exactly that read's
+candidates; the 150 cap applied then, and is the rule). Measured 04/10 on the
+records from 27/09: 5,115 do not reach their window's start, 2,328 of them
+with nothing newer than their read. The other **2,787 records (1,196
+channels)** go to phase 3, after phase 1 and the rest of phase 2, on
+leftover quota only:
+
+1. per channel, `channels.list` (the uploads playlist, never derived), then
+   `playlistItems.list` from the newest until it lists, for the channel's
+   earliest baseline read, the 150 uploads published by then, or passes
+   every window's start, or ends: about ceil((uploads since the read + 150)
+   / 50) pages;
+2. each record's pool is the 150 most recent uploads published by its own
+   read: the candidates of that read. The items the inventory dropped are
+   classified with `videos.list` in memory and **never stored in
+   `channel_inventory` beyond the 150 cap**;
+3. then phase 2's judgement, unchanged.
+
+*Estimate* (architect, 04/10/2026): ~5,300 playlist pages and up to ~1,700
+`videos.list` calls. Each run writes its pages and calls
+(`fmt2_run.phase3_pages`, `phase3_videos`), reported against it.
+
+*Declared*: an upload deleted from the channel since the record's read is
+not listed any more, and nothing shows that it was there, except an item
+unknown at FMT-1, which `fmt2_null_items` keeps.
+
+**Left under the old rule** — never marked `youtube_shape`, recorded in
+`fmt2_left` with the reason, never read again, counted in every run
+(`fmt2_run.records_uncovered` = the rows of `fmt2_left`), the final count
+declared in the correction log — only a record whose check cannot be
+complete: an item of its window that had to be classified (unknown format,
+or dropped by the cap) and that `videos.list` no longer returns (deleted or
+not public); an item unknown at FMT-1 that the channel no longer lists
+(`fmt2_null_items.epochs`, migration `20261004154702`, still places it in
+the windows it belonged to); a channel whose uploads cannot be listed.
+
+**Done when** no v2 record entered on or after `INDEX_START_DATE` has
+`format_rule = 'duration_180'` outside `fmt2_left`, and every day of phase 1
+is marked done in `fmt2_run`. The job then answers "nothing to
 do"; its `pg_cron` entry is removed in the closing commit.
+
+**As built** (`backend/recover_fmt.py`, 04/10/2026). Where the text above
+leaves a choice, this is the one made:
+
+- *The first reading under FMT-1* is the first `ingest_run` whose `discards`
+  carry `unknown_shape` (only the FMT-1 census writes it). Phase 1 covers the
+  days from `INDEX_START_DATE` to the day before it.
+- *Phase 1 entries* are computed as `entries_of_day` computes them, from the
+  stored snapshots (table, or the archive once the day has left the window),
+  each checked against the count its census recorded. A video that already
+  has a record opened by a later night under FMT-1 keeps it: counted in the
+  run notes. The SHORT entries of a day are read in groups of 500 (shapes),
+  then the long-form ones get their baselines in one call and their records;
+  `fmt2_run.cursor` (`{day, after}`) holds the last group done, so a stop
+  costs at most one group of shapes again. A record opened by phase 1 is the
+  only record entered before the first FMT-1 reading with a non-null
+  `duration_s`: a run stopped between writing it and replaying its later
+  days finishes the replay without reading it again.
+- *Phase 2, "changed"*: an item of the window is long-form now and 180 s or
+  shorter (the old rule made it a Short). The items read: those whose format
+  is unknown, and those that were unknown when FMT-1 started and that a
+  night has since found long-form (the night does not keep the duration).
+  Which items were unknown then is held in `fmt2_null_items`, captured at
+  13:37 UTC on 04/10, after the FMT-1 migration and before any reading under
+  FMT-1 (migration `20261004133725`: 6,202 channels, 231,518 ids, 4.9 MB;
+  dropped when FMT-2 closes; their publication times added by
+  `20261004154702`). A record with no baseline (`quota_stop`,
+  `read_failed`) has no candidate set: rule only. A record is judged at
+  most once per run.
+- *The quota day ends*: the budget belongs to one Pacific quota day, so the
+  run also stops 5 minutes before Google's reset (07:00 UTC in summer,
+  08:00 in winter). A unit spent after it would count against the day of
+  the next reading.
+- *The ledger* sources are `reading`, `second attempt`, `reprocess` and
+  `recovery`, one row per run, written in the run's `finally`; a ledger that
+  cannot be written is noted and never fails a run.
 
 ## 5. Scheduling
 

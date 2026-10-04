@@ -48,6 +48,23 @@ class _Table:
 
     def select(self, cols="*"):
         self.op, self.cols, self.filters = "select", cols, []
+        self.orders, self.lim = [], None
+        return self
+
+    def order(self, col, desc=False):
+        self.orders.append((col, desc))
+        return self
+
+    def limit(self, n):
+        self.lim = n
+        return self
+
+    def gte(self, col, value):
+        self.ranges = getattr(self, "ranges", []) + [(col, value)]
+        return self
+
+    def range(self, a, b):
+        self.offset, self.lim = a, b - a + 1
         return self
 
     def in_(self, col, values):
@@ -68,12 +85,16 @@ class _Table:
 
     def execute(self):
         if self.op == "update":
+            # each value cast to its column's type, as PostgREST does from JSON
+            ftypes = self._formatted_types()
             q = sql.SQL("update {} set {} where {} returning *").format(
                 sql.Identifier(self.name),
-                sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(c)) for c in self.values),
+                sql.SQL(", ").join(sql.SQL("{} = %s::{}").format(sql.Identifier(c), sql.SQL(ftypes[c]))
+                                   for c in self.values),
                 sql.SQL(" and ").join(sql.SQL("{} = any(%s)").format(sql.Identifier(c))
                                       for c, _ in self.filters))
-            vals = list(self.values.values()) + [v for _, v in self.filters]
+            vals = [Jsonb(v) if ftypes[c] == "jsonb" and v is not None else v
+                    for c, v in self.values.items()] + [v for _, v in self.filters]
             with self.conn.transaction(), self.conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(q, vals)
                 return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
@@ -88,6 +109,17 @@ class _Table:
                 q += sql.SQL(" where ") + sql.SQL(" and ").join(
                     sql.SQL("{} = any(%s)").format(sql.Identifier(c)) for c, _ in self.filters)
                 vals = [v for _, v in self.filters]
+            for c, v in getattr(self, "ranges", []):
+                q += sql.SQL(" and " if (self.filters or vals) else " where ") + \
+                    sql.SQL("{} >= %s").format(sql.Identifier(c))
+                vals.append(v)
+            if self.orders:
+                q += sql.SQL(" order by ") + sql.SQL(", ").join(
+                    sql.SQL("{} desc" if d else "{}").format(sql.Identifier(c)) for c, d in self.orders)
+            if self.lim is not None:
+                q += sql.SQL(" limit {}").format(sql.Literal(self.lim))
+            if getattr(self, "offset", None):
+                q += sql.SQL(" offset {}").format(sql.Literal(self.offset))
             with self.conn.transaction(), self.conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(q, vals)
                 return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
@@ -123,6 +155,13 @@ class _Table:
         with self.conn.cursor() as cur:
             cur.execute("select column_name, data_type from information_schema.columns "
                         "where table_schema='public' and table_name=%s", (self.name,))
+            return dict(cur.fetchall())
+
+    def _formatted_types(self):
+        with self.conn.cursor() as cur:
+            cur.execute("select attname, format_type(atttypid, atttypmod) from pg_attribute "
+                        "where attrelid = %s::regclass and attnum > 0 and not attisdropped",
+                        (f"public.{self.name}",))
             return dict(cur.fetchall())
 
     def _pk(self):

@@ -392,6 +392,47 @@ def riprendi_giorno(day: str, background: BackgroundTasks,
     return {"stato": "avviato", "day": giorno.isoformat()}
 
 
+def _recupero_fmt2():
+    """FMT-2 recovery in the background (02 section 4.10), with the keepalive
+    of a reading. It decides itself whether there is anything to do."""
+    global _ingestione_in_corso
+    stop = threading.Event()
+    url = (os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    if url:
+        threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
+    try:
+        import recover_fmt
+        esito = recover_fmt.run(supabase_service, api_key=os.getenv("YOUTUBE_API_KEY"))
+        log.info("recupero FMT-2: %s", str(esito)[:500])
+    except Exception as e:
+        log.error("recupero FMT-2 failed: %s", e)
+    finally:
+        stop.set()
+        _ingestione_in_corso = False
+
+
+@app.post("/api/recover/run")
+def avvia_recupero(background: BackgroundTasks,
+                   authorization: Optional[str] = Header(default=None)):
+    """FMT-2: the recovery run, called by pg_cron at 06:00 UTC. Same token as
+    the reading. Never alongside a reading or a reprocess (one lock)."""
+    global _ingestione_in_corso
+    if not INGEST_TRIGGER_TOKEN:
+        raise HTTPException(status_code=503,
+                            detail="INGEST_TRIGGER_TOKEN non configurato: endpoint disattivato.")
+    atteso = f"Bearer {INGEST_TRIGGER_TOKEN}"
+    if not authorization or not secrets.compare_digest(authorization.strip(), atteso):
+        raise HTTPException(status_code=401, detail="Token non valido.")
+    if not supabase_service:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY non configurata.")
+    if _ingestione_in_corso:
+        return {"stato": "gia_in_corso",
+                "dettaglio": "Un giro e' gia' in esecuzione: il recupero non parte."}
+    _ingestione_in_corso = True
+    background.add_task(_recupero_fmt2)
+    return {"stato": "avviato"}
+
+
 @app.get("/api/ingest/status")
 def stato_ingestione():
     """The latest ingest_run: how the audit is read without opening the database."""

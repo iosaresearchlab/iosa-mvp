@@ -63,3 +63,17 @@ class QuotaCounter:
         row = {col: self.per_endpoint[ep] for ep, col in COLUMNS.items()}
         row["quota_total"] = self.total
         return row
+
+
+# FMT-2 (02 section 4.10): the brake counts per run, a quota day (midnight
+# to midnight, Pacific) holds several runs. Every run that spends units adds
+# one row to public.quota_ledger when it ends, failed or not, so the
+# recovery can spend only what the quota day has left.
+def record_ledger(client, source: str, units: int) -> str | None:
+    """Append one quota_ledger row. Never raises: a run is never failed by
+    its own bookkeeping. Returns None, or what went wrong (for the notes)."""
+    try:
+        client.table("quota_ledger").insert({"source": source, "units": int(units)}).execute()
+        return None
+    except Exception as e:                               # noqa: BLE001
+        return f"quota_ledger not written: {type(e).__name__}: {str(e)[:200]}"

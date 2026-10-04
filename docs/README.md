@@ -94,6 +94,20 @@ long-form for YouTube, called Shorts by the old rule and never measured.
 - **Snapshot retention is not suspended** (owner's condition: suspend only if
   archiving harmed the recovery; it does not). The archive is an exact copy,
   and the recovery already needs it for 26/09.
+- **FMT-2 as built** (developer, 04/10): what "changed" means exactly, the
+  list of the inventory items unknown when FMT-1 started (captured before
+  the first reading under FMT-1: without it a night's re-read would lose
+  which items were old Shorts), and how a stopped run resumes (`02` §4.10,
+  *As built*).
+- **Out of FMT-2** (architect, 04/10): night 1, before `INDEX_START_DATE`.
+  **Phase 3** (owner, 04/10): the 2,787 records (1,196 channels, measured
+  04/10) whose window the capped inventory has dropped since their baseline
+  read are checked too, by listing their channels' uploads again down to
+  that read (estimate ~5,300 pages + ~1,700 `videos.list` calls, on
+  leftover quota). Only a record whose check cannot be complete (an item
+  deleted or made private since, a channel no longer listable) keeps
+  `duration_180`, in `fmt2_left`; the final count is declared here when
+  FMT-2 closes.
 - *(Corrected: `01` §1 population, §1.1 new, §2 inventory note, §7;
   `02` §0, §3.1.2, §4.3, §4.4, §4.9 and §4.10 new; `03` §11 new; `04` filter table;
   `05` formats and limitation; `06` project description; root `README.md`.)*

@@ -43,7 +43,10 @@ def test_the_schedule_is_2359_with_a_0030_second_attempt(db):
                                              "select public.chiedi_un_giro_di_ingestione()", True)
     # INC-1d (29/09/2026): the morning pass, after the quota reset
     assert jobs["ripresa-iosa"] == ("20 8 * * *", "select public.ripresa_se_serve()", True)
-    assert len(jobs) == 3
+    # FMT-2 (04/10/2026): the recovery, after the night and before the quota reset;
+    # removed in the commit that closes FMT-2
+    assert jobs["recupero-fmt2"] == ("0 6 * * *", "select public.chiedi_recupero_fmt2()", True)
+    assert len(jobs) == 4
 
 
 def test_public_columns_are_every_posts_column_but_the_private_ones(db):
