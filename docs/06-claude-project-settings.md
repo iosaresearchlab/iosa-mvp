@@ -61,7 +61,8 @@ removes views on audit, so a series can fall, and a downward revision after
 the peak is not a demerit of the video.
 
 Two formats, never mixed and never presented as comparable: Shorts and
-long-form, split by duration (SHORT_MAX_SECONDS in backend/vpi_core.py).
+long-form, as YouTube defines them — duration and shape (formato() in
+backend/vpi_core.py, 01 §1.1).
 Which formats are measured is set by MEASURED_FORMATS in backend/vpi_engine.py
 and declared in 01 §1. A format outside that perimeter is read and recorded in
 the snapshot but not measured: a declared, provisional limitation forced by
@@ -411,7 +412,7 @@ place.
 | Index start date | `INDEX_START_DATE`, `backend/vpi_core.py` (= `frontend/src/lib/index-start.ts`, `01` §1) |
 | Reference-only readings before the start | `docs/README.md` correction log, `01` §1 |
 | Baseline window and sample bounds | `BASELINE_MIN_AGE_DAYS`, `BASELINE_MAX_AGE_DAYS`, `MIN_BASELINE_SAMPLES`, `BASELINE_SAMPLES_MAX`, `backend/vpi_core.py`; `01` §2 |
-| Short / long-form duration split | `SHORT_MAX_SECONDS`, `backend/vpi_core.py` |
+| Short / long-form rule (duration and shape) | `formato()`, `SHORT_MAX_SECONDS`, `SHORT_3MIN_FROM`, `backend/vpi_core.py`; `01` §1.1 |
 | Measured formats | `MEASURED_FORMATS`, `backend/vpi_engine.py`; `01` §1 |
 | Scale thresholds and level names | `VPI_SCALE`, `backend/vpi_core.py` (= `frontend/src/lib/vpi-scale.ts`, `01` §4.3) |
 | Countries and categories | `TARGET_COUNTRIES`, `CATEGORY_MAP`, `backend/census.py` |

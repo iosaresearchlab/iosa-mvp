@@ -16,7 +16,7 @@ reading with a comparison, first real records.
 |---|---|
 | Countries and categories | Start with **all 34 countries** and every category that responds. Reduce countries **only** if the day 0 / day 1 audit overruns the quota |
 | Schedule | **23:59 UTC**, fixed year-round |
-| `is_real_youtube_short()` | **Removed.** The only non-API call in the pipeline; classification is by duration |
+| `is_real_youtube_short()` | **Removed.** The only non-API call in the pipeline; classification is by duration and, from 04/10/2026, shape (§4.9) |
 | `MIN_BASELINE_VIEWS` | **No longer an ingestion filter.** Everything is measured; it survives as a declared criterion of the showcase only |
 | "- Topic" channels | **Stay in the index**, flagged `auto_generated_channel`, excluded only from outreach |
 | Baseline | **7-90 day** window, ≥5 samples, ≤20 spread evenly, **one rule**, with pagination up to 3 pages |
@@ -218,8 +218,9 @@ alter table public.channel_inventory enable row level security;
 -- no policy: only the service role reads and writes here
 ```
 
-`format` is `SHORT`, `LONG`, `NONE` (no usable duration) or null (not yet
-known). At most the 150 most recent uploads are kept per channel.
+`format` is `SHORT`, `LONG`, `NONE` (no usable duration, or shape not
+returned) or null (not yet known; from 04/10/2026 also every item that was
+`SHORT` under the duration-only rule, §4.9). At most the 150 most recent uploads are kept per channel.
 *Estimate*: a few tens of MB at 24,000 channels (TOAST-compressed jsonb, ~80
 items per channel); to be measured once populated.
 
@@ -619,8 +620,9 @@ def read_charts(countries, categories) -> tuple[dict, dict]:
 
     videos: {video_id: {channel_id, format, published_at, views,
                         countries:set, categories:set}}
-    One call per page, part=snippet,contentDetails,statistics,
-    maxResults=50, following nextPageToken to exhaustion.
+    One call per page, part=snippet,contentDetails,statistics
+    (+ player,liveStreamingDetails with maxHeight=1000 from 04/10/2026,
+    section 4.9), maxResults=50, following nextPageToken to exhaustion.
     On 403 everything stops and outcome='partial'.
     """
 
@@ -676,7 +678,7 @@ Three phases:
    `videoPublishedAt`: **filter the window here, before spending the next
    call.**
 3. **`videos.list` in blocks of 50** — for the ids inside the window, to
-   read duration and views. *(27/09/2026: on a channel already in the
+   read duration, shape (§4.9) and views. *(27/09/2026: on a channel already in the
    inventory, ids whose stored format is neither unknown nor a measured
    format are not checked: a duration never changes, so a known Short cannot
    become a long-form sample. Exact: same baseline and same ids as a cold
@@ -860,6 +862,119 @@ one scan that grows linearly is the sequential read of `posts` for the
 active filter (5.5 ms at 8,088 rows): about 0.1 s at 100,000 records, far
 from the limit. Nothing else is close; nothing else changed. Re-measure with
 the same `explain analyze` when `posts` passes 100,000 rows.
+
+### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
+
+`01` §1.1 is the rule; this section is how it is built. Measurements in `03`
+§11.
+
+**One function, one rule.** `vpi_core.formato(seconds, embed_w, embed_h,
+published_at)` returns `SHORT`, `LONG`, `UNKNOWN`, or `None`:
+
+```python
+SHORT_MAX_SECONDS = 180                 # YouTube Help 15424877
+SHORT_MAX_SECONDS_BEFORE = 60           # uploads before the date below
+SHORT_3MIN_FROM = "2024-10-15"          # the date YouTube's rule took effect
+EMBED_MAX_HEIGHT = 1000                 # maxHeight sent with part=player
+
+def formato(seconds, embed_w, embed_h, published_at):
+    if not seconds or seconds <= 0:
+        return None                     # live in progress, premiere: as before
+    if seconds > SHORT_MAX_SECONDS:
+        return "LONG"
+    if not embed_w or not embed_h:
+        return "UNKNOWN"                # never guessed
+    if int(embed_w) > int(embed_h):
+        return "LONG"                   # wider than tall
+    limit = SHORT_MAX_SECONDS if published_at >= SHORT_3MIN_FROM else SHORT_MAX_SECONDS_BEFORE
+    return "SHORT" if seconds <= limit else "LONG"
+```
+
+`embedWidth`/`embedHeight` arrive as strings. `published_at` is compared as a
+UTC date. `formato_da_durata()` and `is_short_duration()` stay, unchanged,
+for the v1 path only (`vpi_engine.get_channel_video_samples`); nothing in
+the v2 path calls them. `FORMAT_RULE = "youtube_shape"` names the rule;
+records opened before it carry `"duration_180"`.
+
+**Every `videos.list` of the v2 path asks for the shape**, at no cost (1
+unit per call whatever the parts, measured 04/10/2026, `03` §11):
+
+| call | `part` | added parameter |
+|---|---|---|
+| census, `chart=mostPopular` (`census.py`) | `snippet,contentDetails,statistics,player,liveStreamingDetails` | `maxHeight=1000` |
+| baseline phase 3 (`baseline.py`) | `contentDetails,statistics,status,player` | `maxHeight=1000` |
+
+The response carries `player.embedHtml` too: a few hundred bytes per video,
+bandwidth only. Nothing else reads it.
+
+**Census (`census._merge`).** The format is `formato(...)`. `None` is
+discarded as today (`discards.no_duration`); `UNKNOWN` is kept in the
+snapshot, opens no record and is counted in `discards.unknown_shape`. Each
+video also carries `duration_s` (seconds), `shape` (`vertical`, `square`, `wide`, null when not
+returned) and `live` (true when `liveStreamingDetails.actualStartTime` is
+present).
+
+**Baseline (`baseline.py` phase 3).** The inventory format of each item read
+is `formato(...)`, `UNKNOWN` stored as `NONE` (not a sample). Everything else
+in §4.4 holds: a shape never changes, like a duration, so an item of known
+other format is still skipped, and the proofs of §4.4 still apply to the new
+format values.
+
+**Schema** (one migration, `v2_fmt1_youtube_shape`):
+
+```sql
+alter table public.trend_snapshot drop constraint trend_snapshot_format_check;
+alter table public.trend_snapshot add constraint trend_snapshot_format_check
+  check (format in ('SHORT','LONG','UNKNOWN'));
+alter table public.trend_snapshot
+  add column duration_s int,
+  add column shape text check (shape in ('vertical','square','wide')),
+  add column live  boolean;
+
+alter table public.posts
+  add column duration_s  int,
+  add column shape       text check (shape in ('vertical','square','wide')),
+  add column was_live    boolean,
+  add column format_rule text;
+update public.posts set format_rule = 'duration_180'
+ where method_version = 'v2' and format_rule is null;
+
+-- channel_inventory: a Short by the old rule is not known under the new
+-- one. Its format becomes null (unknown): the next run that needs it reads
+-- it again, exactly like an item never read.
+update public.channel_inventory ci
+   set items = (select jsonb_object_agg(k, case when v->>1 = 'SHORT'
+                                               then jsonb_build_array(v->0, null)
+                                               else v end)
+                  from jsonb_each(ci.items) as e(k, v))
+ where ci.items::text like '%"SHORT"%';
+```
+
+`posts_format_valido` stays `SHORT`/`LONG`: an `UNKNOWN` video never opens a
+record. Snapshot columns are written by the census and read by
+`reprocess_day`, so a day finished from its snapshot writes the same
+`duration_s`, `shape`, `was_live` and `format_rule` as the run that read it.
+`duration_s` and `shape` on the record make the classification checkable
+afterwards without another read.
+
+**Cost: the reads are free, the corrected perimeter is not.** *Estimates*,
+from `03` §11 and the runs of 02-03/10 (2.96 units per long-form entry;
+6,955-8,320 units a night):
+
+- about **100 more long-form records a night** (2.5% of ~4,000 entries up to
+  180 s): ~300 units;
+- in the first nights, the in-window items of measured channels whose old
+  format was `SHORT` are read again once (they are null after the
+  migration): a few hundred units a night, falling as the inventory refills.
+
+Under the 9,900 brake on every night measured so far. What the brake does
+not reach is `quota_stop` and is finished by the morning pass, as today
+(§4.6). The first nights' `quota_total` is reported against these estimates
+in the task log.
+
+**Not in FMT-1: the records opened before it.** They keep `format_rule =
+'duration_180'`. Bringing them under the new rule costs a re-read (`03`
+§11.1) and is decided separately (FMT-2).
 
 ## 5. Scheduling
 

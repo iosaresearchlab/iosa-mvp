@@ -303,6 +303,32 @@ on warm channels restricted to unknown or measured format.
 - **Rollback**: `MEASURED_FORMATS = ("SHORT", "LONG")` restores both
   formats; the migration's rollback restores the old state rule.
 
+### FMT-1 — a Short as YouTube defines it *(04/10/2026)*
+Owner decision: Short = square or vertical and up to 180 s (`01` §1.1),
+built as `02` §4.9, for every record opened from the next reading.
+
+- **Closing check**:
+  1. `pytest -q` green, with the rule table of `01` §1.1 as tests of
+     `vpi_core.formato()` (each row, both edges: 180/181 s; 60/61 s before
+     15/10/2024; width = height; width one pixel more than height; shape
+     missing; duration 0), and the census and baseline tests extended to the
+     new `part` and `maxHeight`;
+  2. migration `v2_fmt1_youtube_shape` applied; right after it, before the
+     next run: `select count(*) from channel_inventory, jsonb_each(items)
+     e(k,v) where v->>1 = 'SHORT'` = 0, and every v2 record has
+     `format_rule = 'duration_180'`;
+  3. on the first reading after the deploy, `python tests/check_run.py <day>`
+     returns `VERDICT: PASS`, and among that day's records: every one has
+     `format_rule = 'youtube_shape'` and a non-null `duration_s`; every one
+     of 180 s or less has a non-null `shape`; at least one long-form record
+     has `duration_s <= 180` and `shape = 'wide'`; none has `duration_s <=
+     180` with a shape other than `wide` unless published before 15/10/2024
+     and over 60 s; `discards.unknown_shape` is reported; `quota_total` is
+     reported against the estimate of `02` §4.9.
+- **Rollback**: redeploy the previous commit. The migration only adds
+  columns and widens a check; the inventory items it set to null are read
+  again by the old code as unknown, which is correct under either rule.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 
@@ -435,6 +461,7 @@ own closing check above, and are reported as they do:
 | T-22 three weeks | 21 readings | mid-October |
 | T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
 | T-25 final review | real distributions in hand, external reviewers | after T-23 |
+| FMT-1 step 3 | the first reading after the deploy | the morning after |
 
 The loop itself ends with T-21.
 

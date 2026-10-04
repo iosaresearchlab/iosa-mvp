@@ -45,8 +45,11 @@ channel and **the same format**, published between 7 and 90 days before the
 measurement, at least 5 of them, at most 20 spread evenly across the window.
 Computed **once, at the moment the video enters the chart, and then frozen**.
 
-There are two formats and they never mix: **Shorts** (≤180 seconds) and
-**long-form** (>180 seconds).
+There are two formats and they never mix: **Shorts** and **long-form**, as
+YouTube defines them: a Short is a square or vertical video up to 180
+seconds, everything else is long-form (`01` §1.1). *(Until 04/10/2026 the
+split was by duration only, ≤180 s / >180 s; it put the 2.5% of wide videos
+up to 180 s among the Shorts, `03` §11.)*
 
 **Median, not mean**, so that a previous breakout does not inflate the
 denominator.
@@ -132,7 +135,7 @@ For a reviewer returning to this dossier, the design changed in five ways:
 *(Corrected 25/09/2026: 12 → 13, see `01` §1.)*
 
 **Limitation, 27/09/2026: long-form only, for now.** Only long-form videos
-(over 180 seconds) open a record; Shorts are out of the measurement until the
+(`01` §1.1; until 04/10/2026, over 180 seconds) open a record; Shorts are out of the measurement until the
 quota allows them back. The census still reads every slice and stores every
 video. Night 1 (26/09) showed 5,822 entering channels a day at 3.87 units
 each against a 9,500-unit budget; 1,962 of them were long-form. Because VPI
@@ -383,6 +386,9 @@ been inflated by the same event. We have no countermeasure.
   record exists with a null VPI. **This creates a two-speed population. Is
   that a problem?**
 - **Duration**: videos with no duration (live streams, premieres) excluded.
+- **Shape** *(04/10/2026)*: a video up to 180 s whose shape the API does not
+  return is recorded as unknown and not measured (0 of 1,099 in the
+  measurement of `03` §11).
 
 ### 6.7 The ramp-up period
 

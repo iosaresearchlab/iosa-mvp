@@ -18,8 +18,9 @@ VPI = views of the video / median views of that channel's recent videos
                            in the same format
 ```
 
-Two formats are measured and never mixed: **Shorts** (≤180s) and
-**long-form** (>180s).
+Two formats are measured and never mixed: **Shorts** and **long-form**, as
+YouTube defines them (a Short is square or vertical and up to 180 s;
+`docs/01-methodology-protocol.md` §1.1).
 
 Because the reference is the channel's own baseline, a 20,000-subscriber
 channel and a 9-million-subscriber channel can appear on the same scale
@@ -49,7 +50,8 @@ change them at any time.
 
 ## What is measured, and what is not
 
-- Shorts (≤180s) **and** long-form (>180s), from the official platform APIs,
+- Shorts **and** long-form as YouTube defines them (duration and shape), from
+  the official platform APIs,
   never mixed in one figure.
 - **v2**: the *baseline* is frozen at the video's entry into the index; the
   *view count* is re-read every day the video is observed in YouTube's Most

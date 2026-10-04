@@ -69,6 +69,29 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 4 October 2026 — FMT-1: a Short is what YouTube calls a Short (Migert)
+
+The split by duration alone (Short = up to 180 s) is not YouTube's rule:
+YouTube's Short is a **square or vertical** video up to three minutes
+(YouTube Help 15424877, from 15/10/2024; 60 s before). Measured on the
+entries of 03/10 (`03` §11, 23 units): the API returns the shape
+(`player.embedWidth/embedHeight` with `maxHeight`) for every video, at no
+extra cost, and **2.5% of the entries up to 180 s are wider than tall**:
+long-form for YouTube, called Shorts by the old rule and never measured.
+
+- **The rule** is `01` §1.1 (duration and shape), built as `02` §4.9. It
+  applies to every record opened from the first reading after the deploy;
+  each record carries `format_rule` (`youtube_shape`, or `duration_180` for
+  those opened before).
+- **Live broadcasts are recorded, not reclassified**: `posts.was_live`. 17 of
+  100 long-form entries of 03/10 had been live broadcasts.
+- **The records opened before FMT-1 keep the old rule for now.** The database
+  holds no shape for them (`03` §11.1): bringing them under the new rule needs
+  a re-read, decided on its cost (FMT-2, owner, 04/10/2026).
+- *(Corrected: `01` §1 population, §1.1 new, §2 inventory note, §7;
+  `02` §0, §3.1.2, §4.3, §4.4, §4.9 new; `03` §11 new; `04` filter table;
+  `05` formats and limitation; `06` project description; root `README.md`.)*
+
 ### 29 September 2026 — INC-1: the reading of 28/09, and the census as the reference (Migert)
 
 The reading of 2026-09-28 completed its chart census (442 slices, 0 errors,

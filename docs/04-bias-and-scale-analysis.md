@@ -22,7 +22,7 @@ state, as of 22 September 2026.
 | Filter | Value | Effect |
 |---|---|---|
 | Source | YouTube "most popular" chart, by country and category | **not a sample of YouTube, it is the shop window** |
-| Duration | ≤180s for `SHORT` | — |
+| Format | `SHORT` as YouTube defines it: square or vertical, up to 180 s (`01` §1.1; duration only until 04/10/2026) | — |
 | Age | 15-day window | — |
 | Subscribers | 1,000 to 1,500,000 | *(defined but never actually applied — see note)* |
 | Minimum baseline | ≥500 views | excludes channels that post Shorts rarely |

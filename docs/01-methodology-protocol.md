@@ -29,14 +29,75 @@ publishing mix rather than the video's performance.
 
 The population:
 
-> **Videos — Shorts (≤180s) and long-form — FIRST OBSERVED in YouTube's
-> Most Popular charts, across 34 countries and 13 categories, starting from our
-> day 1.** *For now long-form only: see the limitation below (27/09/2026).*
+> **Videos — Shorts and long-form, as YouTube defines them (§1.1) — FIRST
+> OBSERVED in YouTube's Most Popular charts, across 34 countries and 13
+> categories, starting from our day 1.** *For now long-form only: see the
+> limitation below (27/09/2026).*
+
+### 1.1 What is a Short *(04/10/2026)*
+
+**A Short is what YouTube calls a Short: a square or vertical video up to
+three minutes long.** Everything else is long-form. The source is YouTube's
+own rule: *"Any videos uploaded on or after this date with a square or
+vertical aspect ratio up to three minutes in length will be categorized as
+Shorts"* (YouTube Help 15424877; the date is 15 October 2024). Uploads before
+that date keep the earlier rule, which stopped at 60 seconds.
+
+Both inputs are official API data, read in the same `videos.list` call that
+already returns the duration:
+
+- **duration**: `contentDetails.duration`;
+- **shape**: `player.embedWidth` and `player.embedHeight`, returned when the
+  call carries `maxHeight` and *"the video's aspect ratio is known"*
+  (`videos` resource reference). Asking for the `player` part does not change
+  the cost: *"A call to this method has a quota cost of 1 unit"*, whatever the
+  parts.
+
+The rule, one for every record and every baseline sample:
+
+| Duration | Shape | Format |
+|---|---|---|
+| 0 or absent (live in progress, premiere) | — | none: not measured, as before |
+| over 180 s | any | **long-form** |
+| up to 180 s | wider than tall | **long-form** |
+| up to 180 s | square or taller than wide, published on or after 15/10/2024 | **Short** |
+| up to 180 s | square or taller than wide, published before 15/10/2024 | **Short** up to 60 s, **long-form** over 60 s |
+| up to 180 s | not returned | **unknown**: recorded, not measured, not a sample, counted in the run report |
+
+*Measured on 03/10/2026* (`03`, *Shape of the chart entries*): on 1,099 chart
+entries the API returned the shape for every one, in clean ratios (9:16,
+16:9, 3:4, 1:1). Of the entries up to 180 seconds, **2.5% were wider than
+tall**: long-form for YouTube, and classified as Shorts by the duration-only
+rule this section replaces.
+
+**What the rule is not.** It is the definition YouTube publishes, not the
+decision YouTube takes on each video, which no API exposes: YouTube says some
+uploads that meet the criteria do not get the Shorts player. And from
+15/10/2024 to 7/12/2025 the uploads of Official Artist Channels kept the
+60-second rule; the API does not say which channels those are, so their
+vertical videos of 61-180 seconds from that period are counted as Shorts.
+Both are declared limitations.
+
+**Recorded, not measured: live broadcasts.** Whether a video was a live
+broadcast (`liveStreamingDetails.actualStartTime`, same call, same cost) is
+stored on each record. It does not change the format: a past live stream is
+long-form for YouTube and for the index. *Measured on 03/10/2026*: 17 of 100
+long-form entries had been live broadcasts.
+
+**From when.** The rule applies to every record opened from the first reading
+after it is deployed; each record carries the rule that classified it
+(`format_rule`). Records opened before carry the duration-only rule. Whether
+and how they are brought under this rule is decided separately, on the cost
+measured in `03` (owner, 04/10/2026), and declared with its date.
+
+*(Replaces the duration-only rule, "Shorts ≤180s", in force from 23/09 to
+04/10/2026. Owner decision, 04/10/2026.)*
 
 ### Limitation of the population — long-form only, for now *(27/09/2026)*
 
 **For now the index does not measure Shorts.** From the run of 27/09/2026 a
-record opens only for a long-form video (over 180 seconds). A Short that
+record opens only for a long-form video (§1.1; until 04/10/2026, over 180
+seconds). A Short that
 enters the charts opens no record, receives no baseline and no VPI, and none
 is back-filled later.
 
@@ -501,7 +562,8 @@ production.
 Decision: the perimeter becomes long-form only (§1), with the census
 unchanged. Two read changes, each proved against the full read: videos.list
 on a channel already in the inventory checks only ids of unknown or measured
-format (exact, since a duration never changes); the uploads playlist id is
+format (exact, since a duration — and, from 04/10/2026, a shape — never
+changes); the uploads playlist id is
 taken from `channels.list`, never derived from the channel id. A third,
 choosing candidates spread across the window before `videos.list`, was
 proved to pick different samples than the rule and is not applied (§2 is
@@ -551,7 +613,8 @@ all 13 (§1).
   only.
 - **`MAX_SUBSCRIBERS` / `MIN_SUBSCRIBERS`** — defined but never used.
 - **The `is_real_youtube_short()` HTTP check** — the only non-API call in
-  the pipeline. Classification is by duration, which is official data.
+  the pipeline. Classification is by duration and, from 04/10/2026, shape
+  (§1.1): both official API data.
 
 ---
 

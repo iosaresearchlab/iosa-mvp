@@ -289,5 +289,60 @@ half, and no video had a known probability of being observed.
 
 ---
 
+## 11. Shape of the chart entries *(measured 03-04/10/2026)*
+
+Why: the duration-only rule (Short = up to 180 s) is not YouTube's rule,
+which also needs the shape (`01` §1.1). Script `tests/measure_shape.py`, raw
+output `docs/shape-2026-10-03.csv`.
+
+Population: the entries of 03/10/2026 (in that day's snapshot, absent from
+02/10's): 4,055 stored as Short by duration, 1,893 as long-form. Sample: the
+first 1,000 and the first 100 by `md5(video_id || 's')`. One `videos.list`
+call per 50 ids, `part=snippet,contentDetails,player,liveStreamingDetails`,
+`maxHeight=1000`: **22 calls, 22 units**. 999 + 100 videos returned (one
+removed or made private since).
+
+| | Up to 180 s (stored Short) | Over 180 s (stored long-form) |
+|---|---|---|
+| returned | 999 | 100 |
+| vertical (`embedWidth < embedHeight`) | 960 | 4 |
+| square | 14 | 0 |
+| **wider than tall** | **25 (2.5%)** | 96 |
+| shape not returned | 0 | 0 |
+| live broadcasts | 4 (all wider than tall) | **17** |
+
+- The shape comes back in clean ratios: 563×1000 (9:16) 918 times,
+  1778×1000 (16:9) 116, 750×1000 (3:4) 31, 1000×1000 14, then a few others
+  (800, 1124, 1333 × 1000). No video without it.
+- The 25 wide videos up to 180 s run from 15 to 180 s. For YouTube they are
+  long-form; the duration-only rule called them Shorts and they were never
+  measured. At 2.5% of ~4,000 such entries a day, about **100 long-form
+  records a day** were missing (an estimate from this sample: a 95% interval
+  on 25/999 is about 1.6-3.7%).
+- The 4 vertical videos over 180 s (181 s to 2 hours) are long-form for
+  YouTube as well: no change.
+- Published before 15/10/2024 among the 999: none.
+
+The chart call itself returns the shape too: one `videos.list
+chart=mostPopular` page (IT, category 24) with `part=contentDetails,player,
+liveStreamingDetails&maxHeight=1000` returned `embedWidth`/`embedHeight` for
+all 50 videos. **1 unit**, measured 04/10/2026. Total spent on this
+measurement: 23 units.
+
+### 11.1 What the database already holds
+
+Nothing that gives the shape. `trend_snapshot` and `channel_inventory` keep
+the format computed from the duration, not the duration and not the shape;
+`posts` keeps neither. Bringing the past under the new rule means reading
+again (04/10/2026):
+
+| | Ids | `videos.list` calls |
+|---|---|---|
+| Short-by-duration ids in `trend_snapshot` (27/09-03/10, 7 days kept) | 42,742 | ~855 |
+| Short-by-duration items in `channel_inventory`, all channels | 311,932 | ~6,240 |
+| of which near the windows of the 16,011 v2 long-form records (8,308 channels; window approximated per channel as the union of its records' windows) | 139,586 | ~2,790 |
+
+---
+
 *All measurements run with the project's API key from Migert's machine.
 Scripts and raw outputs retained.*
