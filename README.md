@@ -1,100 +1,127 @@
 # IOSA — Viral Performance Index (VPI)
 
-**[iosaresearch.org](https://iosaresearch.org)** · independent non-profit study
-of video performance relative to a channel's own baseline.
-
-> **Status, 25 September 2026.** The method was rebuilt after an external
-> review and the v2 documentation in **[`docs/`](docs/README.md)** is the only
-> authoritative description. Collection is suspended while v2 is implemented
-> (see `docs/08-implementation-plan.md`). Parts of this page still describe
-> v1 and are corrected below where they were plainly wrong; the rest is
-> rewritten when v2 goes live.
+**[iosaresearch.org](https://iosaresearch.org)** · an independent, non-profit
+index of the YouTube videos that break out against their own channel.
 
 A view count says how big a channel is. It does not say whether a video did
 anything unusual. The VPI measures the second thing:
 
 ```
-VPI = views of the video / median views of that channel's recent videos
-                           in the same format
+VPI = video views / channel baseline, within the same format
 ```
 
-Two formats are measured and never mixed: **Shorts** and **long-form**, as
-YouTube defines them (a Short is square or vertical and up to 180 s;
-`docs/01-methodology-protocol.md` §1.1).
+The **baseline** is the median view count of the same channel's videos in the
+same format, published between 7 and 90 days before the measured video was
+published: at least 5 of them, at most 20 spread evenly across the window. It
+is computed once, when we first observe the video, and then frozen. Anchoring
+the window to the video's own publication keeps the denominator pre-event.
+Subscribers play no part.
 
-Because the reference is the channel's own baseline, a 20,000-subscriber
-channel and a 9-million-subscriber channel can appear on the same scale
-honestly. A Short at 3× its own baseline is a real outlier whether it did
-30,000 views or 3 million.
+The method passed independent external review and is closed. The
+authoritative description is in [`docs/`](docs/README.md); where this page
+and `docs/` disagree, `docs/` is right.
 
-## The scale
+## What we observe
 
-| VPI | Level | Name |
-| --- | --- | --- |
-| ≥ 2,500 | 10 | Hyper Outlier |
-| ≥ 1,500 | 9 | Mega Outlier |
-| ≥ 1,000 | 8 | Outlier |
-| ≥ 250 | 7 | Super Viral |
-| ≥ 100 | 6 | Viral |
-| ≥ 50 | 5 | Breakout |
-| ≥ 25 | 4 | Trending |
-| ≥ 10 | 3 | Rising |
-| ≥ 5 | 2 | Moderate |
-| ≥ 1.5 | 1 | Standard |
-| < 1.5 | — | no level (the VPI is still shown) |
+- **The population.** Videos **first observed** in YouTube's Most Popular
+  category charts, across 34 countries and 13 categories
+  (`TARGET_COUNTRIES` and `CATEGORY_MAP` in `backend/census.py`), read once a
+  day through the YouTube Data API v3.
+- **First observed, not entered.** YouTube exposes no entry timestamp. We see
+  that a video is in today's charts and was not in the previous complete
+  reading; a video can enter and leave between two readings. The index is not
+  a census of chart entrants.
+- **YouTube's own general chart is not read.** It is a curated showcase, not
+  ordered by views. Our overall ranking is the union of the category charts,
+  ordered by views, with each video's VPI beside it.
+- **The series starts on 27 September 2026** (`INDEX_START_DATE` in
+  `backend/vpi_core.py`). Earlier readings are kept as reference states and
+  are not published.
+- **Two formats, never mixed and never compared.** A Short is what YouTube
+  calls a Short: a square or vertical video up to three minutes long (up to
+  60 seconds for uploads before 15 October 2024). Everything else is
+  long-form. The rule is in `formato()` in `backend/vpi_core.py` and in
+  `docs/01` §1.1.
+- **For now only long-form is measured** (`MEASURED_FORMATS` in
+  `backend/vpi_engine.py`). Shorts are read and recorded in the daily
+  snapshot but get no baseline and no VPI. This is a declared, provisional
+  limit forced by the API quota, not a property of the method.
 
-The scale is defined once, in `backend/vpi_core.py`, and mirrored for the
-frontend in `frontend/src/lib/vpi-scale.ts`. **The thresholds are set by the
-project owner** (25/09/2026, `docs/01-methodology-protocol.md` §4.3), who may
-change them at any time.
+## What a published number says
 
-## What is measured, and what is not
+- While a video is charting, its VPI is recomputed every day it is observed.
+  The public sees the trajectory and no award.
+- When the video leaves all charts, the record closes. The published value is
+  the **highest VPI observed**, always shown with the view count and the
+  number of days in Most Popular. Not the exit value: YouTube removes views
+  on audit, so a series can fall.
+- Videos are compared with each other only **at day 1**, the first day each
+  was observed. No figure is ever pooled across baseline bands or across
+  formats.
+- High levels come almost entirely from channels with a small baseline. That
+  follows from the chart-entry threshold, not from the metric, and it is
+  disclosed with the figures of the latest audit
+  ([`docs/09-day1-audit.md`](docs/09-day1-audit.md),
+  [`docs/04-bias-and-scale-analysis.md`](docs/04-bias-and-scale-analysis.md)).
+- The measure is **age-indexed, never age-adjusted**.
+- A record whose baseline cannot be computed exists without a VPI. It is never
+  discarded, and never computed under a different rule.
 
-- Shorts **and** long-form as YouTube defines them (duration and shape), from
-  the official platform APIs,
-  never mixed in one figure.
-- **v2**: the *baseline* is frozen at the video's entry into the index; the
-  *view count* is re-read every day the video is observed in YouTube's Most
-  Popular charts, and the published figure is the peak reached. (The sentence
-  previously here — views frozen at measurement, records expiring after 15
-  days — described v1 and is no longer the method.)
-- Records do not expire. Once written, a record stays.
-- The baseline is a median, not a mean, so one earlier spike on the same
-  channel does not flatten the next one.
+## The level scale
 
-Known limits: a channel that publishes rarely, or whose recent Shorts are
-unrepresentative, gets a fragile baseline — a broadcaster posting clips can
-show an extreme ratio that means very little. Those cases are visible in the
-data, not hidden from it.
+Ten levels on the VPI, set by the project owner. Thresholds and names are
+defined once in `VPI_SCALE` (`backend/vpi_core.py`), mirrored in
+`frontend/src/lib/vpi-scale.ts` and in `docs/01` §4.3; a test keeps them in
+agreement. Below the first threshold a record has a VPI and no level.
+
+## Records
+
+Records never expire and are never deleted. If your video appears in the
+index and you would rather it did not, write to us: the record is hidden from
+every public page and from the public API.
+
+## How it runs
+
+One reading a day at a fixed UTC time: `pg_cron` on Supabase calls
+`POST /api/ingest/run`. A second attempt fires when the day is not complete,
+and a morning pass after the quota reset finishes what the quota did not
+reach. A day whose chart census is complete is never read again: whatever is
+left is finished from the stored snapshot. Schedules are in
+`supabase/migrations/` and in `docs/02` §5.
 
 ## Repository
 
 | Path | What it is |
 | --- | --- |
-| `backend/vpi_engine.py` | ingestion: queries the official APIs, computes baselines and ratios |
-| `docs/` | **the authoritative documentation** — method, spec, measurements, implementation plan |
+| `docs/` | **the authoritative documentation**: method, specification, measurements, plan, audits |
+| `docs/task-log.md` | the state of the work |
 | `CLAUDE.md` | working agreement for Claude sessions in this repository |
-| `backend/vpi_core.py` | the scale and the ratio, single definition |
-| `backend/main.py` | FastAPI service: ingestion trigger, analytics, plaque rendering |
-| `backend/generate_trophy.py` | renders a creator's digital plaque |
-| `backend/backfill_vpi.py` | batch recalculation and cleanup |
-| `frontend/` | Next.js dashboard: leaderboard, insights, creator pages |
+| `backend/vpi_engine.py` | the daily run: census, new records, daily updates, closes |
+| `backend/census.py` | reads the Most Popular category charts |
+| `backend/baseline.py` | computes and freezes the baseline |
+| `backend/vpi_core.py` | the ratio, the format rule, the scale, the series start |
+| `backend/quota.py` | the quota brake |
+| `backend/reprocess_day.py` | finishes a day from its stored snapshot |
+| `backend/retention.py` | archives snapshot rows to Storage before they are deleted |
+| `backend/main.py` | FastAPI service: ingestion trigger, public API, plaque, claim |
+| `supabase/migrations/` | schema, row-level security, `pg_cron` schedules |
+| `frontend/` | the Next.js site |
+| `tests/`, `backend/tests/` | the test suite and the nightly check (`tests/check_run.sql`) |
+| `archive/` | v1 code, kept for the record, not in use |
 
-**Stack:** Python 3.12 · Supabase (PostgreSQL, RLS) · Next.js / React ·
-YouTube Data API v3 · TikTok Commercial Research API.
+**Stack:** Python and FastAPI on Render · Supabase PostgreSQL with row-level
+security and `pg_cron` · Next.js on Vercel · YouTube Data API v3. Runtime
+versions are pinned in `.github/workflows/ci.yml`.
 
-Data collection uses official APIs only. There is no scraping.
+Data comes from the official API only. There is no scraping.
 
-## Status
+## Funding
 
-Running, and openly a work in progress. The dashboard is live at
-[iosaresearch.org](https://iosaresearch.org); the leaderboard and the macro
-insights are public and free to read, with no account.
+IOSA is self-funded. A creator whose video is in the index can claim a plaque
+of the record from its page; ordering printed items is currently switched off.
 
 ## Contact
 
-Instagram [@iosa.research.lab](https://instagram.com/iosa.research.lab) ·
-X [@IOSAResearch](https://x.com/IOSAResearch)
-
-If your channel appears in the index and you would rather it did not, write to
-us and it is removed.
+X [@IOSAResearch](https://x.com/IOSAResearch) ·
+Instagram and Threads [@iosa.research.lab](https://instagram.com/iosa.research.lab) ·
+Bluesky [@iosaresearch.bsky.social](https://bsky.app/profile/iosaresearch.bsky.social)

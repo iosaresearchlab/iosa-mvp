@@ -358,6 +358,22 @@ Owner decision (option A): every record from `INDEX_START_DATE` follows `01`
 - **Rollback**: `fmt2_history` restores every replaced value; records opened
   by phase 1 are identified by `reprocessed_at` and `fmt2_run`.
 
+### DOC-1 — the README describes the index as it runs today *(05/10/2026)*
+Owner's go-ahead: the root `README.md` still described 25/09 (collection
+suspended, TikTok, the Insights page, a record "removed" on request, both
+formats measured). Replaced with a text written from `docs/` and the code;
+`tests/test_readme.py` ties it to what it quotes. The level table stays
+out of it: the scale has one source, `VPI_SCALE`.
+
+- **Closing check**: `pytest -q tests/test_readme.py` green (every path of the
+  Repository table exists; "The series starts on" = `INDEX_START_DATE`;
+  countries and categories = `census.py`; "For now only long-form is
+  measured" if and only if `MEASURED_FORMATS == ("LONG",)`; none of the v1
+  claims; the links into `docs/` resolve); negative controls each failing
+  (start date changed, a path renamed in the table, `MEASURED_FORMATS` with
+  Shorts, TikTok back in the stack line); `pytest -q` green; the README
+  renders on GitHub with its links to `docs/` resolving.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 
