@@ -22,8 +22,12 @@
 --                  waiting for the morning pass, budget left).
 -- All tables: RLS on, no policy (service role only).
 --
--- Applied to project jodgdhkfkgvbyirvfcds on VERSION_DATE as migration
--- VERSION "v2_fmt2_recovery"; below this header, the exact SQL applied.
+-- Applied to project jodgdhkfkgvbyirvfcds on 2026-10-05 as migration
+-- 20261005131433 "v2_fmt2_recovery"; below this header, the exact SQL applied
+-- (the comment block on fmt2_left aside). Database 201,886,867 -> 202,050,707
+-- bytes. Right after, quota_ledger seeded with the units already spent in the
+-- Pacific quota days the ledger did not yet record: the reading of
+-- 2026-10-04 (7,096, at its finish) and the measurement of 04/10 (5).
 --
 -- Rollback: select cron.unschedule('recupero-fmt2'); fmt2_history restores
 -- every replaced value (fmt2_replace_baseline in reverse); records opened by
