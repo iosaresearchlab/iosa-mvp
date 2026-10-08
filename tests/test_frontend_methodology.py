@@ -67,7 +67,7 @@ def test_popular_is_only_the_proper_name_of_the_charts():
 
 
 def test_most_popular_names_what_we_read():
-    for page in ("components/MetodologiaModal.tsx", "app/page.tsx", "app/leaderboard/page.tsx"):
+    for page in ("components/MetodologiaModal.tsx", "components/HomePage.tsx", "app/leaderboard/page.tsx"):
         assert "Most Popular" in _copy(SRC / page), page
 
 

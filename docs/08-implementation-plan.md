@@ -389,6 +389,16 @@ line that sets `window.ROOM_DATA_URL`. No YouTube quota; Printify untouched.
   "The Breakout Room"` >= 1 and `/api/room/latest` returns more than 0
   videos.
 
+### SEO-1 — a canonical on every indexable page *(08/10/2026)*
+Search Console, 07/10: "Duplicate without user-selected canonical" (the home
+had none, and HomeArchive writes filters and page into the URL) and "Not
+found (404)" (the ones reproduced are intentional). `02` §6.9.
+
+- **Closing check**: `tests/test_seo.py` green (every page route declares a
+  canonical, the home names `/`, the static pages name themselves); negative
+  controls each failing; after the deploy `python tests/check_seo.py` prints
+  OK (every sitemap URL 200 with its own canonical, `/?page=2` -> `/`).
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 

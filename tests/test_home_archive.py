@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "frontend" / "src"
 ARCHIVE = (SRC / "components" / "HomeArchive.tsx").read_text(encoding="utf-8")
 QUERY = (SRC / "lib" / "home-query.ts").read_text(encoding="utf-8")
-HOME = (SRC / "app" / "page.tsx").read_text(encoding="utf-8")
+HOME = (SRC / "components" / "HomePage.tsx").read_text(encoding="utf-8")
 EXPORT = (SRC / "app" / "api" / "export" / "route.ts").read_text(encoding="utf-8")
 
 

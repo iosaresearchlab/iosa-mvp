@@ -3,7 +3,7 @@
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent / "frontend" / "src"
-HOME = (SRC / "app" / "page.tsx").read_text(encoding="utf-8")
+HOME = (SRC / "components" / "HomePage.tsx").read_text(encoding="utf-8")
 BOARD = (SRC / "app" / "leaderboard" / "page.tsx").read_text(encoding="utf-8")
 MODAL = (SRC / "components" / "MetodologiaModal.tsx").read_text(encoding="utf-8")
 

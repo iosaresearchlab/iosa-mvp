@@ -69,6 +69,17 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 8 October 2026 — SEO-1: a canonical on every indexable page (Migert)
+
+Search Console (07/10) reported pages not indexed as "Duplicate without
+user-selected canonical" and "Not found (404)". The home had no canonical,
+and every filtered or paginated home is the same page under another address:
+it now names `/`. `/room` had none either and now names itself; the legal
+pages too. The 404s reproduced are intentional (removed images and pages, a
+creator page without a published record) and stay. Rule in `02` §6.9.
+
+- *(Corrected: `02` §6.9 new; `08` SEO-1.)*
+
 ### 8 October 2026 — ROOM-1: the Breakout Room on /room (Migert)
 
 The 3D room goes on the site at `/room`, linked from the home page and the

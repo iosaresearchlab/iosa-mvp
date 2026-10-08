@@ -16,7 +16,7 @@ def read(rel):
     return (SRC / rel).read_text(encoding="utf-8")
 
 
-HOME = read("app/page.tsx")
+HOME = read("components/HomePage.tsx")
 # UI-3 (01/10/2026): the home table lives in HomeArchive, its state and query in home-query
 TABLE = read("components/HomeArchive.tsx") + read("lib/home-query.ts")
 STATUS = read("lib/record-status.ts")
@@ -77,7 +77,7 @@ def test_the_claim_page_after_the_exit():
 # --- APP-1 ---------------------------------------------------------------------
 
 def test_insights_is_out_of_the_nav_and_the_sitemap():
-    for rel in ("app/page.tsx", "components/PageShell.tsx", "app/layout.tsx", "app/sitemap.ts"):
+    for rel in ("components/HomePage.tsx", "components/PageShell.tsx", "app/layout.tsx", "app/sitemap.ts"):
         assert 'href="/insights"' not in read(rel) and "/insights`" not in read(rel), rel
     assert "indicizzabile: false" in read("app/insights/layout.tsx")
 
@@ -85,7 +85,7 @@ def test_insights_is_out_of_the_nav_and_the_sitemap():
 # --- APP-5 ---------------------------------------------------------------------
 
 def test_copy_home_creator_segments_outliers():
-    home = read("app/page.tsx")
+    home = read("components/HomePage.tsx")
     assert "long-form videos first observed in YouTube&apos;s Most Popular charts" in home
     assert "short-form" not in home
     creator = read("app/creators/[handle]/page.tsx")
@@ -105,7 +105,7 @@ def test_copy_home_creator_segments_outliers():
 def test_the_disclosure_box_is_on_top_vpi_home_and_the_methodology():
     box = read("components/DisclosureBox.tsx")
     assert "/api/analytics/day1-bands?format=LONG" in box
-    for rel in ("app/leaderboard/page.tsx", "app/page.tsx", "components/MetodologiaModal.tsx"):
+    for rel in ("app/leaderboard/page.tsx", "components/HomePage.tsx", "components/MetodologiaModal.tsx"):
         assert "<DisclosureBox" in read(rel), rel
 
 
@@ -259,7 +259,7 @@ def test_views_and_actions():
 
 def test_ordered_by_follows_the_sort_in_use():
     """UI-12: the ORDERED BY box shows the label of the active sort, from the Sort menu's list."""
-    page = read("app/page.tsx")
+    page = read("components/HomePage.tsx")
     assert ">VIEWS<" not in page and "data-ordered-by>{ordinato ?? '\\u2014'}" in page
     assert "onOrdine={setOrdinato}" in page
     home = read("components/HomeArchive.tsx")
@@ -274,7 +274,7 @@ def test_faq_on_the_view_count_change():
     """FAQ-1: the home FAQ states YouTube's view-count change; its dates come from the baseline window."""
     from datetime import date, timedelta
     import vpi_core
-    page = read("app/page.tsx")
+    page = read("components/HomePage.tsx")
     faq = page[page.index('data-faq="view-count-change"'):]
     faq = faq[:faq.index("</div>")]
     change = date(2026, 8, 24)

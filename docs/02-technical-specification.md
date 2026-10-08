@@ -1404,6 +1404,17 @@ two decimals rounded down; `left_off` -99 while charting. One query
 `Cache-Control: public, max-age=3600`. Its copy of the scale is held equal
 to `VPI_SCALE` by `tests/test_scale.py`.
 
+### 6.9 Canonical URLs *(SEO-1, 08/10/2026)*
+
+Every indexable page names its own URL as `<link rel="canonical">`, without
+a query string (`alternates.canonical`, or `metadatiPagina()` in
+`lib/seo.ts`); the home names `/`, so its filtered and paginated addresses
+are not duplicates; the static pages (`privacy.html`, `terms.html`,
+`room/index.html`) carry the tag in their `<head>`. `/claim/` is disallowed in
+`robots.ts` and carries none. Held by `tests/test_seo.py`; checked live by
+`tests/check_seo.py` (every sitemap URL 200 and self-canonical, `/?page=2`
+-> `/`).
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and
