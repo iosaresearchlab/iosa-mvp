@@ -69,6 +69,17 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 8 October 2026 — ROOM-1: the Breakout Room on /room (Migert)
+
+The 3D room goes on the site at `/room`, linked from the home page and the
+header, for the social launch: one week of long-form records first observed
+in Most Popular, one TV each, coloured by the day-1 VPI, zones by baseline
+band, never pooled. Data from a new read-only endpoint, `/api/room/latest`
+and `/api/room?from=` (`02` §6.8), refreshed with every complete reading. No
+quota, no change to the method or to any record.
+
+- *(Corrected: `02` §6.8 new; `08` ROOM-1.)*
+
 ### 4 October 2026 — FMT-1: a Short is what YouTube calls a Short (Migert)
 
 The split by duration alone (Short = up to 180 s) is not YouTube's rule:

@@ -18,9 +18,9 @@ import secrets
 import hashlib
 import stripe
 import traceback
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from supabase import create_client
@@ -32,8 +32,8 @@ from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import METHOD_TEXT_V1, METHOD_TEXT_V2
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
                              impronta_campione_tazza)
-from vpi_engine import (ReprocessRefused, RunAlreadyExists, esegui_un_ciclo, reading_day,
-                        riprendi_un_giorno, start_engine)
+from vpi_engine import (MEASURED_FORMATS, ReprocessRefused, RunAlreadyExists, esegui_un_ciclo,
+                        reading_day, riprendi_un_giorno, start_engine)
 
 from log_iosa import configura, prendi
 
@@ -825,6 +825,123 @@ def get_day1_bands(format: str = "LONG"):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+
+# ------------------------------------------------------------------ ROOM-1
+# The Breakout Room (/room, owner decision 08/10/2026; 02 section 6): one week
+# of measured records, as compact arrays the page reads by position.
+#   v: [video_id, title, ch_index, band_index, vpi_day1, views_day1, baseline,
+#       entered_off, days_charting, left_off, vpi_max, views_max,
+#       "countries space-separated", live]
+#   c: [channel_name, channel_handle]
+# band_index 0..4 = BASELINE_BANDS in order, 5 = no computable baseline (rule
+# not standard or no day-1 VPI): those records stay. The week is the 7 most
+# recent readings with a complete census (latest), or the 7 starting on a day
+# (from). Computed once per state of those readings, kept in memory.
+
+ROOM_DAYS = 7
+ROOM_TITLE_MAX = 95
+ROOM_STILL_CHARTING = -99
+ROOM_NO_BASELINE = len(BASELINE_BANDS)
+_ROOM_CACHE = {}
+
+
+def _room_floor2(x):
+    """Two decimals, rounded down: a VPI written for people is never rounded
+    up across a level threshold (UI-11)."""
+    if x is None:
+        return None
+    from decimal import Decimal, ROUND_FLOOR
+    return float(Decimal(str(x)).quantize(Decimal("0.01"), rounding=ROUND_FLOOR))
+
+
+def _room_int(x):
+    return None if x is None else int(round(float(x)))
+
+
+def _room_band(rec):
+    if rec.get("baseline_rule") != "standard" or rec.get("vpi_day1") is None:
+        return ROOM_NO_BASELINE
+    name = baseline_band(rec.get("baseline_score"))
+    names = [b[2] for b in BASELINE_BANDS]
+    return names.index(name) if name in names else ROOM_NO_BASELINE
+
+
+def _room_title(t):
+    t = " ".join((t or "").split())
+    return t if len(t) <= ROOM_TITLE_MAX else t[:ROOM_TITLE_MAX - 1].rstrip() + "\u2026"
+
+
+def _room_window(client, start=None):
+    """The window's reading days and the state of their runs (the cache key)."""
+    floor = vpi_core.series_floor()
+    runs = (client.table("ingest_run").select("day,finished_at,reprocessed_at")
+            .eq("census_complete", True).execute().data) or []
+    runs = sorted((r for r in runs if str(r["day"])[:10] >= floor), key=lambda r: str(r["day"]))
+    if start is None:
+        runs = runs[-ROOM_DAYS:]
+    else:
+        runs = [r for r in runs if str(r["day"])[:10] >= start][:ROOM_DAYS]
+    return runs
+
+
+def room_payload(client, runs):
+    days = [str(r["day"])[:10] for r in runs]
+    recs = client.rpc("room_records", {"p_days": days, "p_formats": list(MEASURED_FORMATS),
+                                        "p_floor": vpi_core.series_floor()}).execute().data or []
+    d0 = date.fromisoformat(days[0])
+    off = lambda d: (date.fromisoformat(str(d)[:10]) - d0).days     # noqa: E731
+    channels, c, v = {}, [], []
+    for r in recs:
+        ch = r.get("channel_id")
+        if ch not in channels:
+            channels[ch] = len(c)
+            c.append([r.get("channel_name"), r.get("channel_handle")])
+        v.append([r["video_id"], _room_title(r.get("title")), channels[ch], _room_band(r),
+                  _room_floor2(r.get("vpi_day1")), _room_int(r.get("views_day1")),
+                  _room_int(r.get("baseline_score")), off(r["entered_on"]),
+                  r.get("days_charting"),
+                  off(r["left_on"]) if r.get("left_on") else ROOM_STILL_CHARTING,
+                  _room_floor2(r.get("vpi_max")), _room_int(r.get("views_max")),
+                  " ".join(r.get("countries") or []), 1 if r.get("was_live") is True else 0])
+    return {"from": days[0], "to": days[-1], "v": v, "c": c}
+
+
+def _room_response(request, start):
+    if not supabase_service:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY non configurata.")
+    runs = _room_window(supabase_service, start)
+    if not runs:
+        raise HTTPException(status_code=404, detail="no complete reading in that window")
+    key = tuple((str(r["day"])[:10], str(r.get("finished_at")), str(r.get("reprocessed_at")))
+                for r in runs)
+    if key not in _ROOM_CACHE:
+        import gzip
+        body = json.dumps(room_payload(supabase_service, runs), ensure_ascii=False,
+                          separators=(",", ":")).encode("utf-8")
+        if len(_ROOM_CACHE) >= 4:
+            _ROOM_CACHE.clear()
+        _ROOM_CACHE[key] = (body, gzip.compress(body, 6))
+    body, gz = _ROOM_CACHE[key]
+    headers = {"Cache-Control": "public, max-age=3600", "Vary": "Accept-Encoding"}
+    if "gzip" in (request.headers.get("accept-encoding") or ""):
+        headers["Content-Encoding"] = "gzip"
+        body = gz
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+@app.get("/api/room/latest")
+def get_room_latest(request: Request):
+    return _room_response(request, None)
+
+
+@app.get("/api/room")
+def get_room(request: Request, start: str = Query(..., alias="from")):
+    try:
+        start = date.fromisoformat(start).isoformat()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="from must be YYYY-MM-DD")
+    return _room_response(request, start)
 
 
 @app.get("/api/analytics/keywords")

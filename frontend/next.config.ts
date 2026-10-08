@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
       { source: "/terms", destination: "/terms.html", permanent: true },
     ];
   },
+  // ROOM-1 (08/10/2026): the Breakout Room is a static page in /public/room.
+  async rewrites() {
+    return [{ source: "/room", destination: "/room/index.html" }];
+  },
 };
 
 export default nextConfig;

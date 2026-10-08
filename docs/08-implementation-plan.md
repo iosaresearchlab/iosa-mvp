@@ -374,6 +374,21 @@ out of it: the scale has one source, `VPI_SCALE`.
   Shorts, TikTok back in the stack line); `pytest -q` green; the README
   renders on GitHub with its links to `docs/` resolving.
 
+### ROOM-1 — the Breakout Room on `/room` *(08/10/2026)*
+Owner decision: the 3D room on our domain, public, reachable from the home
+page and refreshed with every reading (`02` §6.8). The page and its preview
+image are the owner's files, copied in; the only edit to the page is the
+line that sets `window.ROOM_DATA_URL`. No YouTube quota; Printify untouched.
+
+- **Closing check**: `pytest tests/test_room.py` green (per window, the count
+  per `band_index` equals an independent SQL count on the same filters; a
+  known video round-trips; the band edges come from `baseline_band()`, no
+  literal edge in the endpoint code); `tests/test_scale.py` holds the page's
+  `SCALE` equal to `VPI_SCALE`; negative controls each failing; `pytest -q`
+  green; after the deploy `curl -s https://iosaresearch.org/room | grep -c
+  "The Breakout Room"` >= 1 and `/api/room/latest` returns more than 0
+  videos.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 

@@ -22,6 +22,16 @@ def test_frontend_scale_is_identical_to_the_backend():
     assert [(float(t), int(l), n, c) for t, l, n, c in rows] == list(core.VPI_SCALE)
 
 
+def test_the_room_scale_is_identical_to_the_backend():
+    """ROOM-1: the Breakout Room (frontend/public/room/index.html) colours its
+    screens with its own copy of the scale; names without the "Lvl N - "."""
+    page = (ROOT / "frontend" / "public" / "room" / "index.html").read_text(encoding="utf-8")
+    block = re.search(r"const SCALE = \[(.*?)\];", page, re.S).group(1)
+    rows = re.findall(r"\[([\d.]+),(\d+),'([^']+)','(#[0-9A-Fa-f]{6})'\]", block)
+    backend = [(t, lvl, re.sub(r"^Lvl \d+ - ", "", n), c) for t, lvl, n, c in core.VPI_SCALE]
+    assert [(float(t), int(lvl), n, c) for t, lvl, n, c in rows] == backend
+
+
 def test_the_documented_table_is_the_code():
     doc = (ROOT / "docs" / "01-methodology-protocol.md").read_text(encoding="utf-8")
     table = re.findall(r"^\|\s*≥ ([\d,.]+)x\s*\|\s*(\d+)\s*\|", doc, re.M)

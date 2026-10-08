@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Building2,
   Trophy,
+  Tv,
 } from 'lucide-react';
 import { INDEX_START_DATE } from '@/lib/index-start';
 
@@ -172,6 +173,25 @@ export default function Home() {
 
         {/* APP-6: how to read a level, live day-1 figures per baseline band */}
         <DisclosureBox />
+
+        {/* ROOM-1 (08/10/2026): the week in 3D, a static page at /room */}
+        <a href="/room" data-room-entry
+          className="group block border border-cyan-500/40 bg-gradient-to-r from-cyan-950/50 via-[#070A10] to-cyan-950/50 hover:border-[#00E5FF] rounded-xl p-3 px-4 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <Tv className="w-4 h-4 text-[#00E5FF] shrink-0" aria-hidden />
+                <span className="text-sm md:text-base font-black font-mono text-white">The Breakout Room</span>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed font-sans">
+                Walk through this week&apos;s Most Popular in 3D. Find your channel.
+              </p>
+            </div>
+            <span className="shrink-0 text-[11px] font-mono font-bold text-black bg-[#00E5FF] group-hover:bg-cyan-300 px-3 py-1.5 rounded-lg">
+              Enter
+            </span>
+          </div>
+        </a>
 
         {/* The index: server-side pages, filters and counts (UI-3) */}
         <Suspense fallback={<div className="h-[600px] rounded-xl border border-gray-800 bg-[#070A10]" />}>

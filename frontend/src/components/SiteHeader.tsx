@@ -8,12 +8,14 @@
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Globe, HelpCircle, Info, Trophy } from 'lucide-react';
+import { Globe, HelpCircle, Info, Trophy, Tv } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 
 const VOCI = [
   { href: '/outliers', etichetta: 'Browse', icona: Globe, attiva: (p: string) => p.startsWith('/outliers') || p.startsWith('/categories') },
   { href: '/leaderboard', etichetta: 'Top VPI', icona: Trophy, attiva: (p: string) => p.startsWith('/leaderboard') },
+  // ROOM-1: a static page outside the app router, so a plain link (see below)
+  { href: '/room', etichetta: 'The Room', icona: Tv, attiva: () => false, statica: true },
   { href: '/#methodology', etichetta: 'Method', icona: Info, attiva: () => false },
   { href: '/#faq', etichetta: 'FAQ', icona: HelpCircle, attiva: () => false },
 ];
@@ -27,16 +29,17 @@ export function SiteHeader() {
           <Logo altezza={44} />
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1.5 md:gap-2">
-          {VOCI.map(({ href, etichetta, icona: Icona, attiva }) => {
+          {VOCI.map(({ href, etichetta, icona: Icona, attiva, statica }) => {
             const corrente = attiva(percorso);
+            const Ancora = statica ? 'a' : Link;
             return (
-              <Link key={href} href={href} aria-current={corrente ? 'page' : undefined}
+              <Ancora key={href} href={href} aria-current={corrente ? 'page' : undefined}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-xs border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00E5FF] ${
                   corrente ? 'bg-[#00E5FF] text-black border-[#00E5FF] font-bold' : 'bg-gray-900 hover:bg-gray-800 border-gray-700 text-gray-200'}`}>
                 <Icona className={`w-3.5 h-3.5 ${corrente ? 'text-black' : 'text-[#00E5FF]'}`} aria-hidden />
                 <span className="hidden sm:inline">{etichetta}</span>
                 <span className="sr-only sm:hidden">{etichetta}</span>
-              </Link>
+              </Ancora>
             );
           })}
         </nav>

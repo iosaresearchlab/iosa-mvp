@@ -41,6 +41,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITO}/`, lastModified: adesso, changeFrequency: 'hourly', priority: 1 },
     { url: `${SITO}/outliers`, lastModified: adesso, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITO}/leaderboard`, lastModified: adesso, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITO}/room`, lastModified: adesso, changeFrequency: 'weekly', priority: 0.7 },
   ];
 
   const paesi: MetadataRoute.Sitemap = Object.keys(PAESI).map((c) => ({

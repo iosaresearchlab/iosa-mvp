@@ -1387,6 +1387,23 @@ No change now. At recalibration `vpi-scale.ts` changes **together with**
 `vpi_core.py`, and `tests/audit_scala.py` already verifies they stay
 identical.
 
+### 6.8 `/room` — the Breakout Room *(ROOM-1, owner decision 08/10/2026)*
+
+A static page, `frontend/public/room/index.html` (rewrite `/room` in
+`next.config.ts`; linked from the home and the header; in the sitemap), that
+reads `GET /api/room/latest` (the 7 most recent readings with
+`census_complete`) or `GET /api/room?from=YYYY-MM-DD` (the 7 from that day):
+records with format in `MEASURED_FORMATS`, `entry_certain`, not `hidden`,
+`entered_on` one of those days and `>= series_floor()`, as
+`{"from","to","v":[[video_id, title, ch_index, band_index, vpi_day1,
+views_day1, baseline, entered_off, days_charting, left_off, vpi_max,
+views_max, countries, live]],"c":[[channel_name, channel_handle]]}`;
+`band_index` 0-4 from `baseline_band()`, 5 = no computable baseline; VPIs at
+two decimals rounded down; `left_off` -99 while charting. One query
+(`room_records()`), cached per state of the window's runs, gzip,
+`Cache-Control: public, max-age=3600`. Its copy of the scale is held equal
+to `VPI_SCALE` by `tests/test_scale.py`.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and
