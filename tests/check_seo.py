@@ -1,24 +1,36 @@
 """SEO-1 closing check (read-only): every URL of the sitemap answers 200 and
 names itself as canonical; a paginated home names the home.
 
-    python tests/check_seo.py [base]        # base: https://iosaresearch.org
+    python tests/check_seo.py [base] [--shard k/n]   # base: https://iosaresearch.org
+
+--shard k/n checks only every n-th URL starting at the k-th (1-based), and
+/?page=2 in shard 1: the n shards together are the whole check, for a shell
+that cuts a call at 3 minutes.
 
 Requests every <loc> of <base>/sitemap.xml, at most 8 at a time, retrying
-once on a timeout or a connection error. Prints OK and exits 0, or lists every
+once, after 3 s, on a timeout or a connection error
+(TLS included). Prints OK and exits 0, or lists every
 failure and exits 1. No YouTube quota: only the site is requested.
 """
 
 import html
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://iosaresearch.org").rstrip("/")
+_ARGS = [a for a in sys.argv[1:] if not a.startswith("--shard")]
+_SHARD = next((a.split("=", 1)[-1] if "=" in a else sys.argv[sys.argv.index(a) + 1]
+               for a in sys.argv[1:] if a.startswith("--shard")), "1/1")
+_ARGS = [a for a in _ARGS if a != _SHARD]
+BASE = (_ARGS[0] if _ARGS else "https://iosaresearch.org").rstrip("/")
+SHARD_K, SHARD_N = (int(x) for x in _SHARD.split("/"))
 PARALLEL = 8
 TIMEOUT = 30
+RETRY_PAUSE = 3      # seconds before the one retry
 UA = "IOSA-check-seo/1 (+https://iosaresearch.org)"
 
 _LINK = re.compile(r"<link\b[^>]*>", re.I)
@@ -38,6 +50,7 @@ def fetch(url):
         except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
             if attempt == 2:
                 return f"error: {e}", ""
+            time.sleep(RETRY_PAUSE)
     return "unreachable", ""
 
 
@@ -82,10 +95,13 @@ def main():
     if not urls:
         print("FAIL: no <loc> in sitemap.xml")
         return 1
-    jobs = [(u, None) for u in urls] + [(f"{BASE}/?page=2", f"{BASE}/")]
+    jobs = [(u, None) for u in urls[SHARD_K - 1::SHARD_N]]
+    if SHARD_K == 1:
+        jobs.append((f"{BASE}/?page=2", f"{BASE}/"))
     with ThreadPoolExecutor(PARALLEL) as pool:
         failures = [f for f in pool.map(lambda j: check(*j), jobs) if f]
-    print(f"{len(urls)} sitemap URLs + /?page=2 checked")
+    print(f"shard {SHARD_K}/{SHARD_N}: {len(jobs)} of {len(urls)} sitemap URLs"
+          f"{' + /?page=2' if SHARD_K == 1 else ''} checked")
     if failures:
         for f in failures:
             print("FAIL:", f)
