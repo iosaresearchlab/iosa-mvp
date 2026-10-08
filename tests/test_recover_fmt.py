@@ -7,6 +7,7 @@ D0 and D1 have left the retention window: their snapshots are read from the
 archive; D2 and D3 from the table.
 """
 
+import gc
 import json
 import random
 from datetime import date, datetime, timedelta, timezone
@@ -523,6 +524,43 @@ def test_the_ledger_counts_every_unit_of_a_run_that_fails(world, monkeypatch):
     units = one(db, "select units from quota_ledger where source = 'recovery'")
     assert units == [(fake.units(),)] and fake.units() > 0
     assert "failed: RuntimeError: boom" in one(db, "select notes from fmt2_run")[0][0]
+
+
+def test_the_ledger_holds_the_units_spent_while_the_run_is_still_going(world, monkeypatch):
+    """A process that dies runs no finally: the run of 06/10 left 2,722 units
+    out of the ledger. The row is opened at the start and kept current."""
+    fake, client, db, storage = world
+    seen = {}
+
+    def phase2(*a, **k):
+        seen["ledger"] = one(db, "select units from quota_ledger where source = 'recovery'")
+        seen["spent"] = fake.units()
+    monkeypatch.setattr(rf, "_phase2", phase2)
+    monkeypatch.setattr(rf, "_phase3", lambda *a, **k: None)
+    recover(client, storage)
+    assert seen["spent"] > 0 and seen["ledger"] == [(seen["spent"],)]
+    assert one(db, "select count(*), sum(units) from quota_ledger where source = 'recovery'") == [(1, fake.units())]
+
+
+def _snapshot_days_alive():
+    gc.collect()
+    return {o["day"] for o in gc.get_objects()
+            if type(o) is dict and "video_id" in o and "countries" in o and "day" in o}
+
+
+def test_phase1_keeps_at_most_one_full_snapshot_day_in_memory(world, monkeypatch):
+    """The run of 06/10 kept every full day it had read (about 40 MB each)
+    and the process died loading a seventh. Only view counts stay."""
+    fake, client, db, storage = world
+    real, most = rf.Snapshots.rows, [0]
+
+    def rows(self, day):
+        most[0] = max(most[0], len(_snapshot_days_alive()))
+        return real(self, day)
+    monkeypatch.setattr(rf.Snapshots, "rows", rows)
+    recover(client, storage)
+    assert one(db, "select days_done from fmt2_run")[0][0] == [D1, D2]
+    assert most[0] == 1
 
 
 def test_only_the_service_role_writes_the_recovery_tables(db):

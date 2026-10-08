@@ -1144,7 +1144,14 @@ leaves a choice, this is the one made:
   the next reading.
 - *The ledger* sources are `reading`, `second attempt`, `reprocess` and
   `recovery`, one row per run, written in the run's `finally`; a ledger that
-  cannot be written is noted and never fails a run.
+  cannot be written is noted and never fails a run. The recovery opens its
+  row at 0 before its first unit and sets it to the run's total at every
+  save, so a process that dies (no `finally`) stays counted to its last
+  save; the run of 06/10 died and its 2,722 units were added by hand.
+- *Memory*: between days phase 1 keeps only each day's view counts (about
+  3 MB); a day's full snapshot rows (about 40 MB parsed) live only while that
+  day is worked. The run of 06/10 kept every full day it read and the
+  process died loading a seventh while it held six, on a 512 MB instance.
 
 ## 5. Scheduling
 

@@ -203,38 +203,61 @@ def _format_of(item, published_at):
 class Snapshots:
     """Stored censuses, by day: the table while the day is in the retention
     window, the archive in Storage once it has left it (an exact copy,
-    02 section 3.1). Each is checked against the count its census recorded."""
+    02 section 3.1). Each is checked against the count its census recorded.
+
+    Only the view counts are kept between days (about 3 MB a day); a day's
+    full rows (about 40 MB) live only while that day is being worked. The
+    run of 06/10 kept every full day it had read and the process died
+    loading a seventh while it held six (fmt2_run 1)."""
 
     def __init__(self, client, storage, runs):
         self.client, self.storage = client, storage
         self.seen = {_d(r["day"]): r.get("videos_seen") for r in runs}
-        self.full, self.views = {}, {}
+        self.views = {}
 
     def rows(self, day: date) -> dict:
-        if day not in self.full:
-            lines = [r["line"] for r in _rpc_all(self.client, "snapshot_export",
-                                                 {"p_day": day.isoformat()}, "video_id")]
-            if not lines:
-                try:
-                    lines = retention.decode(self.storage.get(f"{retention.PREFIX}/{day.isoformat()}.jsonl.gz"))
-                except retention.ArchiveError as e:
-                    raise Stop(f"the snapshot of {day} is neither in the table nor readable "
-                               f"in the archive: {e}")
-            rows = {}
-            for line in lines:
-                x = json.loads(line)
-                rows[x["video_id"]] = x
-            if self.seen.get(day) is not None and len(rows) != self.seen[day]:
-                raise Stop(f"the snapshot of {day} holds {len(rows)} videos, "
-                           f"its census counted {self.seen[day]}")
-            self.full[day] = rows
-        return self.full[day]
+        lines = [r["line"] for r in _rpc_all(self.client, "snapshot_export",
+                                             {"p_day": day.isoformat()}, "video_id")]
+        if not lines:
+            try:
+                lines = retention.decode(self.storage.get(f"{retention.PREFIX}/{day.isoformat()}.jsonl.gz"))
+            except retention.ArchiveError as e:
+                raise Stop(f"the snapshot of {day} is neither in the table nor readable "
+                           f"in the archive: {e}")
+        rows = {}
+        for line in lines:
+            x = json.loads(line)
+            rows[x["video_id"]] = x
+        del lines
+        if self.seen.get(day) is not None and len(rows) != self.seen[day]:
+            raise Stop(f"the snapshot of {day} holds {len(rows)} videos, "
+                       f"its census counted {self.seen[day]}")
+        self.views.setdefault(day, {v: x.get("views") for v, x in rows.items()})
+        return rows
 
     def views_of(self, day: date) -> dict:
         if day not in self.views:
-            self.views[day] = {v: x.get("views") for v, x in self.rows(day).items()}
-            self.full.pop(day, None)              # keep only what the replay needs
+            self.rows(day)
         return self.views[day]
+
+
+def _ledger_open(client):
+    """The run's quota_ledger row, opened at 0 before the first unit and kept
+    at the run's total at every save: a process that dies leaves its units
+    counted up to the last save (the run of 06/10 died with none). None when
+    it cannot be written; the run then appends its row at the end."""
+    try:
+        return client.table("quota_ledger").insert({"source": "recovery", "units": 0}).execute().data[0]["id"]
+    except Exception:                                    # noqa: BLE001
+        return None
+
+
+def _ledger_set(client, ledger_id, units) -> str | None:
+    try:
+        client.table("quota_ledger").update({"units": int(units)}).eq("id", ledger_id).execute()
+        return None
+    except Exception as e:                               # noqa: BLE001
+        return f"quota_ledger not updated: {type(e).__name__}: {str(e)[:200]}"
 
 
 def _rpc_all(client, fn, params, order):
@@ -294,6 +317,7 @@ def run(client, *, api_key, now=None, storage=None, session=None, sleep=time.sle
           "phase": 1 if todo else 2, "cursor": cursor, "notes": [f"budget {limit} units"]}
     me = client.table("fmt2_run").insert({"started_at": now.isoformat(), "phase": st["phase"],
                                           "notes": "running"}).execute().data[0]
+    ledger = _ledger_open(client)
 
     def save(final=False):
         row = {"days_done": [d.isoformat() for d in st["days_done"]],
@@ -305,6 +329,8 @@ def run(client, *, api_key, now=None, storage=None, session=None, sleep=time.sle
         if final:
             row["finished_at"] = datetime.now(timezone.utc).isoformat()
         client.table("fmt2_run").update(row).eq("id", me["id"]).execute()
+        if ledger is not None and not final:
+            _ledger_set(client, ledger, quota.total)
 
     snaps = Snapshots(client, storage, runs)
     try:
@@ -335,7 +361,8 @@ def run(client, *, api_key, now=None, storage=None, session=None, sleep=time.sle
         except Exception as e:                           # noqa: BLE001
             st["notes"].append(f"fmt2_left not read: {type(e).__name__}")
         st["notes"].append(f"{quota.total} units")
-        failed = record_ledger(client, "recovery", quota.total)
+        failed = (record_ledger(client, "recovery", quota.total) if ledger is None
+                  else _ledger_set(client, ledger, quota.total))
         if failed:
             st["notes"].append(failed)
         save(final=True)
@@ -358,7 +385,7 @@ def _phase1_day(client, d, runs, snaps, st, quota, http, api_key, sleep, now, sa
     if ref is None:
         return                                   # day 0: no entry is observable
     rows = snaps.rows(d)
-    before = set(snaps.rows(ref)) if ref not in snaps.views else set(snaps.views[ref])
+    before = set(snaps.views_of(ref))
     gap = 0 if ref == d - timedelta(days=1) else (d - ref).days
     entry = {"gap_days": gap, "entry_certain": ref == d - timedelta(days=1)}
     after = (st["cursor"] or {}).get("after") if (st["cursor"] or {}).get("day") == d.isoformat() else None
