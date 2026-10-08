@@ -354,20 +354,23 @@ export default function HomeArchive({ onTotale, onOrdine }: {
                   <li key={`s${i}`} className="p-3 h-[150px]" data-skeleton><div className="h-full rounded bg-gray-800/40 animate-pulse" /></li>
                 ))
               : righe.map((post, i) => (
-                  <li key={post.id} className="p-3 space-y-2">
+                  <li key={post.id} className="p-3">
                     <div className="flex gap-2">
                       <span className="text-gray-600 font-bold shrink-0">#{fmt(primo + i)}</span>
                       <Video post={post} />
                     </div>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    {/* ROOM-1b (08/10/2026): the three values of the default view on one row,
+                        the widest column for the status; the buttons right below it */}
+                    <dl className={`mt-2 grid gap-x-3 gap-y-1 ${cols.length === 3 ? 'grid-cols-[1.4fr_1fr_1fr]' : 'grid-cols-2'}`}
+                      data-mobile-values>
                       {cols.map((c) => (
-                        <div key={c.titolo} className="min-w-0">
+                        <div key={c.titolo} className={`min-w-0 ${c.destra ? 'text-right justify-self-end' : ''}`}>
                           <dt className="text-[9px] uppercase text-gray-500">{c.titolo}</dt>
                           <dd>{c.cella(post)}</dd>
                         </div>
                       ))}
                     </dl>
-                    <Azioni post={post} />
+                    <div className="mt-1"><Azioni post={post} /></div>
                   </li>
                 ))}
           </ol>

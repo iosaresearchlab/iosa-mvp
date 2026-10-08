@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
-<link rel="canonical" href="https://iosaresearch.org/room">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Every long-form video first observed in YouTube's Most Popular charts this week, one TV each, stacked under its creator and coloured by how far it beat its own channel on day 1.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="The Breakout Room · IOSA">
 <meta property="og:description" content="One week of YouTube's Most Popular in 3D: one TV per video, measured against its own channel. Find your channel.">
+<link rel="canonical" href="https://iosaresearch.org/room">
 <meta property="og:url" content="https://iosaresearch.org/room">
 <meta property="og:image" content="https://iosaresearch.org/room/og.png">
 <meta property="og:image:width" content="1200">
@@ -162,7 +162,8 @@ body.reel #reelUI{display:block;position:fixed;inset:0;z-index:20;pointer-events
   #brand .t{font-size:.95rem;}
   #find{top:calc(env(safe-area-inset-top,0px) + 54px);left:16px;right:16px;width:auto;}
   #hint{display:none;}
-  #legend{padding:8px 10px;}
+  #find{z-index:6;}
+  #legend{padding:8px 10px;top:calc(env(safe-area-inset-top,0px) + 100px);bottom:auto;}
   #legend ol{display:none;}
   #legend.open ol{display:grid;}
   #legend h3{margin:0;}
@@ -182,7 +183,7 @@ body.reel #reelUI{display:block;position:fixed;inset:0;z-index:20;pointer-events
 <canvas id="scene" tabindex="0" aria-label="3D room: one TV per video, stacked under its creator"></canvas>
 <div id="loading">Switching on 0 screens…</div>
 
-<div id="brand" class="hud"><span class="t"><b>IOSA</b> · The Breakout Room</span><span class="s" id="brandSub">Most Popular · long-form · 1–7 Oct 2026</span></div>
+<div id="brand" class="hud"><span class="t"><b>IOSA</b> · The Breakout Room</span><span class="s" id="brandSub">Most Popular · long-form</span></div>
 
 <div id="find" class="hud" role="search">
   <label for="q" style="position:absolute;left:-9999px">Find a channel</label>
@@ -208,7 +209,7 @@ body.reel #reelUI{display:block;position:fixed;inset:0;z-index:20;pointer-events
 
 <div id="intro" class="overlay">
   <div class="sheet">
-    <div class="eyebrow">IOSA · Most Popular · 1–7 Oct 2026</div>
+    <div class="eyebrow" id="eyebrow">IOSA · Most Popular</div>
     <h1>The Breakout Room</h1>
     <p id="introText"></p>
     <div class="cta">
@@ -235,7 +236,7 @@ body.reel #reelUI{display:block;position:fixed;inset:0;z-index:20;pointer-events
   </div>
 </div>
 
-<script>window.ROOM_DATA_URL = "https://iosa-mvp-backend.onrender.com/api/room/latest";</script>
+<script>window.ROOM_DATA_URL = "/api/room/latest";</script>
 <script type="importmap">
 {"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -279,7 +280,7 @@ const BANDS = [
 const nf = new Intl.NumberFormat('en-US');
 const fmtV = v => { const f = Math.floor(v * 10) / 10; return f.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}) + '×'; };
 const fmtD = off => { const d = new Date(D0.getTime() + off * 864e5); return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}); };
-const PERIOD = (() => { const a = fmtD(0), b = fmtD(6); return a.split(' ')[1] === b.split(' ')[1] ? `${a.split(' ')[0]}–${b} 2026` : `${a} – ${b} 2026`; })();
+const PERIOD = (() => { const a = fmtD(0), b = fmtD(6); return a.split(' ')[1] === b.split(' ')[1] ? `${a.split(' ')[0]}–${b} ${D.to.slice(0,4)}` : `${a} – ${b} ${D.to.slice(0,4)}`; })();
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ---------- layout (rebuilt when live streams are hidden) ----------
@@ -335,7 +336,9 @@ const nCh = C.length;
 document.getElementById('introText').textContent =
   `${nf.format(V.length)} long-form videos first observed in YouTube's Most Popular charts in one week, one TV each, stacked under the ${nf.format(nCh)} creators who made them. The colour on each screen is how far the video beat its own channel's usual views on its first day.`;
 document.getElementById('aboutCount').textContent =
-  `Every long-form video first observed in YouTube's Most Popular category charts between ${fmtD(0)} and ${fmtD(6)} 2026 is one TV here: ${nf.format(V.length)} videos from ${nf.format(nCh)} channels.`;
+  `Every long-form video first observed in YouTube's Most Popular category charts between ${fmtD(0)} and ${fmtD(6)} ${D.to.slice(0,4)} is one TV here: ${nf.format(V.length)} videos from ${nf.format(nCh)} channels.` + (D.as_of ? ` Values as of ${new Date(D.as_of).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})}: the week is frozen when it is published.` : '');
+document.getElementById('eyebrow').textContent = `IOSA · Most Popular · ${PERIOD}`;
+document.getElementById('brandSub').textContent = `Most Popular · long-form · ${PERIOD}`;
 document.getElementById('loading').textContent = `Switching on ${nf.format(V.length)} screens…`;
 
 const legend = document.getElementById('legendList');
@@ -435,8 +438,9 @@ function figureGeo(cheer) {
   add(new THREE.CapsuleGeometry(0.05, 0.27, 3, 8), -0.07, 0.19, 0.06);
   add(new THREE.CapsuleGeometry(0.05, 0.27, 3, 8), 0.07, 0.19, -0.06);
   if (cheer) {
-    add(new THREE.CapsuleGeometry(0.04, 0.28, 3, 8), -0.2, 0.86, -0.5);
-    add(new THREE.CapsuleGeometry(0.04, 0.28, 3, 8), 0.2, 0.86, 0.5);
+    // from the shoulders (x +-0.11, y 0.72) up and outwards, clear of the head
+    add(new THREE.CapsuleGeometry(0.04, 0.28, 3, 8), -0.204, 0.874, 0.55);
+    add(new THREE.CapsuleGeometry(0.04, 0.28, 3, 8), 0.204, 0.874, -0.55);
   } else {
     add(new THREE.CapsuleGeometry(0.04, 0.27, 3, 8), -0.16, 0.55, -0.22);
     add(new THREE.CapsuleGeometry(0.04, 0.27, 3, 8), 0.16, 0.55, 0.22);

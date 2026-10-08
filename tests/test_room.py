@@ -163,3 +163,16 @@ def test_the_band_edges_come_from_the_band_function():
     assert not re.search(r"(?<![\d.])(100|1_?000|10_?000|100_?000)(?![\d.])", src)
     assert "baseline_band(" in src and "BASELINE_BANDS" in src
     assert main.ROOM_NO_BASELINE == len(main.BASELINE_BANDS) == 5
+
+
+def test_the_page_reads_the_cached_route_and_the_route_caches_an_hour():
+    """ROOM-1b: the page reads its data through Vercel's cache, never the
+    backend directly, and an error is never cached."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    page = (root / "frontend" / "public" / "room" / "index.html").read_text(encoding="utf-8")
+    assert re.findall(r'window\.ROOM_DATA_URL = "([^"]+)"', page) == ["/api/room/latest"]
+    assert page.count('rel="canonical"') == 1 and " 2026" not in page.split("<script type=\"module\">")[1]
+    route = (root / "frontend" / "src" / "app" / "api" / "room" / "latest" / "route.ts").read_text(encoding="utf-8")
+    assert "'public, s-maxage=3600, stale-while-revalidate=86400'" in route
+    assert route.count("'Cache-Control': 'no-store'") == 2 and "/api/room/latest" in route

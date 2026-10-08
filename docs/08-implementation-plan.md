@@ -389,6 +389,19 @@ line that sets `window.ROOM_DATA_URL`. No YouTube quota; Printify untouched.
   "The Breakout Room"` >= 1 and `/api/room/latest` returns more than 0
   videos.
 
+### ROOM-1b — the room through Vercel's cache; the owner's fixes *(08/10/2026)*
+The room's data through `frontend/src/app/api/room/latest` (CDN, an hour,
+stale-while-revalidate); the owner's new page plus the data line, the raised
+arms from the shoulders and the phone legend top-left; the home archive's
+phone rows: status, VPI · level and views on one row, the buttons right
+below.
+
+- **Closing check**: `curl -s https://iosaresearch.org/room | grep -c
+  'rel="canonical"'` prints 1; the second of two requests to
+  `/api/room/latest` answers from the cache (`age` or `x-vercel-cache: HIT`);
+  the room opens with no console errors; a 412 px screenshot of the home
+  archive shows three values on one row and the buttons right below.
+
 ### SEO-1 — a canonical on every indexable page *(08/10/2026)*
 Search Console, 07/10: "Duplicate without user-selected canonical" (the home
 had none, and HomeArchive writes filters and page into the URL) and "Not

@@ -89,7 +89,11 @@ band, never pooled. Data from a new read-only endpoint, `/api/room/latest`
 and `/api/room?from=` (`02` §6.8), refreshed with every complete reading. No
 quota, no change to the method or to any record.
 
-- *(Corrected: `02` §6.8 new; `08` ROOM-1.)*
+- **ROOM-1b** (owner, 08/10): the data goes through Vercel's cache (an hour,
+  stale-while-revalidate); the owner's new page (canonical, the period's
+  year from the data); raised arms from the shoulders; on phones the colour
+  legend moves top-left; the home archive's phone rows on one line.
+- *(Corrected: `02` §6.8 new; `08` ROOM-1, ROOM-1b.)*
 
 ### 4 October 2026 — FMT-1: a Short is what YouTube calls a Short (Migert)
 
