@@ -366,7 +366,7 @@ const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreferenc
 const LOW = innerWidth < 700 || (navigator.hardwareConcurrency || 8) <= 4;
 renderer.setPixelRatio(LOW ? 1 : Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.NoToneMapping;   // colours exactly as defined: the logo cyan, the legend's level colours
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#06050a');
 scene.fog = new THREE.FogExp2('#06050a', 0.0042);
@@ -377,8 +377,8 @@ controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 2.5; controls.ma
 controls.screenSpacePanning = false;
 controls.autoRotate = !REDUCED; controls.autoRotateSpeed = 0.35;
 
-scene.add(new THREE.HemisphereLight('#7a6cff', '#000000', 0.55));
-const dl = new THREE.DirectionalLight('#b9b2ff', 0.6); dl.position.set(-40, 80, 60); scene.add(dl);
+scene.add(new THREE.HemisphereLight('#ffffff', '#4a4560', 1.1));
+const dl = new THREE.DirectionalLight('#ffffff', 1.1); dl.position.set(-40, 80, 60); scene.add(dl);
 
 // floor
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(totalW * 4, totalW * 4), new THREE.MeshStandardMaterial({color:'#07060c', roughness:0.95}));
@@ -425,8 +425,7 @@ function tvColors(v, scr, cab) {
   const lv = level(v);
   if (v == null) { scr.set(OFF); cab.set('#100e17'); return; }
   if (!lv) { scr.set(NOLEVEL); cab.set('#1b1828'); return; }
-  scr.set(lv[3]); cab.set(lv[3]).lerp(dark, lv[1] === 1 ? 0.78 : 0.72);
-  scr.multiplyScalar(lv[1] >= 5 ? 1.6 : lv[1] >= 2 ? 1.35 : 0.85);
+  scr.set(lv[3]); cab.set(lv[3]).lerp(dark, lv[1] === 1 ? 0.45 : 0.35);
 }
 
 // creators: a brand-cyan figure with arms and legs; creators whose best video reaches Breakout (lvl 5+) raise their arms
@@ -448,7 +447,7 @@ function figureGeo(cheer) {
   for (const p of parts) p.deleteAttribute('uv');
   return BU.mergeGeometries(parts);
 }
-const figMat = new THREE.MeshBasicMaterial({color:new THREE.Color('#00E5FF').multiplyScalar(0.5), toneMapped:false});
+const figMat = new THREE.MeshBasicMaterial({color:'#00E5FF', toneMapped:false});
 const figs = [new THREE.InstancedMesh(figureGeo(false), figMat, N), new THREE.InstancedMesh(figureGeo(true), figMat, N)];
 for (const f of figs) { f.frustumCulled = false; scene.add(f); }
 let figStack = [new Int32Array(N), new Int32Array(N)];
