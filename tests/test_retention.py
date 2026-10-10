@@ -23,7 +23,7 @@ from tests.pg_client import PgClient
 
 D0 = date(2026, 1, 5)
 COLUMNS = {"day", "video_id", "channel_id", "format", "published_at", "views",
-           "countries", "categories", "duration_s", "shape", "live"}
+           "countries", "categories", "duration_s", "shape", "live", "slices"}
 
 
 def d(n):

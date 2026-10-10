@@ -342,6 +342,40 @@ again (04/10/2026):
 | Short-by-duration items in `channel_inventory`, all channels | 311,932 | ~6,240 |
 | of which near the windows of the 16,011 v2 long-form records (8,308 channels; window approximated per channel as the union of its records' windows) | 139,586 | ~2,790 |
 
+## 12. One video per channel per category chart *(measured 10/10/2026, SOC-2)*
+
+**Raw API responses, 25 non-music slices and 5 music slices**, read on
+10/10/2026 00:37-00:38 UTC (`videos.list chart=mostPopular`, `part=snippet`,
+every page, no deduplication, no filter; `tools/check_one_per_channel.py`,
+output `tools/output/soc2_one_per_channel_2026-10-10.json`; 97 units through
+the quota brake, in `quota_ledger` as `measurement`). The 25 non-music slices
+cover the 11 non-music categories that return data, 1-3 countries each, the
+largest slices of each category on 08/10 among them; all 30 answered.
+
+| | Slices | Items | Channel-slice pairs | Pairs with ≥2 videos | Slices with one |
+|---|---|---|---|---|---|
+| Non-music | 25 | 4,354 | 4,354 | **0** | 0 |
+| Music (category 10) | 5 | 150 | 133 | **12** | 5 of 5 |
+
+In every non-music slice read, every item is a different channel (items =
+distinct channels, 53 to 200 per slice). In every music slice, two or three
+videos of the same channel appear (US 4 channels, KR 4, IN 2, JP 1, BR 1;
+channel and video ids in the output).
+
+**From the snapshot, 30/09-06/10** (before this measurement): among videos
+listed in a single category, 302,581 non-music channel × country × category
+× day cells, none with two videos of the same channel; music, 595 of 6,010.
+Videos listed in more than one category could not be placed in an exact
+slice (`countries[]` and `categories[]` are two separate sets): 2,382
+non-music cells came out of the cross product, real or artifacts. From the
+reading of 10/10 `trend_snapshot.slices` holds the exact pairs (`02` §3.1),
+so the same count can be made on every slice of a day, at no quota cost.
+
+What this claims, exactly: on the slices read, a non-music Most Popular
+category chart listed no channel twice; music charts do. It is a property of
+the charts as YouTube returns them: `census.read_charts` deduplicates by
+video id only, reads every page and filters nothing by channel.
+
 ---
 
 *All measurements run with the project's API key from Migert's machine.

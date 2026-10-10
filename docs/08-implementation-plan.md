@@ -412,6 +412,16 @@ found (404)" (the ones reproduced are intentional). `02` §6.9.
   controls each failing; after the deploy `python tests/check_seo.py` prints
   OK (every sitemap URL 200 with its own canonical, `/?page=2` -> `/`).
 
+### SOC-2 — exact chart slices; one video per channel per chart *(10/10/2026)*
+Owner's go-ahead 08/10, confirmed 10/10 with up to 120 units. The snapshot
+stores the exact `country:category` pairs of each video; a one-off raw read
+of 30 slices counts channels with two or more videos per slice (`03` §12).
+
+- **Closing check**: a unit test (`_merge` keeps the exact pairs of a video
+  returned by two slices of different country and category, and the snapshot
+  writes them); the script's output committed with the note in `03`;
+  `pytest -q` green; `check_run` green; bytes added per day reported.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 

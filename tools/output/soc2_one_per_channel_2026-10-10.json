@@ -1,0 +1,411 @@
+{
+ "started": "2026-10-10T00:37:08+00:00",
+ "finished": "2026-10-10T00:38:04+00:00",
+ "units": 97,
+ "units_max": 120,
+ "non_music": {
+  "slices": 25,
+  "items": 4354,
+  "channel_slice_pairs": 4354,
+  "with_2plus": 0,
+  "slices_with_2plus": 0
+ },
+ "music": {
+  "slices": 5,
+  "items": 150,
+  "channel_slice_pairs": 133,
+  "with_2plus": 12,
+  "slices_with_2plus": 5
+ },
+ "not_ok": [],
+ "slices": [
+  {
+   "slice": "JP:1",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "US:1",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "IT:1",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "KR:2",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 199,
+   "distinct_ids": 199,
+   "channels": 199,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "DE:2",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "ID:15",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "GB:15",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "US:17",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 199,
+   "distinct_ids": 199,
+   "channels": 199,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "TR:17",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 197,
+   "distinct_ids": 197,
+   "channels": 197,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "BR:17",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 199,
+   "distinct_ids": 199,
+   "channels": 199,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "FR:20",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 158,
+   "distinct_ids": 158,
+   "channels": 158,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "IN:20",
+   "music": false,
+   "status": "ok",
+   "pages": 3,
+   "items": 96,
+   "distinct_ids": 96,
+   "channels": 96,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "JP:20",
+   "music": false,
+   "status": "ok",
+   "pages": 2,
+   "items": 91,
+   "distinct_ids": 91,
+   "channels": 91,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "ES:22",
+   "music": false,
+   "status": "ok",
+   "pages": 2,
+   "items": 53,
+   "distinct_ids": 53,
+   "channels": 53,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "US:22",
+   "music": false,
+   "status": "ok",
+   "pages": 2,
+   "items": 69,
+   "distinct_ids": 69,
+   "channels": 69,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "TH:23",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "IT:23",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "PL:24",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "GB:24",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "MX:24",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "ID:25",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 165,
+   "distinct_ids": 165,
+   "channels": 165,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "US:25",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 183,
+   "distinct_ids": 183,
+   "channels": 183,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "IN:26",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "KR:26",
+   "music": false,
+   "status": "ok",
+   "pages": 4,
+   "items": 200,
+   "distinct_ids": 200,
+   "channels": 200,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "VN:28",
+   "music": false,
+   "status": "ok",
+   "pages": 3,
+   "items": 145,
+   "distinct_ids": 145,
+   "channels": 145,
+   "channels_2plus": 0,
+   "multi": {}
+  },
+  {
+   "slice": "US:10",
+   "music": true,
+   "status": "ok",
+   "pages": 1,
+   "items": 30,
+   "distinct_ids": 30,
+   "channels": 25,
+   "channels_2plus": 4,
+   "multi": {
+    "UCKrdjiuS66yXOdEZ_cOD_TA": [
+     "SGMbCKKW4P8",
+     "qePuy07EjnE"
+    ],
+    "UCU6cE7pdJPc6DU2jSrKEsdQ": [
+     "eJFi2TK5174",
+     "6gRbAU4Puek",
+     "bzO58iQM19g"
+    ],
+    "UCqECaJ8Gagnn7YCbPEzWH6g": [
+     "mw3kSNIxjqo",
+     "jfVVXYTZykw"
+    ],
+    "UCyV6Dt_Cqin0ooyBgFUFyug": [
+     "latoFZRkOn4",
+     "ZdTkGR_bNn0"
+    ]
+   }
+  },
+  {
+   "slice": "JP:10",
+   "music": true,
+   "status": "ok",
+   "pages": 1,
+   "items": 30,
+   "distinct_ids": 30,
+   "channels": 29,
+   "channels_2plus": 1,
+   "multi": {
+    "UCpFgmZm65yOU5X-hmWkWjuw": [
+     "zq9B35oai2w",
+     "gaf-pO2PdO8"
+    ]
+   }
+  },
+  {
+   "slice": "IN:10",
+   "music": true,
+   "status": "ok",
+   "pages": 1,
+   "items": 30,
+   "distinct_ids": 30,
+   "channels": 27,
+   "channels_2plus": 2,
+   "multi": {
+    "UC3XBkDeCVXCoCofFgfUZXGw": [
+     "Pd1yGW_g2T8",
+     "gpkYsJighUY"
+    ],
+    "UC68nKdrLbLL0Vj7ilVkLmmg": [
+     "5vrntlvQor8",
+     "ehuDqQBVq40",
+     "iIXs4yxUvrQ"
+    ]
+   }
+  },
+  {
+   "slice": "BR:10",
+   "music": true,
+   "status": "ok",
+   "pages": 1,
+   "items": 30,
+   "distinct_ids": 30,
+   "channels": 29,
+   "channels_2plus": 1,
+   "multi": {
+    "UCJlw9bI6UlAiNOOiddnx3OQ": [
+     "9sq_PuUWc1k",
+     "BO32LiDyJ5E"
+    ]
+   }
+  },
+  {
+   "slice": "KR:10",
+   "music": true,
+   "status": "ok",
+   "pages": 1,
+   "items": 30,
+   "distinct_ids": 30,
+   "channels": 23,
+   "channels_2plus": 4,
+   "multi": {
+    "UCL2Iir3iWo3SA6O3PuVjFWw": [
+     "-JInUb_G6Jc",
+     "rr_mHc_Cvyw",
+     "CbVqeMUJDr8"
+    ],
+    "UCM3RQ31cVYqRJNd5VeIl_VQ": [
+     "ZnPMTLKEh9g",
+     "RHc2-jncx4w"
+    ],
+    "UCiUFfUMn94eDs0jA-xZXVWw": [
+     "JqdlzX5zFzg",
+     "8CCOcYXiV-I",
+     "5_R8DlWZf_Q"
+    ],
+    "UCwPpkv2G2jCAI7bFv7dADWg": [
+     "C8j3hMJIeFg",
+     "UC6Al_Ha-kw",
+     "LEyldGY4ggM"
+    ]
+   }
+  }
+ ]
+}

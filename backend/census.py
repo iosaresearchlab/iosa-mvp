@@ -69,13 +69,14 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
 
     videos: {video_id: {channel_id, format, published_at, views,
                         countries: set, categories: set,
-                        title, channel_title, first_slice,
+                        title, channel_title, first_slice, slices,
                         duration_s, shape, live}}
     format is vpi_core.formato() (FMT-1, 01 section 1.1): SHORT, LONG or
     UNKNOWN (shape not returned: kept in the snapshot, never measured,
     counted once per video in discards.unknown_shape).
     first_slice = (country, category) of the first slice, in processing
     order, that returned the video: the record's primary country/category.
+    slices = every slice that returned it, as 'country:category' (SOC-2).
 
     One call per page (part=snippet,contentDetails,statistics,player,
     liveStreamingDetails, maxHeight=1000, maxResults=50: 1 unit whatever
@@ -194,6 +195,10 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
         for f in [pool.submit(read_slice, c, k) for c, k in slices]:
             f.result()
     for v in videos.values():
+        # SOC-2 (10/10/2026): the exact country:category pairs that returned
+        # the video, stored in the snapshot; countries[] and categories[] are
+        # two separate sets and cannot say which country went with which.
+        v["slices"] = slice_labels(v["_slices"])
         v["first_slice"] = min(v.pop("_slices"), key=order.__getitem__)
 
     report["quota_charts"] = quota.per_endpoint["charts"]
@@ -204,6 +209,12 @@ def read_charts(countries, categories, api_key=None, *, workers=WORKERS,
                           and not stop.is_set())
     report["outcome"] = "ok" if report["complete"] else "partial"
     return videos, report
+
+
+def slice_labels(pairs) -> list[str]:
+    """'IT:24' for each (country, category) pair, sorted by country then
+    category number."""
+    return [f"{c}:{k}" for c, k in sorted(pairs, key=lambda p: (p[0], int(p[1])))]
 
 
 def _reason(res):
@@ -276,6 +287,7 @@ def save_snapshot(client, day: date, videos: dict) -> int:
         "duration_s": v.get("duration_s"),
         "shape": v.get("shape"),
         "live": v.get("live"),
+        "slices": v.get("slices"),
     } for vid, v in sorted(videos.items())]
     for i in range(0, len(rows), SNAPSHOT_BATCH):
         client.table("trend_snapshot").upsert(rows[i:i + SNAPSHOT_BATCH]).execute()

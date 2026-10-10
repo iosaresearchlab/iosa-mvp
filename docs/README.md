@@ -69,6 +69,17 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 10 October 2026 — SOC-2: one video per channel per chart, measured (Migert)
+
+Before saying in public that a Most Popular category chart lists one video
+per channel, the count is made exact: 25 non-music slices read raw, 4,354
+channel-slice pairs, none with two videos of the same channel; music, 12 of
+133 (`03` §12). The snapshot now stores the exact slices of each video
+(`trend_snapshot.slices`, `02` §3.1). No change to the method, the
+population or any record.
+
+- *(Corrected: `02` §3.1; `03` §12 new; `08` SOC-2.)*
+
 ### 8 October 2026 — SEO-1: a canonical on every indexable page (Migert)
 
 Search Console (07/10) reported pages not indexed as "Duplicate without

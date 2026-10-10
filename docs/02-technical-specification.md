@@ -155,6 +155,12 @@ alter table public.trend_snapshot enable row level security;
 -- no policy: only the service role writes here
 ```
 
+*(SOC-2, 10/10/2026)* `slices text[]`: the exact `country:category` pairs
+that returned the video (`census._merge`), from the first reading after the
+deploy; earlier rows null. `countries` and `categories` stay as they are,
+but they are two separate sets and cannot say which country went with which
+category. Archived with the row (`snapshot_export` is `to_jsonb` of it).
+
 **Retention: 7 days, no exception** (implemented 28/09/2026,
 `backend/retention.py`, migration `v2_ret1_snapshot_retention`). The window
 is the reading day and the six before it; every older day is removed, one

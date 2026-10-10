@@ -175,6 +175,28 @@ def test_dedup_across_slices(api):
     assert rep["videos_seen"] == 2 and rep["channels_seen"] == 1
 
 
+def test_the_exact_slices_of_a_video_in_two_countries_and_two_categories(api):
+    """SOC-2: a in IT:24 and US:10 only. countries x categories would also
+    give IT:10 and US:24, which never returned it; slices keeps the two."""
+    api({("IT", "24"): [[item("a"), item("b")]],
+         ("US", "10"): [[item("a")]],
+         ("IT", "10"): [[item("c")]],
+         ("US", "24"): [[item("d")]]})
+    videos, _ = run(["IT", "US"], ["24", "10"])
+    assert videos["a"]["countries"] == {"IT", "US"} and videos["a"]["categories"] == {"24", "10"}
+    assert videos["a"]["slices"] == ["IT:24", "US:10"]
+    assert videos["b"]["slices"] == ["IT:24"] and videos["c"]["slices"] == ["IT:10"]
+    assert "_slices" not in videos["a"] and videos["a"]["first_slice"] in {("IT", "24"), ("US", "10")}
+    db = RecordingClient()
+    census.save_snapshot(db, date(2026, 10, 10), videos)
+    rows = {r["video_id"]: r for op in db.ops if op[0] == "upsert" for r in op[2]}
+    assert rows["a"]["slices"] == ["IT:24", "US:10"] and rows["d"]["slices"] == ["US:24"]
+
+
+def test_slice_labels_sort_by_country_then_category_number():
+    assert census.slice_labels({("US", "10"), ("IT", "24"), ("IT", "2")}) == ["IT:2", "IT:24", "US:10"]
+
+
 def test_call_count_for_a_three_country_fixture_is_exact(api):
     # IT: 3 + 1 + 404  | US: 2 + 1 + 1 | DE: 404 + 1 + (5xx, 5xx, ok)
     slices = {
