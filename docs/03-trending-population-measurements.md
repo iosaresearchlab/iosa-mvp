@@ -371,8 +371,21 @@ non-music cells came out of the cross product, real or artifacts. From the
 reading of 10/10 `trend_snapshot.slices` holds the exact pairs (`02` §3.1),
 so the same count can be made on every slice of a day, at no quota cost.
 
-What this claims, exactly: on the slices read, a non-music Most Popular
-category chart listed no channel twice; music charts do. It is a property of
+**Every slice of a day, from `slices` (reading of 10/10/2026, 0 units)**:
+all 414 slices that answered (28 answered 404), all formats, 27,498 videos;
+no item discarded by the census that day.
+
+| | Slices | Items | Channel-slice pairs | Pairs with ≥2 videos | Slices with one |
+|---|---|---|---|---|---|
+| Non-music | 380 | 61,126 | 61,126 | **0** | 0 |
+| Music (category 10) | 34 | 989 | 869 | **82** | 34 of 34 (up to 6 videos) |
+
+Query: `unnest(slices)` per video of `trend_snapshot` day 2026-10-10, grouped
+by channel and slice.
+
+What this claims, exactly: on the slices read raw and on every slice of
+10/10, a non-music Most Popular category chart listed no channel twice;
+music charts do. It is a property of
 the charts as YouTube returns them: `census.read_charts` deduplicates by
 video id only, reads every page and filters nothing by channel.
 
