@@ -574,8 +574,8 @@ def test_only_the_service_role_writes_the_recovery_tables(db):
                     "'execute'), has_function_privilege('service_role', "
                     "'public.fmt2_replace_baseline(uuid, jsonb)', 'execute')")
         assert cur.fetchone() == (False, True)
-        cur.execute("select schedule, command from cron.job where jobname = 'recupero-fmt2'")
-        assert cur.fetchone() == ("0 6 * * *", "select public.chiedi_recupero_fmt2()")
+        cur.execute("select count(*) from cron.job where jobname = 'recupero-fmt2'")
+        assert cur.fetchone() == (0,)                            # FMT-2 closed, 15/10/2026
 
 
 def test_the_run_stops_before_the_quota_day_ends(world):

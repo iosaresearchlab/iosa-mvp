@@ -92,7 +92,12 @@ are measured as of the day they were first observed, and the records opened
 under the old rule are checked, and recomputed where their baseline samples
 change. Baselines read in this recovery are read late, and recorded as such
 (`baseline_computed_at`). It runs on the quota the daily reading leaves
-unused (`02` §4.10); its end is declared with its date.
+unused (`02` §4.10); its end is declared with its date. **It ended on 15
+October 2026.** Every record from the start of the series follows the rule
+except 75, whose check cannot be complete because an item of their baseline
+window is no longer returned by the API (deleted or made private since): they
+keep the duration-only rule (`format_rule = 'duration_180'`) and are listed
+in `fmt2_left`.
 
 *(Replaces the duration-only rule, "Shorts ≤180s", in force from 23/09 to
 04/10/2026. Owner decision, 04/10/2026.)*

@@ -95,6 +95,9 @@ returns bigint language sql as
    on conflict (jobname) do update set schedule = excluded.schedule,
      command = excluded.command, active = true
    returning jobid';
+create function cron.unschedule(job_name text)
+returns boolean language sql as
+  'delete from cron.job where jobname = $1 returning true';
 create schema if not exists extensions;
 create schema storage;
 create table storage.buckets (id text primary key, name text not null,

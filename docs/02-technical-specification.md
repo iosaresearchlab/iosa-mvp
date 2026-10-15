@@ -1067,6 +1067,18 @@ units of shapes plus ~2,100 of baselines (~700 records); phase 2 ~2,800 of
 shapes plus ~2,400 of views. About 8,000 units, 4 to 8 days at the
 1,000-2,900 units a night has left so far.
 
+**Measured** (FMT-2 closed 15/10/2026; `fmt2_run`, one row per run): ten
+runs, 06/10-15/10, **21,860 units** — 2,722, 746, 2,238, 2,520, 3,702,
+1,378, 2,566, 2,571, 1,580 and 1,837, each at or under its budget. Phase 1:
+the days 27/09-03/10 replayed, 620 records opened. Phases 2 and 3: 2,023
+baselines changed, each with its old values in `fmt2_history`. Phase 3:
+13,079 playlist pages and 2,446 `videos.list` calls, against the estimate of
+~5,300 pages and ~1,700 calls (below): the pages were 2.5 times the
+estimate. The estimate of ~8,000 units covered phases 1 and 2 only; phase 3
+was added afterwards. Left under the old rule: 75 records, all in
+`fmt2_left` with an item no longer returned. The `pg_cron` entry was removed
+by migration `20261015071358`.
+
 **Out of FMT-2** (architect, 04/10/2026). *Night 1*: the records entered
 before `INDEX_START_DATE` (6,138, reference only) keep `duration_180`; phase
 2 does not read them.

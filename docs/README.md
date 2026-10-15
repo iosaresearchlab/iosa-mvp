@@ -69,6 +69,23 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 15 October 2026 — FMT-2 closed: the past is under the rule
+
+- **The recovery ended on 15/10/2026**, after ten runs on the quota the
+  daily reading left (06/10-15/10, 21,860 units; `02` §4.10, *Measured*).
+  620 records opened for long-form videos the old rule had left out, 2,023
+  baselines recomputed, every old value in `fmt2_history`.
+- **Final count left under the old rule: 75 records** from the start of the
+  series, all in `fmt2_left`: an item of their baseline window is no longer
+  returned by the API, so their check cannot be complete. They keep
+  `format_rule = 'duration_180'` (`01` §1.1).
+- **The estimate was low.** ~8,000 units were estimated for phases 1 and 2;
+  phase 3, added afterwards, needed 13,079 playlist pages against ~5,300.
+- The `pg_cron` entry `recupero-fmt2` is removed (migration
+  `20261015071358`); the endpoint and the tables stay as the record and the
+  rollback.
+- *(Corrected: `01` §1.1; `02` §4.10; `08` FMT-2.)*
+
 ### 10 October 2026 — SOC-2: one video per channel per chart, measured (Migert)
 
 Before saying in public that a Most Popular category chart lists one video

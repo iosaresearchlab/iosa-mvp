@@ -354,7 +354,10 @@ Owner decision (option A): every record from `INDEX_START_DATE` follows `01`
   phase-1 day done in `fmt2_run`, the final count of records left under the
   old rule declared in the correction log, units spent per day reported
   against the estimate of `02` §4.10, the date declared in the correction
-  log, the `pg_cron` entry removed.
+  log, the `pg_cron` entry removed. **Reached 15/10/2026**: 75 records
+  under `duration_180` from `INDEX_START_DATE`, 75 rows in `fmt2_left`;
+  phase-1 days 27/09-03/10 done; 21,860 units in ten runs; phase 3 13,079
+  pages and 2,446 calls; `recupero-fmt2` removed (`20261015071358`).
 - **Rollback**: `fmt2_history` restores every replaced value; records opened
   by phase 1 are identified by `reprocessed_at` and `fmt2_run`.
 
@@ -555,7 +558,7 @@ own closing check above, and are reported as they do:
 | T-23 deferred measurements | spillover needs exits and matched controls | after T-22 |
 | T-25 final review | real distributions in hand, external reviewers | after T-23 |
 | FMT-1 step 3 | the first reading after the deploy | the morning after |
-| FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate) |
+| FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate); **reached 15/10/2026**, after ten runs |
 
 The loop itself ends with T-21.
 
