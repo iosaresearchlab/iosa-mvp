@@ -6,6 +6,10 @@ follows YouTube's definition of a Short, paid only with the quota the daily
 reading leaves unused. One run a day (pg_cron 06:00 UTC -> POST
 /api/recover/run -> run()).
 
+Closed 15/10/2026: the pg_cron entry is removed and fmt2_null_items is
+dropped (migrations 20261015071358, 20261015120600). The module stays as the
+record of what ran; its tests recreate the table they need.
+
 Phase 1, the records never opened: for each day from INDEX_START_DATE to the
 last day read before FMT-1, oldest first, the day's entries (present in its
 snapshot, absent from the last complete reading before it: entries_of_day)

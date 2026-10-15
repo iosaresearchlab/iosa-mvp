@@ -83,7 +83,8 @@ says what to change, `08` says in what order and how each step is proved.
   phase 3, added afterwards, needed 13,079 playlist pages against ~5,300.
 - The `pg_cron` entry `recupero-fmt2` is removed (migration
   `20261015071358`); the endpoint and the tables stay as the record and the
-  rollback.
+  rollback. `fmt2_null_items`, the working list phase 2 read, is dropped
+  (owner's go-ahead, 15/10; migration `20261015120600`, 10.9 MB freed).
 - *(Corrected: `01` §1.1; `02` §4.10; `08` FMT-2.)*
 
 ### 10 October 2026 — SOC-2: one video per channel per chart, measured (Migert)

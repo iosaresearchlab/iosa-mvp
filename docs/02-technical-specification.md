@@ -1077,7 +1077,8 @@ baselines changed, each with its old values in `fmt2_history`. Phase 3:
 estimate. The estimate of ~8,000 units covered phases 1 and 2 only; phase 3
 was added afterwards. Left under the old rule: 75 records, all in
 `fmt2_left` with an item no longer returned. The `pg_cron` entry was removed
-by migration `20261015071358`.
+by migration `20261015071358`, and `fmt2_null_items` dropped
+(`20261015120600`, owner's go-ahead).
 
 **Out of FMT-2** (architect, 04/10/2026). *Night 1*: the records entered
 before `INDEX_START_DATE` (6,138, reference only) keep `duration_180`; phase
@@ -1152,7 +1153,7 @@ leaves a choice, this is the one made:
   Which items were unknown then is held in `fmt2_null_items`, captured at
   13:37 UTC on 04/10, after the FMT-1 migration and before any reading under
   FMT-1 (migration `20261004133725`: 6,202 channels, 231,518 ids, 4.9 MB;
-  dropped when FMT-2 closes; their publication times added by
+  dropped when FMT-2 closed, 15/10/2026, `20261015120600`; their publication times added by
   `20261004154702`). A record with no baseline (`quota_stop`,
   `read_failed`) has no candidate set: rule only. A record is judged at
   most once per run.

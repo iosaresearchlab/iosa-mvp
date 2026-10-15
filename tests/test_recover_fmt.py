@@ -138,6 +138,10 @@ def world(db):
             rsps.add_callback(responses.GET, f"https://www.googleapis.com/youtube/v3/{ep}", callback=fake)
         client = PgClient(db)
         storage = retention.MemoryStorage()
+        with db.cursor() as cur:
+            # dropped when FMT-2 closed (20261015120600): recreated as it was, for the code that read it
+            cur.execute("create table fmt2_null_items (channel_id text primary key, "
+                        "ids text[] not null, taken_at timestamptz not null default now(), epochs bigint[])")
         _days(db, client, storage)
         yield fake, client, db, storage
 
@@ -565,7 +569,9 @@ def test_phase1_keeps_at_most_one_full_snapshot_day_in_memory(world, monkeypatch
 
 def test_only_the_service_role_writes_the_recovery_tables(db):
     with db.cursor() as cur:
-        for t in ("quota_ledger", "fmt2_run", "fmt2_history", "fmt2_null_items", "fmt2_left"):
+        cur.execute("select to_regclass('public.fmt2_null_items')")
+        assert cur.fetchone() == (None,)                         # dropped when FMT-2 closed
+        for t in ("quota_ledger", "fmt2_run", "fmt2_history", "fmt2_left"):
             cur.execute("select relrowsecurity from pg_class where oid = %s::regclass", (f"public.{t}",))
             assert cur.fetchone() == (True,), t
             cur.execute("select count(*) from pg_policies where tablename = %s", (t,))
