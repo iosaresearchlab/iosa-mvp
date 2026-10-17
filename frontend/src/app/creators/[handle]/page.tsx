@@ -5,7 +5,7 @@ import { OutlierList } from '@/components/OutlierList';
 import { recordDelCreator } from '@/lib/supabase-server';
 import { handleDaSlug, SITO } from '@/lib/segments';
 
-export const revalidate = 3600;
+export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel Hobby limit (212K of 200K ISR writes a month); 6 h keeps pages at most 6 h behind the daily reading
 
 // Nessuna pagina viene precompilata: sono migliaia e verrebbero costruite
 // tutte a ogni deploy. Vengono generate alla prima visita e poi tenute in

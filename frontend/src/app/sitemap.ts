@@ -11,7 +11,7 @@ import {
 } from '@/lib/segments';
 import { SERIES_FLOOR } from '@/lib/index-start';
 
-export const revalidate = 3600;
+export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel Hobby limit (212K of 200K ISR writes a month); 6 h keeps pages at most 6 h behind the daily reading
 
 /** Creator con almeno due record, in classifica o usciti: sotto non c'e' contenuto a sufficienza. */
 const MIN_OUTLIER = 2;
