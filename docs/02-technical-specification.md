@@ -564,6 +564,28 @@ indexes, over rows):
   channels already in it rises (186 of 1,898 on 27/09). Re-measure with the
   script, not by extrapolation.
 
+**Re-measured 20/10/2026 (FIX-1h)** with the same script on the reading of
+2026-10-19 (output: `docs/db-growth-2026-10-20.txt`):
+
+| table | rows | bytes per row | rows per day | MiB per day |
+|---|---|---|---|---|
+| `posts` | 52,877 | 1,711 | 2,005 records | 3.27 |
+| `post_daily` | 183,189 | 192 | 7,524 (one per active record) | 1.38 |
+| `channel_inventory` | 16,287 | 3,158 | 275 channels not already in it | 0.83 |
+| `trend_snapshot` | 186,857 | 395 | 26,498 | 9.97, capped at 7 days (held) |
+
+- Database: **263.7 MiB**. Growth with the snapshot capped: **5.48 MiB a day**
+  (it was 9.9 on 28/09: `channel_inventory` adds 275 channels a day, not 1,712,
+  and `posts` rows are smaller after §3.6).
+- Runway from 20/10/2026: the 400 MiB alarm in **~25 days (about 14 November)**,
+  the 500 MB limit in **~43 days (about 2 December)**; `posts` alone in ~72
+  days. `posts` grows ~1.2 GiB a year.
+- One day's rates, as before. Not in them: the deletion of the `post_daily`
+  rows of records closed for 30 days (§3.6 aggregation, which starts at the
+  end of October and slows that table), and dead space a vacuum returns. The
+  owner's two-point reading (241 MB on 15/10, 262 on 20/10, ~4 MB a day,
+  mid-December) is in the same range.
+
 **Whose decision.** The choice between a larger tier and a smaller scope is
 the owner's, and he takes it as the limit approaches. Nothing is engineered
 around it in the meantime, and **records are never deleted to make room**.

@@ -69,6 +69,13 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1h: database runway re-measured
+
+- **263.7 MiB, 5.48 MiB a day** (measured, `docs/db-growth.sql` on 19/10): the
+  400 MiB alarm about 14 November, the 500 MB limit about 2 December. Larger
+  plan or smaller scope is the owner's decision; no record is deleted.
+- *(Corrected: `02` §3.8; output in `docs/db-growth-2026-10-20.txt`.)*
+
 ### 20 October 2026 — FIX-1f: X texts counted as X counts them
 
 - **Twice on 19/10 the prepared X text was over 280** and the Post button

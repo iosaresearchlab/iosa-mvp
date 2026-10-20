@@ -1,0 +1,16 @@
+docs/db-growth.sql, reading day 2026-10-19, run 2026-10-20 16:1x UTC on project jodgdhkfkgvbyirvfcds
+(Supabase MCP execute_sql; the first line of the script set to date '2026-10-19'). Output, verbatim:
+
+tbl                | n       | per_day | bytes_per_row | mib_per_day
+channel_inventory  |  16,287 |     275 |         3,158 |        0.83
+post_daily         | 183,189 |   7,524 |           192 |        1.38
+posts              |  52,877 |   2,005 |         1,711 |        3.27
+trend_snapshot     | 186,857 |  26,498 |           395 |        9.97
+
+db_mib                    263.7
+mib_day_now               15.45   (every table)
+mib_day_after_cap          5.48   (trend_snapshot already capped at 7 days: snapshot_days_to_cap 0)
+days_to_400                25     (the nightly check's alarm: about 14 Nov 2026)
+days_to_500                43     (the free-tier limit: about 2 Dec 2026)
+days_to_500_posts_only     72
+posts_gib_per_year         1.17
