@@ -191,3 +191,20 @@ def test_no_credential_ever_printed(work, monkeypatch, capsys):
     assert "SECRET-TOKEN" not in err and "access_token=***" in err
     assert pa._redact('{"accessJwt": "abc.def", "x": 1}') == '{"accessJwt": "***", "x": 1}'
     assert pa._redact("Authorization: Bearer abc123") == "Authorization: Bearer ***"
+
+
+@pytest.mark.parametrize("card, example, keys", [
+    ("card_breakout_chart.html", "example_breakout_chart.json", ("title", "usual", "baseline", "this")),
+    ("card_breakout_why.html", "example_breakout_why.json", ("why", "title")),
+])
+def test_carousel_slides_have_an_example(card, example, keys):
+    """Carousel slides 2 and 3 (20/10/2026): each template ships with an example that
+    render_card.py can render; the chart example carries the videos.list read."""
+    assert (SOCIAL / "templates" / card).is_file()
+    d = json.loads((SOCIAL / "templates" / example).read_text(encoding="utf-8"))
+    for k in keys:
+        assert d.get(k), (example, k)
+    if "baseline" in d:
+        assert all(b["v"] >= 0 and b["d"] < d["this"]["d"] for b in d["baseline"])
+        vs = sorted(b["v"] for b in d["baseline"])
+        assert d["usual"] > 0 and vs[0] <= d["usual"] <= vs[-1]

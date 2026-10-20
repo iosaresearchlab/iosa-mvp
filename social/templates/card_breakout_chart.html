@@ -1,0 +1,118 @@
+<!doctype html><html><head><meta charset="utf-8"><title>IOSA breakout · usual vs this one</title>
+<!-- Instagram carousel slide 2 of a breakout (owner, 20/10/2026): the views of the channel's
+     baseline videos, as read with videos.list for the baseline check, as bars; the usual
+     (the record's frozen baseline, the median when the video was first observed) as a line;
+     this video's bar highlighted with its views and the reading date. Same look as
+     card_breakout.html. Rendered by render_card.py; example: example_breakout_chart.json.
+     Data: where, title, who, usual (number), usual_label, baseline [{d, v}], this {d, v, as_of},
+     x (the multiple, text), read_on (day of the videos.list read), src (optional footnote). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;800;900&display=swap">
+<style>
+  :root{--ground:#0d1117;--surface:#161c26;--line:#26303d;--ink:#eef3f8;--muted:#8496a8;--accent:#00e5ff;--amber:#ffb020;--dim:#2a3442;--bar:#4a5868;}
+  html,body{margin:0;}
+  body{background:var(--ground);color:var(--ink);font-family:"Inter",sans-serif;-webkit-font-smoothing:antialiased;}
+  .card{display:flex;background:radial-gradient(900px 600px at 80% 12%, rgba(0,229,255,.12), transparent 60%), radial-gradient(800px 600px at 10% 95%, rgba(255,176,32,.07), transparent 60%), var(--ground);width:1080px;height:1350px;box-sizing:border-box;padding:72px 72px 56px;flex-direction:column;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+  .eyebrow{font-size:20px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;}
+  .eyebrow b{color:var(--accent);font-weight:700;}
+  .vt{margin-top:44px;font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .title{margin:0;font-size:46px;line-height:1.16;font-weight:800;letter-spacing:-.015em;color:var(--ink);
+         display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .who{margin:14px 0 0;font-size:28px;font-weight:500;color:var(--muted);}
+  .who strong{color:var(--ink);font-weight:800;}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;}
+  .head .lab{font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  .head .x{font-weight:900;font-size:64px;letter-spacing:-.03em;color:var(--accent);line-height:1;text-shadow:0 0 40px rgba(0,229,255,.35);}
+  .chart{position:relative;flex:none;height:560px;margin-top:18px;}
+  .grow{flex:1;}
+  svg{display:block;}
+  .xaxis{display:flex;align-items:center;gap:10px;font-size:18px;color:var(--muted);letter-spacing:.06em;margin-top:6px;}
+  .xaxis svg{flex-shrink:0;}
+  .src{margin:18px 0 0;font-size:17px;color:var(--muted);line-height:1.5;}
+  footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:24px;margin-top:24px;}
+  .mark{display:block;font-weight:700;font-size:20px;}
+  .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+  footer > div:last-child{color:var(--muted);font-size:20px;}
+</style></head><body>
+<section class="card" id="card">
+  <div class="eyebrow mono"><span><b>IOSA</b> · Usual vs this one</span><span id="where"></span></div>
+  <div class="vt mono">The video</div>
+  <p class="title" id="title"></p>
+  <p class="who" id="who"></p>
+  <div class="head"><span class="lab mono" id="headlab">Views of the channel's videos</span><span class="x" id="x"></span></div>
+  <div class="chart" id="chart"></div>
+  <div class="xaxis mono">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8496a8" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span>Published, oldest to newest</span>
+  </div>
+  <div class="grow"></div>
+  <p class="src mono" id="src"></p>
+  <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
+</section>
+<script>
+(() => {
+  const D = JSON.parse(new URLSearchParams(location.search).get('d'));
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const full = (n) => Math.round(n).toLocaleString('en-US');
+  const compact = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'K' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n));
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const day = (iso) => { const d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z'); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; };
+
+  $('where').innerHTML = esc(D.where);
+  $('title').textContent = '“' + (D.title || '') + '”';
+  $('who').innerHTML = D.who || '';
+  $('x').textContent = D.x || '';
+  if (D.read_on) $('headlab').textContent = "Views of the channel's videos, read " + day(D.read_on);
+
+  // Bars: the baseline videos by publication date, then this video. One linear scale for all
+  // of them; only when this video is more than BREAK_AT times the tallest baseline bar is its
+  // bar broken (zigzag), so that the baseline bars stay readable. The break is labelled.
+  const BREAK_AT = 25;
+  const base = [...(D.baseline || [])].sort((a, b) => String(a.d).localeCompare(String(b.d)));
+  const me = D.this;
+  const maxBase = Math.max(...base.map((b) => b.v), 1);
+  const broken = me.v > BREAK_AT * maxBase;
+  const W = 936, H = 560;
+  const top = 120, bottom = 34, plotH = H - top - bottom;
+  const scaleMax = broken ? maxBase / 0.62 : Math.max(me.v, maxBase);
+  const y = (v) => top + plotH - Math.min(v / scaleMax, 1) * plotH;
+  const n = base.length + 1, gap = n > 14 ? 8 : 14, gapMe = 34;
+  const bw = (W - gapMe - gap * (n - 2)) / n;
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  svg += `<line x1="0" x2="${W}" y1="${top + plotH}" y2="${top + plotH}" stroke="#26303d" stroke-width="2"/>`;
+  const labelAll = base.length <= 12;
+  const extremes = new Set([base.indexOf(base.reduce((a, b) => (b.v > a.v ? b : a), base[0] || {v: 0})),
+                            base.indexOf(base.reduce((a, b) => (b.v < a.v ? b : a), base[0] || {v: 0}))]);
+  base.forEach((b, i) => {
+    const x = i * (bw + gap), yy = y(b.v);
+    svg += `<rect x="${x}" y="${yy}" width="${bw}" height="${top + plotH - yy}" rx="4" fill="#4a5868"/>`;
+    if (labelAll || extremes.has(i))
+      svg += `<text x="${x + bw / 2}" y="${yy - 10}" fill="#8496a8" font-family="JetBrains Mono" font-size="${bw < 40 ? 15 : 18}" text-anchor="middle">${compact(b.v)}</text>`;
+    if (base.length <= 10 || i === 0 || i === base.length - 1)
+      svg += `<text x="${i === 0 ? x : x + bw / 2}" y="${top + plotH + 26}" fill="#8496a8" font-family="JetBrains Mono" font-size="16" text-anchor="${i === 0 ? 'start' : 'middle'}">${day(b.d)}</text>`;
+  });
+  // this video
+  const xm = W - bw, ym = broken ? top : y(me.v);
+  svg += `<rect x="${xm}" y="${ym}" width="${bw}" height="${top + plotH - ym}" rx="4" fill="#00e5ff" style="filter:drop-shadow(0 0 18px rgba(0,229,255,.55))"/>`;
+  if (broken) {
+    const zy = top + plotH * 0.3;
+    svg += `<path d="M${xm - 6} ${zy} l${bw / 4 + 3} -12 l${bw / 4} 24 l${bw / 4} -24 l${bw / 4 + 3} 12 v14 l${-bw / 4 - 3} -12 l${-bw / 4} 24 l${-bw / 4} -24 l${-bw / 4 - 3} 12 z" fill="#0d1117"/>`;
+  }
+  svg += `<text x="${xm + bw}" y="${ym - 52}" fill="#00e5ff" font-family="Inter" font-weight="900" font-size="44" text-anchor="end">${full(me.v)}</text>`;
+  svg += `<text x="${xm + bw}" y="${ym - 18}" fill="#eef3f8" font-family="JetBrains Mono" font-size="18" text-anchor="end">this video${me.as_of ? ' · as of ' + esc(me.as_of) : ''}</text>`;
+  svg += `<text x="${xm + bw}" y="${top + plotH + 26}" fill="#00e5ff" font-family="JetBrains Mono" font-size="16" text-anchor="end">${day(me.d)}</text>`;
+  // the usual: a dashed line across the baseline bars, labelled
+  const yu = y(D.usual);
+  svg += `<line x1="0" x2="${W - bw - gapMe / 2}" y1="${yu}" y2="${yu}" stroke="#ffb020" stroke-width="3" stroke-dasharray="10 8"/>`;
+  svg += `<rect x="0" y="${yu - 44}" width="${Math.min(470, W - bw - 60)}" height="34" fill="#0d1117" opacity=".85"/>`;
+  svg += `<text x="4" y="${yu - 18}" fill="#ffb020" font-family="JetBrains Mono" font-weight="700" font-size="20">${esc(D.usual_label || 'usual')} · ${full(D.usual)} views</text>`;
+  if (broken)
+    svg += `<text x="${xm - 10}" y="${top + plotH * 0.3 + 6}" fill="#8496a8" font-family="JetBrains Mono" font-size="15" text-anchor="end">bar broken: ${Math.round(me.v / maxBase)}× the tallest bar</text>`;
+  svg += `</svg>`;
+  $('chart').innerHTML = svg;
+  $('src').textContent = D.src || ("Bars: the channel's long-form videos published 7–90 days before this one, views read with the YouTube API"
+    + (D.read_on ? ' on ' + day(D.read_on) : '') + '. Usual: their median when this video was first observed in Most Popular.');
+})();
+</script>
+</body></html>
