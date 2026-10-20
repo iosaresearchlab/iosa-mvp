@@ -1515,6 +1515,18 @@ missing media without touching the network or the spec. Before the move, a
 card rendered through the wrappers matched the old render pixel for pixel
 (`card_top10.html`, `card_breakout.html`: 0 pixels differ).
 
+**Lengths (FIX-1f, 20/10/2026).** `social/xtext.py` counts X's weighted
+length as twitter-text v3 does (`config/v3.json` ported; URLs and bare domains
+on twitter-text's TLD list count 23, emoji sequences 2, code points outside
+the config's ranges 2, NFC first): all 24 v3 length cases of twitter-text's
+conformance file pass, and 90 of its 91 URL-extraction cases (the one left: a
+symbol inside a host). `social/validate_spec.py <spec.json>` rejects a spec
+with X text or reply over 280, Bluesky text over 300 graphemes or images
+without alt text, Threads over 500 characters, an Instagram caption over
+2,200 characters or 30 hashtags, or a named file missing on disk; exit 1 with
+the reasons. `publish_api.py` runs the same checks on the channels still to
+publish before publishing anything: an invalid spec publishes nothing.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and

@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1f: X texts counted as X counts them
+
+- **Twice on 19/10 the prepared X text was over 280** and the Post button
+  stayed disabled: the preparation counted characters, X counts a bare domain
+  as 23 and CJK and emoji as 2. `social/xtext.py` counts as twitter-text v3
+  (its conformance cases pass); `validate_spec.py` rejects a spec any platform
+  would refuse, and `publish_api.py` publishes nothing from an invalid spec.
+- *(Corrected: `02` §6.11; `08` FIX-1.)*
+
 ### 20 October 2026 — FIX-1e: the social tooling is versioned
 
 - **Everything that publishes was outside git** (`renders/`, ignored): no

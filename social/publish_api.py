@@ -4,6 +4,10 @@ Usage (from C:\\Work\\iosa-lab\\renders\\social, through the wrapper there):
     python3 publish_api.py queue/<post>.json            # publish every channel still missing
     python3 publish_api.py queue/<post>.json --only bluesky,threads
     python3 publish_api.py queue/<post>.json --dry-run  # say what would go out; no network, no writes
+
+Before publishing anything the spec is checked (social/validate_spec.py, FIX-1f): X over 280
+weighted, Bluesky over 300 graphemes or without alt text, Threads over 500, an Instagram caption
+over 2,200 characters or 30 hashtags, a named file missing. An invalid spec publishes nothing.
     python3 publish_api.py --refresh-tokens            # extend the Instagram and Threads tokens
 
 The code is versioned in the repo, social/publish_api.py (FIX-1e, 20/10/2026); it works in
@@ -28,7 +32,7 @@ import json, os, re, sys, time, datetime, mimetypes, pathlib, urllib.parse
 import requests
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))  # the repo: social.paths
-from social import paths
+from social import paths, validate_spec
 
 HERE = paths.work()                                        # renders/social: queue and media
 RENDERS = paths.renders()                                  # renders: credentials
@@ -283,13 +287,22 @@ def missing_media(spec):
     return [n for n in names if not (pathlib.Path(n) if pathlib.Path(n).is_absolute() else HERE / n).is_file()]
 
 
+def problems(spec):
+    """FIX-1f: what a platform would refuse, on the channels still to publish (social/validate_spec.py)."""
+    return validate_spec.check(spec, HERE, pending_only=True)
+
+
 def dry_run(spec, sp, only, force_volume):
     print("DRY RUN", sp.name, "- nothing is uploaded, published or written")
     for c, action in plan(spec, sp, only, force_volume):
         print(f"  {c}: {action}")
     miss = missing_media(spec)
     print("  media:", "all present" if not miss else "MISSING " + ", ".join(miss))
-    return 1 if miss else 0
+    bad = problems(spec)
+    print("  spec:", "valid" if not bad else "INVALID")
+    for _, reason in bad:
+        print("    " + reason)
+    return 1 if miss or bad else 0
 
 
 def main():
@@ -306,6 +319,12 @@ def main():
     force_volume = "--force-volume" in sys.argv
     if "--dry-run" in sys.argv:
         sys.exit(dry_run(spec, sp, only, force_volume))
+    bad = problems(spec)
+    if bad:                     # before publishing anything (FIX-1f): fix the spec, then run again
+        print("ERRORE: spec non valida, nulla pubblicato:")
+        for _, reason in bad:
+            print("  " + reason)
+        sys.exit(1)
     res = spec.setdefault("result", {})
 
     def save():

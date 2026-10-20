@@ -12,6 +12,8 @@ media, the featured registry, the audio, and the credentials one level up in
 | `templates/` | card, reel and motion templates (`card_*.html`, `reel_*.html`, GSAP), their renderers (`render_*.py`), examples, `iosa-motion-SKILL.md` |
 | `room/` | Breakout Room reel: `make_launch_reel.py`, `reel.py`, `reel_mode.js`, `export_room.py`; the page itself is `frontend/public/room/index.html` |
 | `scripts/` | one-off analyses of published pieces |
+| `xtext.py`, `xtext_tlds.py` | X's weighted length, twitter-text v3 (URLs and bare domains 23, CJK and emoji 2, NFC) |
+| `validate_spec.py` | rejects a spec a platform would refuse; `publish_api.py` runs it before publishing anything |
 | `paths.py` | where the code is (`social/`) and where it works (`IOSA_SOCIAL_WORK`, default `renders/social`) |
 | `wrappers.py` | writes the thin wrappers of `renders/social/` |
 | `tests/` | `pytest social -q`, run by CI with the rest |

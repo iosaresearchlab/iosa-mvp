@@ -14,6 +14,7 @@ import sys
 
 ENTRY_POINTS = [
     "publish_api.py",
+    "validate_spec.py",
     "templates/render_breakout.py",
     "templates/render_card.py",
     "templates/render_motion.py",
