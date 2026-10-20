@@ -929,7 +929,12 @@ keeps and which leaves an ISR page on its last good version, never an empty
 page or a 404 kept for 6 hours. A build that throws fails, and the previous
 deployment stays live (on 20/10 one timeout during the build's prerender
 failed the deploy of `cb5ce73`). Only the CI build, whose database URL is a
-local address that refuses connections, reads empty.
+local address that refuses connections, reads empty. The country and category
+pages are not prerendered at build (`generateStaticParams` returns none): on
+20/10 two deploys (`8107817`, `6c48f1d`) failed because 47 segment pages read
+the database at once during the build and a few reads timed out twice; each
+page is now rendered on its first visit and kept 6 hours, like the creator
+pages, so the build reads only `/outliers` and the sitemap.
 
 ### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
 

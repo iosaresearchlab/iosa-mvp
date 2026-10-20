@@ -3,12 +3,17 @@ import { notFound } from 'next/navigation';
 import { PageShell } from '@/components/PageShell';
 import { OutlierList } from '@/components/OutlierList';
 import { outlierDi, contaDi } from '@/lib/supabase-server';
-import { CATEGORIE, slugCategoria, categoriaDaSlug, SITO } from '@/lib/segments';
+import { categoriaDaSlug, SITO } from '@/lib/segments';
 
 export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel Hobby limit (212K of 200K ISR writes a month); 6 h keeps pages at most 6 h behind the daily reading
 
+// FIX-1c (20/10/2026): not prerendered at build. 47 segment pages read the
+// database at once during the build and a few reads hit the 3 s timeout:
+// with leggi() a failed read fails the build (two deploys of 20/10). Each
+// page is now rendered on its first visit and kept 6 h like the creator
+// pages; the build reads nothing from the database for them.
 export function generateStaticParams() {
-  return CATEGORIE.map((c) => ({ category: slugCategoria(c) }));
+  return [];
 }
 
 export async function generateMetadata({
