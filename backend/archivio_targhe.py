@@ -93,3 +93,19 @@ def carica(nome: str, percorso: Path) -> Optional[str]:
     except (requests.RequestException, OSError) as e:
         log.warning("archiviazione di %s non riuscita: %s", nome, e)
     return None
+
+
+def scarica(nome: str, percorso: Path) -> Optional[Path]:
+    """Scarica dal CDN la targa archiviata in `percorso` (FIX-1a: il file di
+    stampa di un ordine e' la targa archiviata). None se non c'e'."""
+    try:
+        r = requests.get(url_pubblico(nome), timeout=60)
+        if r.status_code != 200 or not r.content:
+            return None
+        percorso = Path(percorso)
+        percorso.parent.mkdir(parents=True, exist_ok=True)
+        percorso.write_bytes(r.content)
+        return percorso
+    except (requests.RequestException, OSError) as e:
+        log.warning("download of %s failed: %s", nome, e)
+        return None

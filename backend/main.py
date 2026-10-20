@@ -32,7 +32,7 @@ from vpi_format import format_vpi_full  # UI-11: a VPI written for people is rou
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
 from generate_trophy import METHOD_TEXT_V1, METHOD_TEXT_V2
 from generate_trophy import (generate_trophy_png, generate_mug_preview_png,
-                             impronta_campione_tazza)
+                             impronta_campione_tazza, trophy_html, TROPHY_WIDTH, TROPHY_HEIGHT)
 from vpi_engine import (MEASURED_FORMATS, ReprocessRefused, RunAlreadyExists, esegui_un_ciclo,
                         reading_day, riprendi_un_giorno, start_engine)
 
@@ -1209,6 +1209,7 @@ PLAQUE_REFUSED = {
 
 @app.post("/api/checkout/create-session")
 def create_checkout_session(req: CheckoutSessionRequest):
+    _request_plaque(req.claimToken, "checkout")     # FIX-1a: the print file is ready by the order
     if not ENABLE_ORDERS:
         raise HTTPException(
             status_code=503,
@@ -1340,11 +1341,211 @@ def _record_order(session_id, record, claim_token, status, product_id):
     try:
         supabase_service.table("claims").update({"status": status}).eq(
             "stripe_session_id", session_id).execute()
-        if claim_token and record and record.get("method_version") == "v2":
+        if claim_token and record and record.get("method_version") == "v2" and product_id is not None:
             supabase_service.table("posts").update({"printify_product_id": product_id}).eq(
                 "claim_token", claim_token).execute()
     except Exception as err:
         log.info(f"Failed to record the order state: {err}")
+
+
+def _order_from_session(session):
+    """What an order is made of, from a paid Stripe Checkout session: the
+    record behind its claim token and the shipping address (held by Stripe,
+    never stored here). Used by the webhook and by fulfill-pending."""
+    metadata = session.get("metadata", {})
+    
+    claim_token = metadata.get("claim_token")
+    stripe_session_id = session.get("id") or ""
+    
+    shipping_details = session.get("shipping_details") or {}
+    customer_details = session.get("customer_details") or {}
+    shipping_legacy = session.get("shipping") or {}
+
+    address = shipping_details.get("address") or customer_details.get("address") or shipping_legacy.get("address") or {}
+    name = shipping_details.get("name") or customer_details.get("name") or shipping_legacy.get("name") or metadata.get("recipient_name") or "Creator IOSA"
+
+    name_parts = name.strip().split(" ")
+    first_name = name_parts[0] if name_parts else "Creator"
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "IOSA"
+
+    country_code = (address.get("country") or "IT").upper()
+
+    shipping_info = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": customer_details.get("email", "") or session.get("customer_email", ""),
+        "phone": customer_details.get("phone", "") or shipping_details.get("phone", ""),
+        "country": country_code,
+        "state": address.get("state", "") or "",
+        "city": address.get("city", "") or "",
+        "line1": address.get("line1", "") or "",
+        "line2": address.get("line2", "") or "",
+        "postal_code": address.get("postal_code", "") or ""
+    }
+
+    author = metadata.get("creator_name", "Creator")
+    vpi_ratio = metadata.get("vpi_ratio", "+8.7x")
+    level_name = metadata.get("level_name") or None  # se manca, calcolato dal VPI
+    content_title = metadata.get("content_title", "Viral Performance Accreditation")
+    date_str = metadata.get("date_str", "2026-08-20")
+    e_act = metadata.get("e_act", "N/A")
+    e_base = metadata.get("e_base", "N/A")
+    record = None
+
+    if supabase and claim_token:
+        try:
+            db_res = _claim_lookup(claim_token)
+            if db_res.data and len(db_res.data) > 0:
+                p = db_res.data[0]
+                record = p
+                author = p.get("author_handle") or author
+                raw_vpi = p.get("vpi_ratio") or vpi_ratio
+                try:
+                    v = float(raw_vpi)
+                    vpi_ratio = format_vpi_full(v)
+                except (ValueError, TypeError):
+                    vpi_ratio = str(raw_vpi)
+                    if not vpi_ratio.startswith("+"):
+                        vpi_ratio = f"+{vpi_ratio}"
+                level_name = p.get("vpi_level_name") or level_name
+                content_title = p.get("content_text") or content_title
+                if p.get("created_at"):
+                    date_str = str(p.get("created_at"))[:10]
+                if p.get("engagement_score") is not None:
+                    e_act = str(p.get("engagement_score"))
+                if p.get("baseline_score") is not None:
+                    e_base = str(p.get("baseline_score"))
+        except Exception as err:
+            log.info(f"Error fetching post details for token {claim_token}: {err}")
+    return {"claim_token": claim_token, "stripe_session_id": stripe_session_id,
+            "shipping_info": shipping_info, "country_code": country_code, "author": author,
+            "vpi_ratio": vpi_ratio, "level_name": level_name, "content_title": content_title,
+            "date_str": date_str, "e_act": e_act, "e_base": e_base, "record": record,
+            "metadata": metadata}
+
+
+def _print_file(record, claim_token):
+    """FIX-1a: the print file of an order is the archived plaque, the file the
+    claim page shows. None when it is not archived yet: then nothing is sent
+    to Printify (no paid order without its print file)."""
+    if not record:
+        return None
+    refused, name, _ = plaque_spec.build(record, claim_token=claim_token)
+    if refused or not archivio_targhe.esiste(name):
+        return None
+    return archivio_targhe.scarica(name, RENDERS_DIR / f"print_{name}")
+
+
+def _request_plaque(claim_token, source):
+    """FIX-1a: puts a claim token among the plaques the workflow renders
+    (plaque_request). Never raises: the archive is what counts."""
+    if not (supabase_service and claim_token):
+        return
+    try:
+        (supabase_service.table("plaque_request")
+         .upsert({"claim_token": claim_token, "source": source},
+                 on_conflict="claim_token", ignore_duplicates=True).execute())
+    except Exception as err:
+        log.info(f"plaque_request not written for {claim_token}: {err}")
+
+
+def _place_order(d):
+    """Sends the order of a reserved session to Printify with the archived
+    print file, or leaves it AWAITING_PRINT_FILE (the next plaques run renders
+    the plaque; fulfill-pending then places it)."""
+    claim_token, stripe_session_id, record = d["claim_token"], d["stripe_session_id"], d["record"]
+    print_file = _print_file(record, claim_token)
+    if not print_file:
+        _record_order(stripe_session_id, record, claim_token, "AWAITING_PRINT_FILE", None)
+        _request_plaque(claim_token, "order")
+        log.info(f"[WEBHOOK] {stripe_session_id}: plaque not archived yet, order waits for it")
+        return {"status": "awaiting_print_file"}
+
+    log.info(f"🚀 STARTING ORDER FULFILLMENT for {d['author']} (Destination: {d['country_code']})...")
+    try:
+        order_result = fulfill_trophy_order(
+            author=d["author"],
+            vpi_ratio=d["vpi_ratio"],
+            level_name=d["level_name"],
+            content_title=d["content_title"],
+            date_str=d["date_str"],
+            shipping_address=d["shipping_info"],
+            e_act=d["e_act"],
+            e_base=d["e_base"],
+            claim_token=claim_token,
+            external_ref=stripe_session_id,
+            print_file=str(print_file),
+        )
+        product_id = order_result.get("product_id")
+        _record_order(stripe_session_id, record, claim_token, "FULFILLED", product_id)
+        log.info(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
+    except Exception as err:
+        log.info(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
+        traceback.print_exc()
+        _record_order(stripe_session_id, record, claim_token, "FAILED", "FAILED_ORDER_ERROR")
+        # Rispondiamo 200: un 500 farebbe ritentare Stripe e ogni tentativo
+        # creerebbe un nuovo ordine Printify a pagamento.
+        return {"status": "error_recorded", "detail": str(err)}
+    return {"status": "success"}
+
+
+@app.post("/api/orders/fulfill-pending")
+def fulfill_pending_orders(x_iosa_admin_key: str = Header(None)):
+    """FIX-1a: places the paid orders that were waiting for their print file,
+    once the plaques workflow has archived it. Called by the workflow after
+    it renders. Each order is taken (AWAITING_PRINT_FILE -> PROCESSING) by one
+    caller only; one still without its file goes back to waiting."""
+    if not ADMIN_API_KEY or x_iosa_admin_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if not supabase_service:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY non configurata.")
+    rows = (supabase_service.table("claims").select("stripe_session_id")
+            .eq("status", "AWAITING_PRINT_FILE").execute().data) or []
+    done = {}
+    for r in rows:
+        sid = r["stripe_session_id"]
+        taken = (supabase_service.table("claims").update({"status": "PROCESSING"})
+                 .eq("stripe_session_id", sid).eq("status", "AWAITING_PRINT_FILE").execute().data)
+        if not taken:
+            continue
+        try:
+            session = stripe.checkout.Session.retrieve(sid)
+            done[sid] = _place_order(_order_from_session(session))["status"]
+        except Exception as err:
+            supabase_service.table("claims").update({"status": "AWAITING_PRINT_FILE"}).eq(
+                "stripe_session_id", sid).execute()
+            done[sid] = f"error: {type(err).__name__}"
+    return {"orders": done}
+
+
+@app.get("/api/trophy/live")
+def get_trophy_live(claim_token: str):
+    """FIX-1a: the plaque as HTML, for the claim page to show at once in the
+    visitor's browser (a few KB, no Chromium). The PNG is a screenshot of this
+    same page. Also says whether the PNG is archived, and asks the plaques
+    workflow to render it when it is not."""
+    post = None
+    if supabase and claim_token:
+        try:
+            res = _claim_lookup(claim_token)
+            if res and res.data:
+                post = res.data[0]
+        except Exception as db_err:
+            log.info(f"Error fetching post details for live plaque: {db_err}")
+    if not post:
+        raise HTTPException(status_code=404, detail="no record for this claim token")
+    refused, name, kwargs = plaque_spec.build(post, claim_token=claim_token)
+    if refused == "charting":
+        raise HTTPException(status_code=409, detail=PLAQUE_REFUSED["charting"])
+    if refused == "no_vpi":
+        raise HTTPException(status_code=404, detail=PLAQUE_REFUSED["no_vpi"])
+    archived = archivio_targhe.esiste(name)
+    if not archived:
+        _request_plaque(claim_token, "claim_page")
+    return JSONResponse(
+        {"html": trophy_html(**kwargs), "width": TROPHY_WIDTH, "height": TROPHY_HEIGHT,
+         "file": name, "png_url": archivio_targhe.url_pubblico(name) if archived else None},
+        headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/webhooks/stripe")
@@ -1364,113 +1565,20 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         raise HTTPException(status_code=400, detail=f"Webhook Error: {str(e)}")
     
     if event.get("type") == "checkout.session.completed":
-        session = event.get("data", {}).get("object", {})
-        metadata = session.get("metadata", {})
-        
-        claim_token = metadata.get("claim_token")
-        stripe_session_id = session.get("id") or ""
-        
-        shipping_details = session.get("shipping_details") or {}
-        customer_details = session.get("customer_details") or {}
-        shipping_legacy = session.get("shipping") or {}
-
-        address = shipping_details.get("address") or customer_details.get("address") or shipping_legacy.get("address") or {}
-        name = shipping_details.get("name") or customer_details.get("name") or shipping_legacy.get("name") or metadata.get("recipient_name") or "Creator IOSA"
-
-        name_parts = name.strip().split(" ")
-        first_name = name_parts[0] if name_parts else "Creator"
-        last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else "IOSA"
-
-        country_code = (address.get("country") or "IT").upper()
-
-        shipping_info = {
-            "first_name": first_name,
-            "last_name": last_name,
-            "email": customer_details.get("email", "") or session.get("customer_email", ""),
-            "phone": customer_details.get("phone", "") or shipping_details.get("phone", ""),
-            "country": country_code,
-            "state": address.get("state", "") or "",
-            "city": address.get("city", "") or "",
-            "line1": address.get("line1", "") or "",
-            "line2": address.get("line2", "") or "",
-            "postal_code": address.get("postal_code", "") or ""
-        }
-
-        author = metadata.get("creator_name", "Creator")
-        vpi_ratio = metadata.get("vpi_ratio", "+8.7x")
-        level_name = metadata.get("level_name") or None  # se manca, calcolato dal VPI
-        content_title = metadata.get("content_title", "Viral Performance Accreditation")
-        date_str = metadata.get("date_str", "2026-08-20")
-        e_act = metadata.get("e_act", "N/A")
-        e_base = metadata.get("e_base", "N/A")
-        record = None
-
-        if supabase and claim_token:
-            try:
-                db_res = _claim_lookup(claim_token)
-                if db_res.data and len(db_res.data) > 0:
-                    p = db_res.data[0]
-                    record = p
-                    author = p.get("author_handle") or author
-                    raw_vpi = p.get("vpi_ratio") or vpi_ratio
-                    try:
-                        v = float(raw_vpi)
-                        vpi_ratio = format_vpi_full(v)
-                    except (ValueError, TypeError):
-                        vpi_ratio = str(raw_vpi)
-                        if not vpi_ratio.startswith("+"):
-                            vpi_ratio = f"+{vpi_ratio}"
-                    level_name = p.get("vpi_level_name") or level_name
-                    content_title = p.get("content_text") or content_title
-                    if p.get("created_at"):
-                        date_str = str(p.get("created_at"))[:10]
-                    if p.get("engagement_score") is not None:
-                        e_act = str(p.get("engagement_score"))
-                    if p.get("baseline_score") is not None:
-                        e_base = str(p.get("baseline_score"))
-            except Exception as err:
-                log.info(f"Error fetching post details for token {claim_token}: {err}")
+        d = _order_from_session(event.get("data", {}).get("object", {}))
+        stripe_session_id = d["stripe_session_id"]
 
         # Idempotency: one Stripe session, one order. Stripe delivers a webhook
         # at least once, so a repeat must not place a second paid Printify
         # order. The session is reserved in claims (private, service role)
         # before anything is ordered; the unique index rejects the second one.
-        reserved = _reserve_order(stripe_session_id, record, metadata)
+        reserved = _reserve_order(stripe_session_id, d["record"], d["metadata"])
         if reserved is None:
             log.warning("[WEBHOOK] Guard unavailable (no service key or no session id): no order placed.")
             return {"status": "error_recorded", "detail": "idempotency guard unavailable"}
         if reserved is False:
             log.info(f"[WEBHOOK] Session {stripe_session_id} already handled, nessuna azione.")
             return {"status": "already_fulfilled"}
-
-        log.info(f"🚀 STARTING ORDER FULFILLMENT for {author} (Destination: {country_code})...")
-
-        try:
-            order_result = fulfill_trophy_order(
-                author=author,
-                vpi_ratio=vpi_ratio,
-                level_name=level_name,
-                content_title=content_title,
-                date_str=date_str,
-                shipping_address=shipping_info,
-                e_act=e_act,
-                e_base=e_base,
-                claim_token=claim_token,
-                external_ref=stripe_session_id
-            )
-
-            product_id = order_result.get("product_id")
-            _record_order(stripe_session_id, record, claim_token, "FULFILLED", product_id)
-
-            log.info(f"✅ FULFILLMENT COMPLETE! Printify Order ID: {order_result.get('order_id')}")
-
-        except Exception as err:
-            log.info(f"❌ ERROR DURING ORDER FULFILLMENT: {err}")
-            traceback.print_exc()
-            _record_order(stripe_session_id, record, claim_token, "FAILED", "FAILED_ORDER_ERROR")
-
-            # Rispondiamo 200: un 500 farebbe ritentare Stripe e ogni tentativo
-            # creerebbe un nuovo ordine Printify a pagamento.
-            return {"status": "error_recorded", "detail": str(err)}
+        return _place_order(d)
 
     return {"status": "success"}

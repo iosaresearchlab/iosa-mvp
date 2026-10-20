@@ -79,8 +79,9 @@ class _Table:
         self.filters.append((col, [value]))
         return self
 
-    def upsert(self, rows, on_conflict=None):
+    def upsert(self, rows, on_conflict=None, ignore_duplicates=False):
         self.op, self.rows, self.conflict = "upsert", rows, on_conflict
+        self.ignore_duplicates = ignore_duplicates
         return self
 
     def execute(self):
@@ -134,7 +135,7 @@ class _Table:
             sql.SQL(", ").join(sql.Placeholder() * len(cols)))
         if self.op == "upsert":
             key = [self.conflict] if self.conflict else self._pk()
-            upd = [c for c in cols if c not in key]
+            upd = [] if getattr(self, "ignore_duplicates", False) else [c for c in cols if c not in key]
             target = sql.SQL(", ").join(map(sql.Identifier, key))
             if upd:
                 stmt += sql.SQL(" on conflict ({}) do update set {}").format(

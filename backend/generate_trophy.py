@@ -1,4 +1,5 @@
 import base64
+import html
 import concurrent.futures
 import hashlib
 import os
@@ -140,7 +141,7 @@ TROPHY_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>{tailwind_css}</style>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;900&family=Caveat:wght@600&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+Devanagari:wght@400;700;900&family=Noto+Sans+Arabic:wght@400;700;900&family=Noto+Sans+SC:wght@400;700;900&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
   <style>
     .font-mono-tech {{ font-family: 'JetBrains Mono', 'Noto Color Emoji', monospace; }}
@@ -336,6 +337,87 @@ def plaque_fields(days_charting=None, entered_on=None, left_on=None, method_text
             "date1_label": "PUBLISHED", "date2_label": "MEASURED"}
 
 
+TROPHY_WIDTH, TROPHY_HEIGHT = 2700, 1120
+
+
+def _esc(value):
+    return html.escape("" if value is None else str(value))
+
+# FIX-1a: Tailwind compiled once from the classes of this file (v3.4.17, the
+# play CDN's v3), inlined in the plaque instead of the CDN script, so the page
+# runs no script in the visitor's browser. Rebuild: tools/build_trophy_css.sh.
+TROPHY_TAILWIND_CSS = (Path(__file__).resolve().parent / "trophy_tailwind.css").read_text(encoding="utf-8")
+
+
+def trophy_html(
+    record_id: str,
+    vpi_score: str,
+    user_handle: str,
+    content_title: str,
+    e_act: str,
+    e_base: str,
+    gamma: str = "1.0x",
+    recorded_date: str = "2026-08-20",
+    measured_date: str = "",
+    level_name: str = None,
+    claim_base_url: str = None,
+    file_id: str = None,
+    days_charting=None,
+    entered_on: str = None,
+    left_on: str = None,
+    method_text: str = None,
+    **_ignored,
+) -> str:
+    """The plaque as HTML, TROPHY_WIDTH x TROPHY_HEIGHT (FIX-1a). The PNG is a
+    Chromium screenshot of exactly this page; the claim page shows the same
+    page live in the visitor's browser, so the two are identical by
+    construction."""
+    claim_base_url = claim_base_url or DEFAULT_CLAIM_BASE_URL
+
+    # FIX-1a: the hash is derived from the plaque's file key, so the plaque
+    # shown live on the claim page and its PNG carry the same one (it was a
+    # random value per render).
+    record_hash = "0x" + hashlib.sha1(str(file_id or record_id).encode("utf-8")).hexdigest()[:8].upper()
+
+    if content_title and len(content_title) > 130:
+        content_title = content_title[:127] + "..."
+
+    formatted_e_act = format_count_full(e_act)
+    formatted_e_base = format_count_full(e_base)
+
+    final_level_name, level_badge_style, level_frame_style = resolve_level_and_style(level_name, vpi_score)
+
+    clean_base_url = claim_base_url.rstrip("/")
+    domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
+    
+    # Construct exact claim URL and URL-encode it safely for the QR generator API
+    claim_url = f"{clean_base_url}/claim/{record_id}"
+    encoded_claim_url = urllib.parse.quote(claim_url, safe='')
+
+    html_content = TROPHY_HTML_TEMPLATE.format(tailwind_css=TROPHY_TAILWIND_CSS, **plaque_fields(
+        days_charting=days_charting, entered_on=entered_on, left_on=left_on,
+        method_text=method_text), **dict(
+        record_id=record_id,
+        # FIX-1a: every text value is escaped. The page is also shown live in
+        # the visitor's browser, and a title or handle is someone else's text.
+        vpi_score=_esc(vpi_score),
+        user_handle=_esc(user_handle),
+        content_title=_esc(content_title),
+        e_act=_esc(formatted_e_act),
+        e_base=_esc(formatted_e_base),
+        gamma=_esc(gamma),
+        level_name=_esc(final_level_name),
+        level_badge_style=level_badge_style,
+        level_frame_style=level_frame_style,
+        recorded_date=_esc(recorded_date),
+        measured_date=_esc(measured_date or recorded_date),
+        record_hash=record_hash,
+        encoded_claim_url=encoded_claim_url,
+        domain_display=domain_display
+    ))
+    return html_content
+
+
 def _render_png_sync(
     record_id: str,
     vpi_score: str,
@@ -371,53 +453,21 @@ def _render_png_sync(
     log.info(f"  - claim_base_url:  {repr(claim_base_url)}")
     log.info("="*80 + "\n")
 
-    claim_base_url = claim_base_url or DEFAULT_CLAIM_BASE_URL
-
     out_path = Path(__file__).resolve().parent / output_dir
     out_path.mkdir(parents=True, exist_ok=True)
-
     final_output_path = out_path / f"trophy_{file_id or record_id}.png"
-    record_hash = f"0x{uuid.uuid4().hex[:8].upper()}"
 
-    if content_title and len(content_title) > 130:
-        content_title = content_title[:127] + "..."
-
-    formatted_e_act = format_count_full(e_act)
-    formatted_e_base = format_count_full(e_base)
-
-    final_level_name, level_badge_style, level_frame_style = resolve_level_and_style(level_name, vpi_score)
-
-    clean_base_url = claim_base_url.rstrip("/")
-    domain_display = clean_base_url.replace("https://", "").replace("http://", "").upper()
-    
-    # Construct exact claim URL and URL-encode it safely for the QR generator API
-    claim_url = f"{clean_base_url}/claim/{record_id}"
-    encoded_claim_url = urllib.parse.quote(claim_url, safe='')
-
-    html_content = TROPHY_HTML_TEMPLATE.format(**plaque_fields(
-        days_charting=days_charting, entered_on=entered_on, left_on=left_on,
-        method_text=method_text), **dict(
-        record_id=record_id,
-        vpi_score=vpi_score,
-        user_handle=user_handle,
-        content_title=content_title,
-        e_act=formatted_e_act,
-        e_base=formatted_e_base,
-        gamma=gamma,
-        level_name=final_level_name,
-        level_badge_style=level_badge_style,
-        level_frame_style=level_frame_style,
-        recorded_date=recorded_date,
-        measured_date=measured_date or recorded_date,
-        record_hash=record_hash,
-        encoded_claim_url=encoded_claim_url,
-        domain_display=domain_display
-    ))
+    html_content = trophy_html(
+        record_id=record_id, vpi_score=vpi_score, user_handle=user_handle,
+        content_title=content_title, e_act=e_act, e_base=e_base, gamma=gamma,
+        recorded_date=recorded_date, measured_date=measured_date, level_name=level_name,
+        claim_base_url=claim_base_url, file_id=file_id, days_charting=days_charting,
+        entered_on=entered_on, left_on=left_on, method_text=method_text)
 
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(
-            viewport={"width": 2700, "height": 1120},
+            viewport={"width": TROPHY_WIDTH, "height": TROPHY_HEIGHT},
             device_scale_factor=1
         )
         page.set_content(html_content, wait_until="networkidle")

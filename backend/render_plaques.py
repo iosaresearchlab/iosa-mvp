@@ -8,6 +8,7 @@ uploaded here is the file the endpoint looks for.
 
     python render_plaques.py --token iosa_a iosa_b    # these plaques
     python render_plaques.py --mug                    # the mug sample
+    python render_plaques.py --needed                 # every plaque someone needs
 
 Needs SUPABASE_URL and SUPABASE_SERVICE_KEY. No YouTube quota. A plaque
 already in the archive is never rendered again. Exit code 1 if any plaque
@@ -39,6 +40,14 @@ def _client():
     return create_client(url, key)
 
 
+def needed_tokens(client):
+    """plaques_needed(): the tokens asked for (plaque_request) and the claim
+    pages a person visited. Rendered only when not archived yet."""
+    rows = client.rpc("plaques_needed", {}).execute().data or []
+    return [r if isinstance(r, str) else (r.get("plaques_needed") or next(iter(r.values())))
+            for r in rows]
+
+
 def render_token(client, token, render=generate_trophy._render_png_sync):
     """'archived', 'rendered', 'refused:<state>', 'missing' or 'failed:<why>'."""
     res = plaque_spec.claim_lookup(client, token)
@@ -67,6 +76,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--token", nargs="*", default=[])
     ap.add_argument("--mug", action="store_true")
+    ap.add_argument("--needed", action="store_true")
     a = ap.parse_args(argv)
     if not archivio_targhe.attivo():
         print("FAIL: the archive is not configured (SUPABASE_URL, SUPABASE_SERVICE_KEY)")
@@ -74,6 +84,8 @@ def main(argv=None) -> int:
 
     client = _client()
     tokens = [t.strip() for t in a.token if t.strip()]
+    if a.needed:
+        tokens += [t for t in needed_tokens(client) if t and t not in tokens]
     failed = 0
     if a.mug:
         out = render_mug()

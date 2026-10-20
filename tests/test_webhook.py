@@ -45,6 +45,8 @@ def hook(db, monkeypatch):
         orders.append(kw["external_ref"])
         return {"product_id": f"prod-{len(orders)}", "variant_id": 1, "order_id": f"ord-{len(orders)}"}
     monkeypatch.setattr(main, "fulfill_trophy_order", fulfil)
+    # FIX-1a: the print file is the archived plaque (tests/test_fix1a_plaques.py)
+    monkeypatch.setattr(main, "_print_file", lambda record, token: "renders/print.png")
     return TestClient(main.app), db, orders, payload_event
 
 

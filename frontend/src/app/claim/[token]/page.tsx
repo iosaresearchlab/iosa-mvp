@@ -8,9 +8,10 @@ import Link from 'next/link';
 import { formatVPI, formatCount, formatVPIFull, formatCountFull } from '@/lib/format';
 import { WaitlistForm } from '@/components/WaitlistForm';
 import { createClient } from '@supabase/supabase-js';
-import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
-import { MUG_SAMPLE_FILE, archivedPlaqueUrl, plaqueStatus, type PlaqueStatus } from '@/lib/plaque';
+import { MUG_SAMPLE_FILE, archivedPlaqueUrl } from '@/lib/plaque';
+import { LivePlaque, type LivePlaqueData } from '@/components/LivePlaque';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 // Deve corrispondere a ENABLE_ORDERS nel backend. Default acceso.
@@ -35,13 +36,16 @@ export default function ClaimPage({
   
   // Tab state switcher
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
-  // FIX-1a: 'preparing' when the plaque is not archived yet (backend 202).
-  const [plaqueState, setPlaqueState] = useState<PlaqueStatus>('checking');
+  // FIX-1a: the plaque shown live, from its HTML (no Chromium on the backend).
+  const [livePlaque, setLivePlaque] = useState<LivePlaqueData | null>(null);
+  const [livePlaqueFailed, setLivePlaqueFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    plaqueStatus(`${BACKEND_URL}/api/trophy/preview?claim_token=${encodeURIComponent(token)}`)
-      .then((st) => { if (!cancelled) setPlaqueState(st); });
+    fetch(`${BACKEND_URL}/api/trophy/live?claim_token=${encodeURIComponent(token)}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d: LivePlaqueData) => { if (!cancelled) setLivePlaque(d); })
+      .catch(() => { if (!cancelled) setLivePlaqueFailed(true); });
     return () => { cancelled = true; };
   }, [token]);
 
@@ -312,11 +316,7 @@ export default function ClaimPage({
 
   // FIX-1a: one fixed mug sample, served from the archive.
   const mugMockupUrl = archivedPlaqueUrl(MUG_SAMPLE_FILE);
-  const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?claim_token=${encodeURIComponent(token)}&recorded_date=${encodeURIComponent(trophyPayload.date_str)}&author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}&e_act=${encodeURIComponent(trophyPayload.e_act)}&e_base=${encodeURIComponent(trophyPayload.e_base)}&content_title=${encodeURIComponent(trophyPayload.content_title)}&title=${encodeURIComponent(trophyPayload.content_title)}&level_name=${encodeURIComponent(trophyPayload.level_name)}`;
 
-  const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
-  const plaquePreparing = activeTab === 'plaque' && plaqueState === 'preparing';
-  const plaqueChecking = activeTab === 'plaque' && plaqueState === 'checking';
 
   const formattedDetectedDate = post.entered_on
     ? new Date(`${post.entered_on}T00:00:00Z`).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -449,46 +449,44 @@ export default function ClaimPage({
           <div className="w-full flex flex-col items-center flex-grow justify-center mb-2">
             
             {/* Download and Preview Viewport */}
+            {activeTab === 'plaque' ? (
+              <div className="w-full mx-auto rounded-xl bg-black/50 border border-[#00E5FF]/30 flex flex-col items-center justify-center mb-2 overflow-hidden relative shadow-lg p-2 min-h-[120px]">
+                {livePlaque ? (
+                  <LivePlaque
+                    data={livePlaque}
+                    fileName={`${trophyPayload.author}_VPI_Plaque.png`}
+                    onDownload={() => registraAzione('download_targa')}
+                  />
+                ) : livePlaqueFailed ? (
+                  <span className="font-mono text-[10px] text-gray-400">The plaque could not be loaded. Reload the page to try again.</span>
+                ) : (
+                  <div className="flex flex-col items-center justify-center font-mono text-[10px] text-[#00E5FF] gap-2 py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
+                    <span>LOADING PLAQUE...</span>
+                  </div>
+                )}
+              </div>
+            ) : (
             <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex flex-col items-center justify-center mb-2 overflow-hidden relative group shadow-lg p-2">
-              {plaquePreparing && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-xs text-[#00E5FF] gap-2 px-6 text-center">
-                  <Timer className="w-5 h-5 text-[#00E5FF]" />
-                  <span>Your plaque is being prepared: come back later today.</span>
-                </div>
-              )}
-              {!plaquePreparing && (artifactLoading || plaqueChecking) && (
+              {artifactLoading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
-                  <span>RENDERING PREVIEW...</span>
+                  <span>LOADING SAMPLE...</span>
                 </div>
               )}
-              {!plaquePreparing && !plaqueChecking && <img 
-                key={currentPreviewUrl}
-                src={currentPreviewUrl}
-                alt={activeTab === 'plaque' ? "Accreditation Plaque Preview" : "IOSA Physical Artifact Sample"}
+              <img
+                key={mugMockupUrl}
+                src={mugMockupUrl}
+                alt="IOSA Physical Artifact Sample"
                 onLoad={() => setArtifactLoading(false)}
                 onError={(e) => {
                   setArtifactLoading(false);
                   (e.target as HTMLElement).style.display = 'none';
                 }}
                 className={`w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
-              />}
-
-              {activeTab === 'plaque' && !artifactLoading && plaqueState === 'ready' && (
-                <div className="absolute bottom-2 inset-x-2 flex flex-col items-center z-20">
-                  <a
-                    href={plaquePreviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={`${trophyPayload.author}_VPI_Plaque.png`}
-                    onClick={() => registraAzione('download_targa')}
-                    className="w-full py-2 px-3 bg-[#00E5FF] hover:bg-[#00B4D8] text-black font-mono font-bold text-xs rounded-lg shadow-xl flex items-center justify-center gap-2 transition-all backdrop-blur-md"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download Digital Plaque (.PNG)
-                  </a>
-                </div>
-              )}
+              />
             </div>
+            )}
 
             <p className="text-[10px] font-mono text-gray-400 mb-2 flex items-center justify-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-cyan-400 shrink-0" /> Includes a QR code linking back to this measurement page.

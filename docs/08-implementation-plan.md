@@ -431,11 +431,11 @@ timeout of 19/10, 1c other backend downs, 1d link previews, 1e social tooling
 versioned, 1f X text length, 1g Threads insights, 1h database runway, 1i
 GRANTs from 30/10. The method is not touched.
 
-- **FIX-1a closing check**: `python tests/check_plaques.py --token ...
-  --not-archived ...` prints PASS (every plaque in scope archived, 307 in
-  under 1 s, a token not archived answers 202 without raising the backend's
-  RSS); then 3 days with no Render memory mail and no UptimeRobot down at
-  08:45-09:15 or 10:45-11:15 UTC.
+- **FIX-1a closing check**: `python tests/check_plaques.py --needed
+  --not-archived ...` prints PASS (every plaque of `plaques_needed()`
+  archived, 307 and the live HTML each in under 1 s, a token not archived
+  answers 202 without raising the backend's RSS); then 3 days with no Render
+  memory mail and no UptimeRobot down at 08:45-09:15 or 10:45-11:15 UTC.
 
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:

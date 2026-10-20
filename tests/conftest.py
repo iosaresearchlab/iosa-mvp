@@ -130,7 +130,8 @@ create table public.outreach (
 create table public.claim_visite (
   id uuid primary key default gen_random_uuid(), claim_token text not null,
   post_id uuid references public.posts(id) on delete set null,
-  vista_il timestamptz not null default now()
+  vista_il timestamptz not null default now(),
+  provenienza text, schermo text, automatico boolean not null default false
 );
 create table public.claim_eventi (
   id uuid primary key default gen_random_uuid(), claim_token text not null,

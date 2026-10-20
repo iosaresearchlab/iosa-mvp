@@ -72,8 +72,9 @@ def columns(db, table):
 
 def test_the_claim_functions_are_found():
     names = {n for n, _ in _claim_functions()}
-    assert {"get_trophy_preview", "get_claim_window", "create_checkout_session",
-            "stripe_webhook", "claim_window", "_reserve_order", "_record_order"} <= names
+    # FIX-1a: the webhook's lookup moved to _order_from_session; the live plaque reads the record too
+    assert {"get_trophy_preview", "get_trophy_live", "get_claim_window", "create_checkout_session",
+            "_order_from_session", "claim_window", "_reserve_order", "_record_order"} <= names
 
 
 def test_posts_v1_holds_exactly_the_columns_the_v1_claim_reads(db):

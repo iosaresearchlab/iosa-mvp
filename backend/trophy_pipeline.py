@@ -36,18 +36,21 @@ def generate_and_publish_trophy(
     e_base: str = "N/A",
     record_id: str = None,
     claim_base_url: str = None,
+    print_file: str = None,
 ):
     """
     Pipeline end-to-end: rendering della targa, upload su Printify e
     configurazione del prodotto sul provider piu' vicino al destinatario.
 
     record_id deve essere il claim_token reale: finisce nel QR stampato.
+    print_file (FIX-1a): la targa gia' resa e archiviata; con essa qui non si
+    rende niente (il backend su Render non apre mai Chromium).
     """
     safe_id = _safe_id(record_id) or f"order_{uuid.uuid4().hex[:6]}"
 
     try:
         log.info(f"\n[PIPELINE] 1. Rendering artwork for {author}...")
-        rendered_path = create_trophy_image(
+        rendered_path = print_file or create_trophy_image(
             author=author,
             vpi_ratio=vpi_ratio,
             level_name=level_name,
@@ -89,6 +92,7 @@ def fulfill_trophy_order(
     claim_token: str = None,
     external_ref: str = None,
     shipping_method: int = 1,
+    print_file: str = None,
 ):
     """
     Innescata dal webhook Stripe. external_ref e' l'ID sessione Stripe e rende
@@ -113,6 +117,7 @@ def fulfill_trophy_order(
         e_act=e_act,
         e_base=e_base,
         record_id=claim_token,
+        print_file=print_file,
     )
 
     log.info("[PIPELINE] 4. Transmitting final order...")

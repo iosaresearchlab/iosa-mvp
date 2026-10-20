@@ -1,14 +1,17 @@
 """FIX-1a closing check (read-only, 0 YouTube units).
 
-    python tests/check_plaques.py --token T1 T2 ... [--not-archived T] [--backend URL]
+    python tests/check_plaques.py [--needed] [--token T1 T2 ...] [--not-archived T] [--backend URL]
 
-For every token: its plaque is in the archive (the CDN answers 200) and
-/api/trophy/preview answers 307 to it in under 1 s. For --not-archived: the
+--needed adds every token of plaques_needed() (needs SUPABASE_URL and
+SUPABASE_SERVICE_KEY in the environment). For every token: its plaque is in
+the archive (the CDN answers 200), /api/trophy/preview answers 307 to it in
+under 1 s, and /api/trophy/live answers its HTML in under 1 s. For --not-archived: the
 endpoint answers 202 and the backend's resident memory (rss_kb on /) does not
 grow by more than 20 MB across the request; before and after are printed.
 Prints PASS or FAIL and exits 0 or 1.
 """
 import argparse
+import os
 import sys
 import time
 
@@ -26,21 +29,34 @@ def rss(backend):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--token", nargs="*", default=[])
+    ap.add_argument("--needed", action="store_true")
     ap.add_argument("--not-archived", default=None)
     ap.add_argument("--backend", default=BACKEND)
     a = ap.parse_args(argv)
     b = a.backend.rstrip("/")
     fails = []
     requests.get(f"{b}/", timeout=120)                       # wake the free instance
-    for t in a.token:
+    tokens = list(a.token)
+    if a.needed:
+        url, key = os.environ["SUPABASE_URL"].strip().rstrip("/"), os.environ["SUPABASE_SERVICE_KEY"].strip()
+        rows = requests.post(f"{url}/rest/v1/rpc/plaques_needed", json={}, timeout=60,
+                             headers={"apikey": key, "Authorization": f"Bearer {key}"}).json()
+        tokens += [r if isinstance(r, str) else next(iter(r.values())) for r in rows]
+        print(f"plaques_needed(): {len(rows)} tokens")
+    for t in tokens:
         t0 = time.monotonic()
         r = requests.get(f"{b}/api/trophy/preview", params={"claim_token": t},
                          allow_redirects=False, timeout=30)
         ms = (time.monotonic() - t0) * 1000
         loc = r.headers.get("location", "")
         cdn = requests.head(loc, timeout=30).status_code if loc else None
-        ok = r.status_code == 307 and ms < 1000 and cdn == 200 and loc.startswith(SUPABASE)
-        print(f"{'OK  ' if ok else 'FAIL'} {t}: {r.status_code} in {ms:.0f} ms, CDN {cdn}")
+        t1 = time.monotonic()
+        live = requests.get(f"{b}/api/trophy/live", params={"claim_token": t}, timeout=30)
+        live_ms = (time.monotonic() - t1) * 1000
+        live_ok = live.status_code == 200 and "<html" in live.json().get("html", "") and live_ms < 1000
+        ok = r.status_code == 307 and ms < 1000 and cdn == 200 and loc.startswith(SUPABASE) and live_ok
+        print(f"{'OK  ' if ok else 'FAIL'} {t}: preview {r.status_code} in {ms:.0f} ms, CDN {cdn}; "
+              f"live {live.status_code} in {live_ms:.0f} ms")
         if not ok:
             fails.append(t)
     if a.not_archived:

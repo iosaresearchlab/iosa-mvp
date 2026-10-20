@@ -1495,18 +1495,30 @@ always with views and days in Most Popular (01 §4.1).
   file and their method line. The signatures of the render functions only
   gain optional parameters: the Printify path (`trophy_pipeline`) is
   unchanged.
-- **FIX-1a** *(20/10/2026)* — plaques are rendered on a GitHub runner by
+- **FIX-1a** *(20/10/2026, owner)* — Render never opens Chromium: one
+  render of the plaque adds ~525 MB (PSS, measured), the free instance has
+  512, and it went over on 18/10 and 20/10. The plaque is an HTML page that
+  Chromium screenshots; the claim page shows that same page live:
+  `GET /api/trophy/live?claim_token=` answers its HTML
+  (`generate_trophy.trophy_html`, a few KB) with `png_url` when the PNG is
+  archived, and the page shows it in a sandboxed iframe (no script runs in
+  it: Tailwind is compiled once into `backend/trophy_tailwind.css`, 0 pixels
+  of difference from the CDN build), scaled to fit. Every text value is
+  escaped; the record hash is derived from the file key, not random.
+  "Download" opens the archived PNG, or makes it in the visitor's browser
+  (html-to-image with the plaque's own fonts inlined). The PNG is rendered by
   `.github/workflows/plaques.yml` (`backend/render_plaques.py`, 03:30 and
-  09:00 UTC and by hand with a list of claim tokens), never on Render: a
-  Chromium render took the free instance over its 512 MB on 18/10 and 20/10.
-  `backend/plaque_spec.py` builds the plaque's arguments and archive name for
-  both the endpoint and the job. `/api/trophy/preview` and
-  `/api/trophy/preview-mug` answer 307 to the archived file or `202
-  {"status": "preparing"}`; the in-process render is kept only behind
-  `PLAQUE_RENDER_LOCAL=1` (local development). The claim page asks first and
-  shows *"Your plaque is being prepared: come back later today"* on 202; the
-  mug sample is one archived file (`MUG_SAMPLE_FILE`,
-  `frontend/src/lib/plaque.ts`). `/` reports the process's `rss_kb`.
+  09:00 UTC, and by hand with tokens) only for plaques someone needs:
+  `plaques_needed()` = `plaque_request` (claim page, checkout, an order, the
+  social tasks) ∪ claim pages visited by a person. `backend/plaque_spec.py`
+  builds arguments and archive name for the endpoint and the job.
+  `/api/trophy/preview` and `/preview-mug` answer 307 to the archive or 202;
+  the in-process render stays behind `PLAQUE_RENDER_LOCAL=1` (local only).
+  **Orders**: a paid order is sent to Printify only with the archived PNG as
+  its print file; without it the order is `AWAITING_PRINT_FILE`, the token
+  goes into `plaque_request`, and after the next render
+  `POST /api/orders/fulfill-pending` (admin key) places it, once. `/` reports
+  the process's `rss_kb`.
 - **APP-1** — `/insights` leaves the navigation and the sitemap and is not
   indexed. It comes back rebuilt on the per-band × format cells (n and
   median, long-form only), never on pooled figures.
