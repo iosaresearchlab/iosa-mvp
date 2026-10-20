@@ -77,7 +77,7 @@ says what to change, `08` says in what order and how each step is proved.
   `/outliers`, the segment pages before `134af2e`) timed out twice. During
   `next build` a failed read is now tried five times over 30 s (a page
   has 120 s to render at build time); a visitor's request keeps one retry.
-- *(Corrected: task log FIX-1c builds.)*
+- *(Corrected: task log FIX-1c builds; `08` milestone table. `sitemap_creators()`, applied while measuring and unused, is dropped by migration `20261020191210`, to be applied.)*
 
 ### 20 October 2026 — FIX-1c: the backend downs, each with its cause
 

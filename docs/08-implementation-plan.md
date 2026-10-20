@@ -589,6 +589,7 @@ own closing check above, and are reported as they do:
 | FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate); **reached 15/10/2026**, after ten runs |
 | FIX-1a milestone | 3 days without a Render memory mail or an UptimeRobot down of the backend (the nightly check reads the mailbox, step 1b, and reports only a failure) | 23/10/2026 |
 | FIX-1b milestone | 3 nights with no failure and the slowest database call under 2,000 ms (already in `tests/check_run.sql`; the nightly check reports only a failure) | 23/10/2026 |
+| FIX-1c builds milestone | 5 consecutive production builds READY on Vercel, counted on the next real commits from `3d6d761` (READY, the first); no redeploys (owner, 20/10). The nightly check lists the production builds since the previous check and reports only an ERROR | the fifth real commit after `3d6d761` |
 
 The loop itself ends with T-21.
 
