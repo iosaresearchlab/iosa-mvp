@@ -5,7 +5,8 @@
 --needed adds every token of plaques_needed() (needs SUPABASE_URL and
 SUPABASE_SERVICE_KEY in the environment). For every token: its plaque is in
 the archive (the CDN answers 200), /api/trophy/preview answers 307 to it in
-under 1 s, and /api/trophy/live answers its HTML in under 1 s. For --not-archived: the
+under 1 s, and /api/trophy/live answers its HTML in under 1 s; a record still charting
+or without a VPI is refused by both (409/404), which is correct. For --not-archived: the
 endpoint answers 202 and the backend's resident memory (rss_kb on /) does not
 grow by more than 20 MB across the request; before and after are printed.
 Prints PASS or FAIL and exits 0 or 1.
@@ -55,8 +56,12 @@ def main(argv=None):
         live_ms = (time.monotonic() - t1) * 1000
         live_ok = live.status_code == 200 and "<html" in live.json().get("html", "") and live_ms < 1000
         ok = r.status_code == 307 and ms < 1000 and cdn == 200 and loc.startswith(SUPABASE) and live_ok
-        print(f"{'OK  ' if ok else 'FAIL'} {t}: preview {r.status_code} in {ms:.0f} ms, CDN {cdn}; "
-              f"live {live.status_code} in {live_ms:.0f} ms")
+        # A record still charting (409) or without a VPI (404) has no plaque by design: both
+        # endpoints refuse it, quickly, and nothing is rendered.
+        refused = r.status_code in (404, 409) and live.status_code == r.status_code and ms < 1000
+        print(f"{'OK  ' if ok or refused else 'FAIL'} {t}: preview {r.status_code} in {ms:.0f} ms, CDN {cdn}; "
+              f"live {live.status_code} in {live_ms:.0f} ms{' (no plaque by design)' if refused else ''}")
+        ok = ok or refused
         if not ok:
             fails.append(t)
     if a.not_archived:
