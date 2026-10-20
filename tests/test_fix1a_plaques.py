@@ -225,3 +225,11 @@ def test_the_job_renders_what_someone_needs(db, monkeypatch):
                     "('tok_bot', true)")
     needed = set(render_plaques.needed_tokens(PgClient(db)))
     assert {"tok_n1", "tok_n2"} <= needed and "tok_bot" not in needed
+
+
+def test_the_workflow_renders_with_the_shared_module():
+    wf = (ROOT / ".github" / "workflows" / "plaques.yml").read_text(encoding="utf-8")
+    assert 'cron: "30 3 * * *"' in wf and 'cron: "0 9 * * *"' in wf and "workflow_dispatch" in wf
+    assert "python render_plaques.py --mug --needed --token $TOKENS" in wf
+    assert "/api/orders/fulfill-pending" in wf and "secrets.IOSA_ADMIN_KEY" in wf
+    assert "secrets.SUPABASE_SERVICE_KEY" in wf and "playwright install --with-deps chromium" in wf

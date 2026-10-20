@@ -1,0 +1,73 @@
+# FIX-1a (20/10/2026): plaque PNGs are rendered here, never on Render. One
+# Chromium render of a 2700x1120 plaque adds ~525 MB (PSS, measured), and the
+# free Render instance has 512: it went over on 18/10 10:11 and 20/10 09:01
+# UTC. The claim page shows the plaque live (/api/trophy/live, HTML); the PNG
+# is rendered here only for plaques someone needs (plaques_needed(): tokens
+# asked for, claim pages visited, orders) and archived in Storage ("targhe").
+# After rendering, the paid orders waiting for their print file are placed
+# (POST /api/orders/fulfill-pending, needs the IOSA_ADMIN_KEY secret).
+#
+# Scheduled after the nightly run (03:30 UTC) and after the morning pass
+# (09:00 UTC). By hand: gh workflow run plaques.yml -f tokens="iosa_a iosa_b".
+# Needs the repository secrets SUPABASE_URL and SUPABASE_SERVICE_KEY
+# (IOSA_ADMIN_KEY for the orders step). No YouTube quota.
+name: Plaques
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      tokens:
+        description: "Claim tokens to render, separated by spaces"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plaques
+  cancel-in-progress: false
+
+jobs:
+  render:
+    name: render missing plaques
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      TOKENS: ${{ inputs.tokens }}
+      IOSA_ADMIN_KEY: ${{ secrets.IOSA_ADMIN_KEY }}
+      BACKEND_URL: https://iosa-mvp-backend.onrender.com
+    steps:
+      - name: Secrets present
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "FAIL: repository secrets SUPABASE_URL and SUPABASE_SERVICE_KEY are missing"; exit 1
+          fi
+          if ! [[ "$TOKENS" =~ ^[A-Za-z0-9_\ -]*$ ]]; then
+            echo "FAIL: a claim token may hold only letters, digits, _ and -"; exit 1
+          fi
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install
+        run: |
+          pip install -r backend/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Render
+        working-directory: backend
+        run: python render_plaques.py --mug --needed --token $TOKENS
+      - name: Orders waiting for their print file
+        if: always()
+        run: |
+          if [ -z "$IOSA_ADMIN_KEY" ]; then
+            echo "IOSA_ADMIN_KEY not set: orders waiting for a print file are not placed by this run"; exit 0
+          fi
+          curl -sS -m 120 -X POST -H "x-iosa-admin-key: $IOSA_ADMIN_KEY" "$BACKEND_URL/api/orders/fulfill-pending"
