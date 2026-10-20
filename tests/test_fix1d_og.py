@@ -69,3 +69,16 @@ def test_robots_parser_of_the_live_check():
     closed = "User-Agent: *\nAllow: /\nDisallow: /claim/\n"
     assert not m.twitterbot_may_read_claims(closed)
     assert m.twitterbot_may_read_claims(closed + "\nUser-Agent: Twitterbot\nUser-Agent: Slackbot\nAllow: /\n")
+
+
+def test_no_page_inherits_the_home_page_as_its_og_url():
+    """FIX-1d (20/10/2026): the root layout set og:url to the home page, so a
+    claim link announced itself as https://iosaresearch.org to preview
+    fetchers (Bluesky's card service echoed it). Only a page that knows its
+    own address sets og:url."""
+    layout = (ROOT / "frontend" / "src" / "app" / "layout.tsx").read_text(encoding="utf-8")
+    og = layout[layout.index("openGraph: {"):]
+    og = og[:og.index("},\n  twitter")]
+    assert "url: SITE_URL" not in og
+    creator = (ROOT / "frontend" / "src" / "app" / "creators" / "[handle]" / "page.tsx").read_text(encoding="utf-8")
+    assert "url: `${SITO}/creators/${handle}`" in creator

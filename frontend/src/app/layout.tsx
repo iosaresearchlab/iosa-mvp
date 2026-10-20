@@ -33,7 +33,11 @@ export const metadata: Metadata = {
     siteName: "IOSA",
     title: TITLE,
     description: DESCRIPTION,
-    url: SITE_URL,
+    // FIX-1d (20/10/2026): no og:url here. Inherited by every page, it told
+    // preview fetchers that a claim link was the home page (og:url
+    // https://iosaresearch.org on /claim/<token>, seen in Bluesky's card
+    // service); Meta's link previews follow og:url. Without it the shared
+    // link is the URL; the creator pages set their own.
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: TITLE }],
   },
   twitter: {

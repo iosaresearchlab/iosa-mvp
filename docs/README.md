@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1d: a claim link no longer says it is the home page
+
+- The root layout gave every page `og:url` = the home page; a shared claim
+  link announced itself as `https://iosaresearch.org` to preview fetchers.
+  Removed; the creator pages keep their own. Previews checked without
+  posting: Bluesky's card service shows the claim's own card, X's crawler
+  gets `summary_large_image` with the claim's image.
+- *(Corrected: task log FIX-1d; `08` milestone table, ISR writes on 22/10.)*
+
 ### 20 October 2026 — FIX-1c: production builds no longer fail on one slow read
 
 - 5 of the 14 production builds of 20/10 failed (`cb5ce73`, `8107817`,
