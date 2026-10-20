@@ -141,3 +141,30 @@ def test_bluesky_facets_cover_bare_domain_links_and_hashtags():
     assert link["features"][0]["uri"] == "https://iosaresearch.org/creators/x"
     tag = next(x for x in f if x["features"][0]["$type"].endswith("#tag"))
     assert tag["features"][0]["tag"] == "YouTube"
+
+
+def test_check_insights_reports_without_printing_the_token(work, monkeypatch, capsys):
+    """FIX-1g: one GET on /me/threads_insights; exit 0 only with data; the token never printed."""
+    monkeypatch.setenv("IOSA_SOCIAL_WORK", str(work))
+    import importlib
+    import social.publish_api as pa
+    importlib.reload(pa)
+    (work.parent / "threads_token.json").write_text(json.dumps({"access_token": "SECRET-TOKEN", "user_id": "1"}))
+
+    class R:
+        def __init__(self, code, body):
+            self.status_code, self._b = code, body
+        def json(self):
+            return self._b
+    seen = {}
+    def get(url, params=None, timeout=None):
+        seen["url"], seen["metric"] = url, params["metric"]
+        return R(403, {"error": {"code": 10, "message": "Application does not have permission for this action"}})
+    monkeypatch.setattr(pa.requests, "get", get)
+    assert pa.check_insights() == 1
+    out = capsys.readouterr().out
+    assert "NO 403 10" in out and "SECRET-TOKEN" not in out
+    assert seen == {"url": "https://graph.threads.net/v1.0/me/threads_insights", "metric": "views,followers_count"}
+    monkeypatch.setattr(pa.requests, "get", lambda *a, **k: R(200, {"data": [{"name": "views"}, {"name": "followers_count"}]}))
+    assert pa.check_insights() == 0
+    assert "OK views, followers_count" in capsys.readouterr().out

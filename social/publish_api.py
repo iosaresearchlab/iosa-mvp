@@ -9,6 +9,7 @@ Before publishing anything the spec is checked (social/validate_spec.py, FIX-1f)
 weighted, Bluesky over 300 graphemes or without alt text, Threads over 500, an Instagram caption
 over 2,200 characters or 30 hashtags, a named file missing. An invalid spec publishes nothing.
     python3 publish_api.py --refresh-tokens            # extend the Instagram and Threads tokens
+    python3 publish_api.py --check-insights            # can the Threads token read insights? (FIX-1g)
 
 The code is versioned in the repo, social/publish_api.py (FIX-1e, 20/10/2026); it works in
 renders/social (IOSA_SOCIAL_WORK, set by the wrapper): queue, media, credentials stay there.
@@ -305,10 +306,29 @@ def dry_run(spec, sp, only, force_volume):
     return 1 if miss or bad else 0
 
 
+def check_insights():
+    """FIX-1g: Threads insights need the app permission threads_manage_insights. The refresh
+    (th_refresh_token) keeps the token's permissions; this reads /me/threads_insights once and
+    says whether it answers, without printing the token. Exit 0 = data."""
+    t = json.loads((RENDERS / "threads_token.json").read_text(encoding="utf-8"))
+    r = requests.get(f"{TH_API}/me/threads_insights", params={"metric": "views,followers_count",
+                     "access_token": t["access_token"]}, timeout=30)
+    j = r.json()
+    names = [d.get("name") for d in j.get("data") or []]
+    if r.status_code == 200 and names:
+        print("threads insights: OK", ", ".join(names))
+        return 0
+    err = j.get("error") or {}
+    print("threads insights: NO", r.status_code, err.get("code"), err.get("message", "")[:120])
+    return 1
+
+
 def main():
     if "--refresh-tokens" in sys.argv:
         refresh_tokens()
         return
+    if "--check-insights" in sys.argv:
+        sys.exit(check_insights())
     sp = pathlib.Path(sys.argv[1])
     if not sp.is_absolute():
         sp = HERE / sp
