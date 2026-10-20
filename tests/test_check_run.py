@@ -150,6 +150,9 @@ def test_no_morning_pass_counts_zero_not_a_false_fail(db):
      "no retention failure"),
     (dict(notes=NOTES_RUN.replace("retention: kept from 2026-09-24, nothing older", "")),
      "retention ran"),
+    # FIX-1b: the margin to the 8 s statement timeout
+    (dict(notes=NOTES_RUN + "; slowest query 2500 ms (rpc close_exits_of_day, 900 calls)"),
+     "slowest query < 2000 ms"),
 ])
 def test_fails_only_on_the_listed_conditions(db, change, reason):
     night(db, **change)
@@ -179,5 +182,6 @@ def test_the_query_and_the_script_name_the_same_rule():
     sql = (ROOT / "tests" / "check_run.sql").read_text(encoding="utf-8")
     assert f"like '%{cr.GOOGLE_403}%'" in sql
     assert f">= {cr.QUOTA_DAY_EXHAUSTED}" in sql and f"<= {cr.QUOTA_BRAKE}" in sql
+    assert f"coalesce(slowest_query_ms, 0) < {cr.SLOWEST_LIMIT_MS}" in sql
     assert re.search(r"baseline_rule in \('not_computable', 'quota_stop', 'read_failed'\) "
                      r"and vpi_ratio is null", sql)

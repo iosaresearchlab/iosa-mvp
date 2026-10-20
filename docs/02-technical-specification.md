@@ -870,6 +870,19 @@ active filter (5.5 ms at 8,088 rows): about 0.1 s at 100,000 records, far
 from the limit. Nothing else is close; nothing else changed. Re-measure with
 the same `explain analyze` when `posts` passes 100,000 rows.
 
+**FIX-1b** *(20/10/2026)*. On 19/10 at 00:37:56 UTC `close_exits_of_day`
+(day 18/10) was cancelled by the timeout (57014), one of 136 statement timeouts
+in the Postgres log between 00:04 and 11:57 UTC, the others inspected being
+the site's `public_records` reads;
+`reprocess_day` finished the day at 08:20. Measured 20/10, its select on day
+2026-10-19 (7,524 active records): the active filter read `posts` through
+`posts_format_idx` with `status` as a non-leading key, 1,476 ms of 1,651 ms.
+Indexed by `posts_v2_active_entered_idx` (`entered_on`, partial on active v2
+records, migration `20261020142541`): 73 ms. Every run's notes end with
+*"slowest query N ms (label, calls)"* (`backend/db_timing.py`, the call as
+the run sees it, network included), and `tests/check_run.sql` fails a night
+whose slowest call reaches 2,000 ms, a quarter of the timeout.
+
 ### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
 
 `01` §1.1 is the rule; this section is how it is built. Measurements in `03`

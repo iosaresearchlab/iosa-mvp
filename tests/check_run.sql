@@ -64,6 +64,7 @@ c as (select
   (select coalesce(notes, '') like '%per channel%' from r) as units_in_notes,
   (select coalesce(notes, '') like '%retention: kept from%' from r) as retention_ran,
   (select coalesce(notes, '') like '%RETENTION FAILED%' from r) as retention_failed,
+  (select substring(notes from '.*slowest query ([0-9]+) ms')::int from r) as slowest_query_ms,
   (select count(distinct s.day) from trend_snapshot s, d where s.day < d.day - 6) as stale_snapshot_days,
   (select coalesce(sum((metadata->>'size')::bigint), 0) from storage.objects) as storage_bytes,
   pg_database_size(current_database()) as db_bytes),
@@ -78,6 +79,7 @@ select (select day from d) as day,
        and previous_day_still_waiting = 0
        and bad_records = 0 and shorts = 0 and units_in_notes
        and retention_ran and not retention_failed and stale_snapshot_days = 0
+       and coalesce(slowest_query_ms, 0) < 2000
        and db_bytes < 400 * 1024 * 1024 and storage_bytes < 800 * 1024 * 1024
   then 'PASS' else 'FAIL' end as verdict,
   e.*, pg_size_pretty(db_bytes) as db_size, pg_size_pretty(storage_bytes) as storage_size,

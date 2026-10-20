@@ -222,6 +222,7 @@ def fetch_channels_metadata(channel_ids: list) -> dict:
 import census  # noqa: E402
 import baseline as baseline_mod  # noqa: E402
 import retention  # noqa: E402
+import db_timing  # noqa: E402
 from quota import QuotaCounter, record_ledger  # noqa: E402
 
 BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
@@ -389,6 +390,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
     UNKNOWN never opens one). The census still reads and stores every video,
     Shorts included.
     """
+    client = db_timing.timed(client)            # FIX-1b: the slowest call goes in the notes
     countries = list(countries or census.TARGET_COUNTRIES)
     categories = list(categories or census.CATEGORY_MAP)
     quota = quota if quota is not None else QuotaCounter()
@@ -484,6 +486,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         failed_ledger = record_ledger(client, "second attempt" if rerun else "reading", quota.total)
         if failed_ledger:
             notes.append(failed_ledger)
+        notes.append(client.timings.note())
         row["notes"] = "; ".join(notes)
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
 
@@ -778,6 +781,7 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
     refused if one of them is not a finished complete census with its
     snapshot intact.
     """
+    client = db_timing.timed(client)            # FIX-1b: the slowest call goes in the notes
     started = now or datetime.now(timezone.utc)
     stamp = started.isoformat()
     rows = client.table("ingest_run").select("*").in_("day", [day.isoformat()]).execute().data or []
@@ -857,6 +861,7 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
         failed_ledger = record_ledger(client, "reprocess", quota.total)    # FMT-2
         if failed_ledger:
             notes.append(failed_ledger)
+        notes.append(client.timings.note())
         row["notes"] = "; ".join(notes)
         row["discards"] = discards
         client.table("ingest_run").upsert(row, on_conflict="day").execute()

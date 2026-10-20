@@ -9,6 +9,7 @@ docs/01-methodology-protocol.md section 4; docs/02 section 2; 08 T-10.
 """
 
 import json
+import re
 import random
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
@@ -695,3 +696,12 @@ def test_a_missing_ledger_never_fails_a_reading(world):
     row = run(client, fake, 0, snapshot_only=True)
     assert row["outcome"] == "ok"
     assert "quota_ledger not written" in ingest(db, 0)["notes"]
+
+
+def test_the_run_notes_its_slowest_database_call(world):
+    """FIX-1b: 'slowest query N ms (label, calls)' closes every run's notes."""
+    fake, client, db = world
+    fake.charts = {("IT", "24"): [("a", 1)]}
+    run(client, fake, 0, snapshot_only=True)
+    m = re.search(r"slowest query (\d+) ms \(([^,]+), (\d+) calls\)$", ingest(db, 0)["notes"])
+    assert m and int(m.group(3)) > 0

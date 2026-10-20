@@ -89,10 +89,23 @@ def facts(runs, prev_run, records, previous_day_still_waiting, stale_snapshot_da
         "units_in_notes": "per channel" in notes,
         "retention_ran": "retention: kept from" in notes,
         "retention_failed": "RETENTION FAILED" in notes,
+        "slowest_query_ms": _slowest(notes),
         "stale_snapshot_days": stale_snapshot_days,
         "storage_bytes": storage_bytes,
         "db_bytes": db_bytes,
     }
+
+
+SLOWEST = re.compile(r".*slowest query ([0-9]+) ms", re.S)
+# FIX-1b: 25% of the API roles' statement_timeout (8 s, db_timing.TIMEOUT_MS)
+SLOWEST_LIMIT_MS = 2000
+
+
+def _slowest(notes):
+    """The run's slowest database call in ms, the last one noted (a reprocess
+    adds its own); None for a night noted before FIX-1b."""
+    m = SLOWEST.match(notes or "")
+    return int(m.group(1)) if m else None
 
 
 def evaluate(f):
@@ -116,6 +129,7 @@ def evaluate(f):
         ("retention ran", f["retention_ran"]),
         ("no retention failure", not f["retention_failed"]),
         ("no snapshot day past the window", f["stale_snapshot_days"] == 0),
+        ("slowest query < 2000 ms", (f.get("slowest_query_ms") or 0) < SLOWEST_LIMIT_MS),
         ("database < 400 MB", f["db_bytes"] < DB_LIMIT),
         ("Storage < 800 MB", f["storage_bytes"] < STORAGE_LIMIT),
     ]

@@ -69,6 +69,14 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1b: a statement timeout in the nightly processing
+
+- On 19/10 at 00:37:56 UTC `close_exits_of_day` hit the 8 s timeout; the
+  morning pass finished the day with no loss. Its active-records filter is
+  now indexed (1,651 → 73 ms on 20/10's data), every run notes its slowest
+  database call, and the nightly check fails at 2,000 ms (`02` §4.8).
+- *(Corrected: `02` §4.8; `tests/check_run.sql`; `08` FIX-1.)*
+
 ### 20 October 2026 — FIX-1a: plaques leave Render (Migert)
 
 - **The plaque render crashed the backend.** A Chromium render on the free
