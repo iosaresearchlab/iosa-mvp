@@ -73,26 +73,48 @@ const CAMPI =
 /** I segmenti leggono gli array: un video presente in piu' fette conta in tutte. */
 const COLONNA_ARRAY = { country: 'countries', category: 'categories' } as const;
 
+/**
+ * FIX-1c (20/10/2026): one read, its error never taken for "no data".
+ * The anonymous role has a 3 s statement timeout and the free database
+ * times out a few reads an hour under crawler load: a failed read is tried
+ * once more after 1 s, then it throws, so the page answers 500 (no cache
+ * keeps it; an ISR page keeps its last good version) instead of a 404 or an
+ * empty list kept for 6 hours. Without a real database (the CI build points
+ * at a local address that refuses connections, .github/workflows/ci.yml)
+ * there is nothing to publish and the read is empty, as before.
+ */
+type Esito<T> = { data: T | null; error: { message: string } | null; count?: number | null };
+const SENZA_DATABASE = !/^https:\/\//.test(process.env.NEXT_PUBLIC_SUPABASE_URL || '')
+  || /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
+
+export async function leggi<T>(etichetta: string, query: () => PromiseLike<Esito<T>>): Promise<Esito<T>> {
+  let esito = await query();
+  if (!esito.error) return esito;
+  if (SENZA_DATABASE) return { data: null, error: null, count: null };
+  await new Promise((r) => setTimeout(r, 1000));
+  esito = await query();
+  if (esito.error) throw new Error(`${etichetta}: ${esito.error.message}`);
+  return esito;
+}
+
 /** I record v2 di un segmento ancora in classifica, ordinati per views (docs/02 §6.2). */
 export async function outlierDi(
   colonna: 'country' | 'category' | 'author_handle',
   valore: string,
   limite = 60
 ): Promise<Post[]> {
-  const query = supabaseServer
-    .from(TABELLA_PUBBLICA)
-    .select(CAMPI)
-    .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-    .eq('status', 'ACTIVE');
-  const filtrata = colonna === 'author_handle'
-    ? query.eq(colonna, valore)
-    : query.contains(COLONNA_ARRAY[colonna], [valore]);
-  const { data, error } = await filtrata
-    .order('engagement_score', { ascending: false })
-    .limit(limite);
-
-  if (error) throw new Error(`public_records: ${error.message}`); // FIX-1c: never an empty page
+  const { data } = await leggi('public_records', () => {
+    const query = supabaseServer
+      .from(TABELLA_PUBBLICA)
+      .select(CAMPI)
+      .eq('method_version', 'v2')
+      .gte('entered_on', SERIES_FLOOR)
+      .eq('status', 'ACTIVE');
+    const filtrata = colonna === 'author_handle'
+      ? query.eq(colonna, valore)
+      : query.contains(COLONNA_ARRAY[colonna], [valore]);
+    return filtrata.order('engagement_score', { ascending: false }).limit(limite);
+  });
   return (data || []) as Post[];
 }
 
@@ -103,16 +125,17 @@ export async function outlierDi(
  * fondo.
  */
 export async function recordDelCreator(author: string, limite = 100): Promise<Post[]> {
-  const { data, error } = await supabaseServer
-    .from(TABELLA_PUBBLICA)
-    .select(CAMPI)
-    .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-    .eq('author_handle', author)
-    .order('vpi_max', { ascending: false, nullsFirst: false })
-    .order('engagement_score', { ascending: false })
-    .limit(limite);
-  if (error) throw new Error(`public_records: ${error.message}`); // FIX-1c: never an empty page
+  const { data } = await leggi('public_records', () =>
+    supabaseServer
+      .from(TABELLA_PUBBLICA)
+      .select(CAMPI)
+      .eq('method_version', 'v2')
+      .gte('entered_on', SERIES_FLOOR)
+      .eq('author_handle', author)
+      .order('vpi_max', { ascending: false, nullsFirst: false })
+      .order('engagement_score', { ascending: false })
+      .limit(limite)
+  );
   return (data || []) as Post[];
 }
 
@@ -121,15 +144,16 @@ export async function contaDi(
   colonna: 'country' | 'category' | 'author_handle',
   valore: string
 ): Promise<number> {
-  const query = supabaseServer
-    .from(TABELLA_PUBBLICA)
-    .select('id', { count: 'exact', head: true })
-    .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-    .eq('status', 'ACTIVE');
-  const { count, error } = colonna === 'author_handle'
-    ? await query.eq(colonna, valore)
-    : await query.contains(COLONNA_ARRAY[colonna], [valore]);
-  if (error) throw new Error(`public_records: ${error.message}`);
+  const { count } = await leggi('public_records', () => {
+    const query = supabaseServer
+      .from(TABELLA_PUBBLICA)
+      .select('id', { count: 'exact', head: true })
+      .eq('method_version', 'v2')
+      .gte('entered_on', SERIES_FLOOR)
+      .eq('status', 'ACTIVE');
+    return colonna === 'author_handle'
+      ? query.eq(colonna, valore)
+      : query.contains(COLONNA_ARRAY[colonna], [valore]);
+  });
   return count ?? 0;
 }

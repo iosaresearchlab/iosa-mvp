@@ -21,16 +21,20 @@ def test_no_server_read_turns_an_error_into_empty_data():
     for f in SERVER_READERS:
         src = f.read_text(encoding="utf-8")
         assert "if (error) return" not in src, f
-        assert not re.search(r"const \{ (data|count) \} = await", src), f
         assert "catch {" not in src and ".catch(() =>" not in src, f
 
 
-def test_every_awaited_read_checks_its_error():
+def test_every_server_read_goes_through_leggi():
+    """leggi() tries a failed read once more, then throws; it is empty only
+    without a database configured (the CI build)."""
+    helper = (SRC / "lib" / "supabase-server.ts").read_text(encoding="utf-8")
+    assert "const SENZA_DATABASE = " in helper and "127\\.0\\.0\\.1|localhost" in helper
+    assert "if (esito.error) throw new Error(" in helper
     for f in SERVER_READERS:
         src = f.read_text(encoding="utf-8")
-        reads = len(re.findall(r"const \{[^}]*\berror\b[^}]*\} = (?:await|colonna)", src))
-        checks = src.count("if (error) throw") + src.count("if (archived.error) throw")
-        assert checks >= reads, (f, reads, checks)
+        uses = len(re.findall(r"supabaseServer\s*\.(?:from|rpc)\(", src))
+        wrapped = len(re.findall(r"leggi\('[a-z_0-9]+', \(\) =>\s*(?:\{\s*const query = )?\s*supabaseServer", src))
+        assert uses and uses == wrapped, (f.name, uses, wrapped)
 
 
 def test_the_creator_read_is_indexed():

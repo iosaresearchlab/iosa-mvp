@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { formatCountFull, formatVPI } from '@/lib/format';
 import { inClassifica, livelloPubblicato, motivoSenzaVpi, viewsPubblicate, vpiPubblicato } from '@/lib/record-status';
-import { supabaseServer } from '@/lib/supabase-server';
+import { leggi, supabaseServer } from '@/lib/supabase-server';
 
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = 'image/png';
@@ -56,14 +56,16 @@ const CAMPI =
 
 /** The record of a claim token: the same two reads as the claim page. */
 export async function recordDelToken(token: string): Promise<OgRecord | null> {
-  // A failed read throws: the route answers 500, which no cache keeps; the
-  // site card is for a token that resolves to nothing.
-  const { data, error } = await supabaseServer.from('public_records').select(CAMPI).eq('claim_token', token).maybeSingle();
-  if (error) throw new Error(`public_records: ${error.message}`);
-  if (data) return data as OgRecord;
-  const archived = await supabaseServer.rpc('claim_record_v1', { p_token: token }).maybeSingle();
-  if (archived.error) throw new Error(`claim_record_v1: ${archived.error.message}`);
-  return (archived.data as OgRecord) ?? null;
+  // A failed read throws (leggi): the route answers 500, which no cache
+  // keeps; the site card is for a token that resolves to nothing.
+  const { data } = await leggi('public_records', () =>
+    supabaseServer.from('public_records').select(CAMPI).eq('claim_token', token).maybeSingle()
+  );
+  if (data) return data as unknown as OgRecord;
+  const archived = await leggi('claim_record_v1', () =>
+    supabaseServer.rpc('claim_record_v1', { p_token: token }).maybeSingle()
+  );
+  return (archived.data as unknown as OgRecord | null) ?? null;
 }
 
 /**
@@ -75,14 +77,9 @@ export async function giornoDellaLettura(r: OgRecord): Promise<string | null> {
   if (r.method_version !== 'v2') return r.detected_at ? String(r.detected_at).slice(0, 10) : null;
   if (!inClassifica(r)) return r.vpi_max_on ? String(r.vpi_max_on).slice(0, 10) : null;
   if (!r.id) return null;
-  const { data, error } = await supabaseServer
-    .from('post_daily')
-    .select('day')
-    .eq('post_id', r.id)
-    .order('day', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new Error(`post_daily: ${error.message}`);
+  const { data } = await leggi('post_daily', () =>
+    supabaseServer.from('post_daily').select('day').eq('post_id', r.id as string).order('day', { ascending: false }).limit(1).maybeSingle()
+  );
   return (data as { day?: string } | null)?.day ?? null;
 }
 

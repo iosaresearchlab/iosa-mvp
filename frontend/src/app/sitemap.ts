@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { supabaseServer } from '@/lib/supabase-server';
+import { leggi, supabaseServer } from '@/lib/supabase-server';
 import {
   PAESI,
   CATEGORIE,
@@ -17,12 +17,13 @@ export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel H
 const MIN_OUTLIER = 2;
 
 async function creatorDaIndicizzare(): Promise<string[]> {
-  const { data, error } = await supabaseServer
-    .from('public_records')
-    .select('author_handle')
-    .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR);   // in Most Popular or left (APP-8)
-  if (error) throw new Error(`public_records: ${error.message}`);
+  const { data } = await leggi('public_records', () =>
+    supabaseServer
+      .from('public_records')
+      .select('author_handle')
+      .eq('method_version', 'v2')
+      .gte('entered_on', SERIES_FLOOR)   // in Most Popular or left (APP-8)
+  );
 
   const conteggio = new Map<string, number>();
   for (const riga of (data || []) as { author_handle: string | null }[]) {

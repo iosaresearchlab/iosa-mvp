@@ -75,8 +75,8 @@ says what to change, `08` says in what order and how each step is proved.
   hit the 3 s timeout of the anonymous role, almost all of them the creator
   page's, a full scan of the records; the page took the failure for "no
   records" and ISR kept the 404 for 6 hours. The read is now indexed (7.8 ms),
-  and every server read throws on error: a 500 no cache keeps, never a page
-  without its data.
+  and every server read is tried once more and then throws: a 500 no cache
+  keeps, never a page without its data.
 - *(Corrected: `02` §4.8; `frontend/src/lib/supabase-server.ts`, `sitemap.ts`,
   `outliers/page.tsx`.)*
 

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { PageShell } from '@/components/PageShell';
-import { supabaseServer } from '@/lib/supabase-server';
+import { leggi, supabaseServer } from '@/lib/supabase-server';
 import {
   PAESI,
   CATEGORIE,
@@ -25,13 +25,14 @@ type Conteggio = Record<string, number>;
 // Un video presente in piu' fette conta in ciascuna: si leggono gli array
 // countries / categories, non la prima fetta (docs/02 §6.1).
 async function conteggi(colonna: 'countries' | 'categories'): Promise<Conteggio> {
-  const { data, error } = await supabaseServer
-    .from('public_records')
-    .select(colonna)
-    .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-    .eq('status', 'ACTIVE');
-  if (error) throw new Error(`public_records: ${error.message}`); // FIX-1c: never cached as zeros
+  const { data } = await leggi('public_records', () =>
+    supabaseServer
+      .from('public_records')
+      .select(colonna)
+      .eq('method_version', 'v2')
+      .gte('entered_on', SERIES_FLOOR)
+      .eq('status', 'ACTIVE')
+  );
 
   const out: Conteggio = {};
   for (const riga of (data || []) as Record<string, string[] | null>[]) {
@@ -41,20 +42,21 @@ async function conteggi(colonna: 'countries' | 'categories'): Promise<Conteggio>
 }
 
 export default async function Outliers() {
-  const [perPaese, perCategoria, { count, error }] = await Promise.all([
+  const [perPaese, perCategoria, { count }] = await Promise.all([
     conteggi('countries'),
     conteggi('categories'),
-    supabaseServer
-      .from('public_records')
-      .select('id', { count: 'exact', head: true })
-      .eq('method_version', 'v2')
-    .gte('entered_on', SERIES_FLOOR)
-      .eq('status', 'ACTIVE'),
+    leggi('public_records', () =>
+      supabaseServer
+        .from('public_records')
+        .select('id', { count: 'exact', head: true })
+        .eq('method_version', 'v2')
+        .gte('entered_on', SERIES_FLOOR)
+        .eq('status', 'ACTIVE')
+    ),
   ]);
 
   // Il totale e' dei record, non la somma dei paesi: un video in piu' fette
   // la farebbe contare due volte.
-  if (error) throw new Error(`public_records: ${error.message}`);
   const totale = count ?? 0;
 
   const paesi = Object.keys(PAESI)

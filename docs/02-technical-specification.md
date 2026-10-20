@@ -888,11 +888,15 @@ whose slowest call reaches 2,000 ms, a quarter of the timeout.
 creator page's read (`author_handle`, `entered_on`, ordered by `vpi_max`) is
 served by `posts_v2_author_idx` (`author_handle, entered_on`, v2 only): 7.8 ms
 against a sequential scan that timed out ~10 times an hour under crawler load.
-Every server read of the frontend throws on error (`supabase-server.ts`,
-`og-card.tsx`, `sitemap.ts`, `outliers/page.tsx`; held by
-`tests/test_fix1c_reads.py`): a failed read is a 500, which no cache keeps
-and which leaves an ISR page on its last good version, never an empty page or
-a 404 kept for 6 hours.
+Every server read of the frontend goes through `leggi()`
+(`supabase-server.ts`; used by `og-card.tsx`, `sitemap.ts`,
+`outliers/page.tsx`; held by `tests/test_fix1c_reads.py`): a failed read is
+tried once more after 1 s, then throws. The response is a 500, which no cache
+keeps and which leaves an ISR page on its last good version, never an empty
+page or a 404 kept for 6 hours. A build that throws fails, and the previous
+deployment stays live (on 20/10 one timeout during the build's prerender
+failed the deploy of `cb5ce73`). Only the CI build, whose database URL is a
+local address that refuses connections, reads empty.
 
 ### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
 
