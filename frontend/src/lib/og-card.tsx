@@ -56,9 +56,13 @@ const CAMPI =
 
 /** The record of a claim token: the same two reads as the claim page. */
 export async function recordDelToken(token: string): Promise<OgRecord | null> {
-  const { data } = await supabaseServer.from('public_records').select(CAMPI).eq('claim_token', token).maybeSingle();
+  // A failed read throws: the route answers 500, which no cache keeps; the
+  // site card is for a token that resolves to nothing.
+  const { data, error } = await supabaseServer.from('public_records').select(CAMPI).eq('claim_token', token).maybeSingle();
+  if (error) throw new Error(`public_records: ${error.message}`);
   if (data) return data as OgRecord;
   const archived = await supabaseServer.rpc('claim_record_v1', { p_token: token }).maybeSingle();
+  if (archived.error) throw new Error(`claim_record_v1: ${archived.error.message}`);
   return (archived.data as OgRecord) ?? null;
 }
 
@@ -71,13 +75,14 @@ export async function giornoDellaLettura(r: OgRecord): Promise<string | null> {
   if (r.method_version !== 'v2') return r.detected_at ? String(r.detected_at).slice(0, 10) : null;
   if (!inClassifica(r)) return r.vpi_max_on ? String(r.vpi_max_on).slice(0, 10) : null;
   if (!r.id) return null;
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('post_daily')
     .select('day')
     .eq('post_id', r.id)
     .order('day', { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) throw new Error(`post_daily: ${error.message}`);
   return (data as { day?: string } | null)?.day ?? null;
 }
 
@@ -126,7 +131,9 @@ const NOTO_LOCALE: Promise<Font[]> = Promise.all([
 
 async function fontGoogle(famiglia: string, testo: string): Promise<Font[]> {
   const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(famiglia)}:wght@400;700&text=${encodeURIComponent(testo)}`;
-  const css = await (await fetch(url)).text();
+  const risposta = await fetch(url);
+  if (!risposta.ok) throw new Error(`Google Fonts ${famiglia}: ${risposta.status}`);
+  const css = await risposta.text();
   const blocchi = css.match(/@font-face\s*{[^}]*}/g) || [];
   return Promise.all(
     blocchi.flatMap((b) => {
@@ -134,7 +141,10 @@ async function fontGoogle(famiglia: string, testo: string): Promise<Font[]> {
       const peso = /font-weight:\s*(\d+)/.exec(b);
       if (!src) return [];
       return [
-        fetch(src[1]).then(async (r) => ({
+        fetch(src[1]).then(async (r) => {
+          if (!r.ok) throw new Error(`Google Fonts file ${famiglia}: ${r.status}`);
+          return r;
+        }).then(async (r) => ({
           name: famiglia,
           data: await r.arrayBuffer(),
           weight: (peso && Number(peso[1]) >= 600 ? 700 : 400) as 400 | 700,
@@ -151,7 +161,7 @@ async function fontPer(testo: string): Promise<Font[]> {
   const caratteri = Array.from(new Set(Array.from(testo))).join('');
   const lotti = await Promise.all([
     NOTO_LOCALE,
-    ...altre.map((f) => fontGoogle(f, caratteri).catch(() => [] as Font[])),
+    ...altre.map((f) => fontGoogle(f, caratteri)), // a failed font is a 500, not a card of empty boxes kept a day
   ]);
   return lotti.flat();
 }

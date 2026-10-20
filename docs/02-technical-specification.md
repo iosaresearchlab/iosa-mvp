@@ -883,6 +883,17 @@ records, migration `20261020142541`): 73 ms. Every run's notes end with
 the run sees it, network included), and `tests/check_run.sql` fails a night
 whose slowest call reaches 2,000 ms, a quarter of the timeout.
 
+
+**The site's reads (FIX-1c, 20/10/2026).** The anonymous role has 3 s. The
+creator page's read (`author_handle`, `entered_on`, ordered by `vpi_max`) is
+served by `posts_v2_author_idx` (`author_handle, entered_on`, v2 only): 7.8 ms
+against a sequential scan that timed out ~10 times an hour under crawler load.
+Every server read of the frontend throws on error (`supabase-server.ts`,
+`og-card.tsx`, `sitemap.ts`, `outliers/page.tsx`; held by
+`tests/test_fix1c_reads.py`): a failed read is a 500, which no cache keeps
+and which leaves an ISR page on its last good version, never an empty page or
+a 404 kept for 6 hours.
+
 ### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
 
 `01` §1.1 is the rule; this section is how it is built. Measurements in `03`

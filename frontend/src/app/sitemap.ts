@@ -17,11 +17,12 @@ export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel H
 const MIN_OUTLIER = 2;
 
 async function creatorDaIndicizzare(): Promise<string[]> {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('public_records')
     .select('author_handle')
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR);   // in Most Popular or left (APP-8)
+  if (error) throw new Error(`public_records: ${error.message}`);
 
   const conteggio = new Map<string, number>();
   for (const riga of (data || []) as { author_handle: string | null }[]) {
@@ -58,18 +59,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  let creator: MetadataRoute.Sitemap = [];
-  try {
-    const handle = await creatorDaIndicizzare();
-    creator = handle.map((h) => ({
-      url: `${SITO}/creators/${slugCreator(h)}`,
-      lastModified: adesso,
-      changeFrequency: 'weekly',
-      priority: 0.6,
-    }));
-  } catch {
-    // Se il database non risponde la sitemap esce comunque con le pagine fisse.
-  }
+  // FIX-1c (20/10/2026): a failed read throws instead of publishing a sitemap
+  // without its creators for 6 hours; the cached sitemap stays until the
+  // next regeneration succeeds.
+  const creator: MetadataRoute.Sitemap = (await creatorDaIndicizzare()).map((h) => ({
+    url: `${SITO}/creators/${slugCreator(h)}`,
+    lastModified: adesso,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
 
   return [...fisse, ...paesi, ...categorie, ...creator];
 }

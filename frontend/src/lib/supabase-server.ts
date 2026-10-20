@@ -92,7 +92,7 @@ export async function outlierDi(
     .order('engagement_score', { ascending: false })
     .limit(limite);
 
-  if (error) return [];
+  if (error) throw new Error(`public_records: ${error.message}`); // FIX-1c: never an empty page
   return (data || []) as Post[];
 }
 
@@ -112,7 +112,7 @@ export async function recordDelCreator(author: string, limite = 100): Promise<Po
     .order('vpi_max', { ascending: false, nullsFirst: false })
     .order('engagement_score', { ascending: false })
     .limit(limite);
-  if (error) return [];
+  if (error) throw new Error(`public_records: ${error.message}`); // FIX-1c: never an empty page
   return (data || []) as Post[];
 }
 
@@ -127,8 +127,9 @@ export async function contaDi(
     .eq('method_version', 'v2')
     .gte('entered_on', SERIES_FLOOR)
     .eq('status', 'ACTIVE');
-  const { count } = colonna === 'author_handle'
+  const { count, error } = colonna === 'author_handle'
     ? await query.eq(colonna, valore)
     : await query.contains(COLONNA_ARRAY[colonna], [valore]);
+  if (error) throw new Error(`public_records: ${error.message}`);
   return count ?? 0;
 }

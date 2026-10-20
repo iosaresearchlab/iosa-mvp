@@ -12,6 +12,6 @@ export const contentType = OG_CONTENT_TYPE;
 
 export default async function Image({ params }: { params: Promise<{ handle: string }> }) {
   const { handle } = await params;
-  const posts = await recordDelCreator(handleDaSlug(handle)).catch(() => []);
+  const posts = await recordDelCreator(handleDaSlug(handle));
   return cardDelRecord(posts[0] ?? null);
 }

@@ -9,5 +9,5 @@ export const contentType = OG_CONTENT_TYPE;
 
 export default async function Image({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  return cardDelRecord(await recordDelToken(token).catch(() => null));
+  return cardDelRecord(await recordDelToken(token));
 }
