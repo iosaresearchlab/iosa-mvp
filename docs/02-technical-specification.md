@@ -1495,6 +1495,26 @@ positioning ("How far a YouTube video beat its own channel's usual views,
 read every day in YouTube's Most Popular charts of 34 countries."). Held by
 `tests/test_fix1d_og.py`; checked live by `tests/check_og.py`.
 
+### 6.11 Social tooling *(FIX-1e, 20/10/2026)*
+
+What publishes IOSA's social posts is versioned in `social/` (`social/README.md`):
+`publish_api.py` (Bluesky, Instagram, Threads through their official APIs,
+`--dry-run`), the card, reel and motion templates with their renderers
+(`social/templates`), the Breakout Room reel (`social/room`), `paths.py` and
+`wrappers.py`. The working folder stays `renders/social/` on the owner's PC,
+outside git: queue, media, `featured.json`, the audio, and the credentials in
+`renders/`. The scheduled tasks keep their commands: the entry points in
+`renders/social/` are thin wrappers, written by `social/wrappers.py`, that find
+the repo and run the code in `social/` with `IOSA_SOCIAL_WORK` set to the
+working folder. A template named by file name is read from the current folder
+when it is there, otherwise from `social/templates`. Held by
+`social/tests/test_social.py` (CI runs it with the rest): every file compiles,
+every wrapped entry point exists, a wrapper finds the repo in the staged
+layout of the cloud workspace, the dry run reports channels, the daily cap and
+missing media without touching the network or the spec. Before the move, a
+card rendered through the wrappers matched the old render pixel for pixel
+(`card_top10.html`, `card_breakout.html`: 0 pixels differ).
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and

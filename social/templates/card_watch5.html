@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><title>IOSA channels to watch</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;800;900&display=swap">
+<style>
+  :root{--ground:#0d1117;--surface:#161c26;--line:#26303d;--ink:#eef3f8;--muted:#8496a8;--accent:#00e5ff;--amber:#ffb020;}
+  html,body{margin:0;}
+  body{background:var(--ground);color:var(--ink);font-family:"Inter",sans-serif;-webkit-font-smoothing:antialiased;}
+  .card{display:flex;flex-direction:column;background:radial-gradient(900px 600px at 15% 8%, rgba(255,176,32,.10), transparent 60%), radial-gradient(800px 600px at 90% 98%, rgba(0,229,255,.09), transparent 60%), var(--ground);width:1080px;height:1350px;box-sizing:border-box;padding:64px 72px 52px;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+  .eyebrow{font-size:20px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;}
+  .eyebrow b{color:var(--amber);font-weight:700;}
+  h1{margin:30px 0 0;font-size:60px;line-height:1.04;font-weight:900;letter-spacing:-.03em;}
+  h1 em{font-style:normal;color:var(--amber);}
+  .lede{margin-top:14px;font-size:20px;color:var(--muted);letter-spacing:.02em;line-height:1.4;}
+  .list{margin-top:24px;display:flex;flex-direction:column;gap:12px;}
+  .ch{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 22px;display:grid;grid-template-columns:64px 1fr;align-items:center;}
+  .n{font-size:30px;font-weight:700;color:var(--amber);}
+  .nm{font-size:30px;font-weight:900;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .meta{font-size:19px;color:var(--muted);margin-top:4px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center;}
+  .chip{font-weight:800;font-size:20px;color:var(--accent);border:1px solid rgba(0,229,255,.35);border-radius:6px;padding:2px 10px;}
+  .us{font-size:19px;color:var(--muted);margin-left:8px;}
+  .us b{color:var(--ink);font-weight:600;}
+  .grow{flex:1;}
+  .src{font-size:16px;color:var(--muted);line-height:1.5;margin:0;}
+  footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:22px;margin-top:22px;}
+  .mark{display:block;font-weight:700;font-size:20px;}
+  .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+  footer > div:last-child{color:var(--muted);font-size:20px;}
+</style></head><body>
+<section class="card" id="card">
+  <div class="eyebrow mono"><span><b>IOSA</b> · 5 channels to watch</span><span id="where"></span></div>
+  <h1>They keep beating <em>their own usual</em></h1>
+  <div class="lede mono" id="lede"></div>
+  <div class="list" id="rows"></div>
+  <div class="grow"></div>
+  <p class="src mono" id="src"></p>
+  <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
+</section>
+<script>
+  const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  document.getElementById('where').textContent=D.where;
+  document.getElementById('lede').innerHTML=D.lede;
+  document.getElementById('src').innerHTML=D.src;
+  document.getElementById('rows').innerHTML=D.rows.map((r,i)=>
+    `<div class="ch"><span class="n mono">${i+1}</span><div style="min-width:0"><div class="nm">${r.flag||''} ${esc(r.name)}</div>`+
+    `<div class="meta mono">${esc(r.meta)}</div>`+
+    `<div class="chips mono">${r.chips.map(c=>`<span class="chip">${esc(c)}</span>`).join('')}<span class="us">${r.usual}</span></div></div></div>`).join('');
+</script>
+</body></html>

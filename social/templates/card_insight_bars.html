@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><title>IOSA insight</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;800;900&display=swap">
+<style>
+  :root{--ground:#0d1117;--surface:#161c26;--line:#26303d;--ink:#eef3f8;--muted:#8496a8;--accent:#00e5ff;--amber:#ffb020;--dim:#3a4757;}
+  html,body{margin:0;}
+  body{background:var(--ground);color:var(--ink);font-family:"Inter",sans-serif;-webkit-font-smoothing:antialiased;}
+  .card{display:flex;flex-direction:column;background:radial-gradient(900px 600px at 80% 8%, rgba(0,229,255,.10), transparent 60%), radial-gradient(800px 600px at 10% 98%, rgba(255,176,32,.06), transparent 60%), var(--ground);width:1080px;height:1350px;box-sizing:border-box;padding:64px 72px 52px;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+  .eyebrow{font-size:20px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;}
+  .eyebrow b{color:var(--accent);font-weight:700;}
+  h1{margin:34px 0 0;font-size:64px;line-height:1.03;font-weight:900;letter-spacing:-.03em;}
+  h1 em{font-style:normal;color:var(--accent);}
+  .lede{margin-top:16px;font-size:21px;color:var(--muted);line-height:1.45;}
+  .lede b{color:var(--ink);font-weight:600;}
+  .chart{margin-top:30px;flex:1;display:flex;flex-direction:column;}
+  .ylab{font-size:17px;color:var(--muted);letter-spacing:.06em;margin-bottom:10px;}
+  .plot{flex:1;position:relative;border-bottom:2px solid var(--line);display:flex;align-items:flex-end;gap:28px;padding:0 8px;}
+  .grid{position:absolute;left:0;right:0;border-top:1px dashed #222c38;}
+  .grid span{position:absolute;left:-4px;top:-11px;transform:translateX(-100%);font-size:15px;color:#5b6b7d;}
+  .bar{flex:1;position:relative;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;z-index:1;}
+  .fill{width:100%;border-radius:8px 8px 0 0;}
+  .val{font-weight:900;font-size:50px;letter-spacing:-.02em;margin-bottom:10px;}
+  .xrow{display:flex;align-items:flex-start;}
+  .xicon{width:0;position:relative;}
+  .xicon svg{position:absolute;right:6px;top:14px;}
+  .xl{flex:1;display:flex;gap:28px;padding:14px 8px 0;}
+  .xl div{flex:1;text-align:center;}
+  .xl .l{font-size:24px;font-weight:700;}
+  .xl .n{font-size:15px;color:var(--muted);margin-top:4px;}
+  .note{margin-top:26px;font-size:30px;font-weight:800;line-height:1.25;letter-spacing:-.01em;}
+  .note em{font-style:normal;color:var(--accent);}
+  .src{margin-top:18px;font-size:15px;color:var(--muted);line-height:1.5;}
+  footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:20px;margin-top:20px;}
+  .mark{display:block;font-weight:700;font-size:20px;}
+  .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+  footer > div:last-child{color:var(--muted);font-size:20px;}
+</style></head><body>
+<section class="card" id="card">
+  <div class="eyebrow mono"><span><b>IOSA</b> · <span id="kicker"></span></span><span id="where"></span></div>
+  <h1 id="title"></h1>
+  <div class="lede mono" id="lede"></div>
+  <div class="chart">
+    <div class="ylab mono" id="ylab"></div>
+    <div class="plot" id="plot"></div>
+    <div class="xrow"><div class="xicon" id="xicon"></div><div class="xl mono" id="xl"></div></div>
+  </div>
+  <div class="note" id="note"></div>
+  <div class="src mono" id="src"></div>
+  <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
+</section>
+<script>
+/* Data: {kicker, where, title (HTML), lede (HTML), ylab, unit, max, ticks:[...],
+   bars:[{label, value, n, hi:true|false}], note (HTML), src}
+   One measure across a handful of categories: bars from zero, value labelled on every bar,
+   highlighted bars in the accent, the others muted. */
+const ICONS={"calendar": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "stopwatch": "<circle cx=\"12\" cy=\"14\" r=\"7.5\"/><path d=\"M12 14V10M9.5 2.5h5M12 2.5v4M18.2 7.3l1.6-1.6\"/>"};
+const icon=(n,s,c)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">${ICONS[n]}</svg>`;
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id);
+$('kicker').textContent=D.kicker; $('where').textContent=D.where; $('title').innerHTML=D.title;
+$('lede').innerHTML=D.lede; $('ylab').textContent=D.ylab; $('note').innerHTML=D.note; $('src').innerHTML=D.src;
+const max=D.max||Math.max(...D.bars.map(b=>b.value))*1.15;
+const plot=$('plot');
+(D.ticks||[]).forEach(t=>{const g=document.createElement('div');g.className='grid';g.style.bottom=(t/max*100)+'%';g.innerHTML=`<span class="mono">${t}${D.unit||''}</span>`;plot.appendChild(g);});
+D.bars.forEach(b=>{
+  const c=document.createElement('div');c.className='bar';
+  const col=b.hi?'var(--accent)':'var(--dim)';
+  c.innerHTML=`<div class="val" style="color:${b.hi?'var(--accent)':'var(--ink)'}">${b.value}${D.unit||''}</div><div class="fill" style="height:${b.value/max*100}%;background:${col};${b.hi?'box-shadow:0 0 30px rgba(0,229,255,.35)':''}"></div>`;
+  plot.appendChild(c);
+});
+// the value label sits above the bar; the bar's height is measured against the plot
+document.querySelectorAll('.bar').forEach((c,i)=>{c.style.height='100%';});
+if(D.xicon)$('xicon').innerHTML=icon(D.xicon,26,'#8496a8');
+$('xl').innerHTML=D.bars.map(b=>`<div><div class="l">${b.label}</div><div class="n">n = ${b.n}</div></div>`).join('');
+</script>
+</body></html>

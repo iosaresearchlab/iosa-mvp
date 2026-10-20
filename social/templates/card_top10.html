@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="utf-8"><title>IOSA weekly Top 10</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;800;900&display=swap">
+<style>
+  :root{--ground:#0d1117;--surface:#161c26;--line:#26303d;--ink:#eef3f8;--muted:#8496a8;--accent:#00e5ff;--amber:#ffb020;}
+  html,body{margin:0;}
+  body{background:var(--ground);color:var(--ink);font-family:"Inter",sans-serif;-webkit-font-smoothing:antialiased;}
+  .card{display:flex;flex-direction:column;background:radial-gradient(900px 600px at 80% 8%, rgba(0,229,255,.12), transparent 60%), radial-gradient(800px 600px at 10% 98%, rgba(255,176,32,.07), transparent 60%), var(--ground);width:1080px;height:1350px;box-sizing:border-box;padding:64px 72px 52px;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+  .eyebrow{font-size:20px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;}
+  .eyebrow b{color:var(--accent);font-weight:700;}
+  h1{margin:30px 0 0;font-size:54px;line-height:1.04;font-weight:900;letter-spacing:-.03em;}
+  h1 em{font-style:normal;color:var(--accent);}
+  .band{margin-top:14px;font-size:20px;color:var(--muted);letter-spacing:.04em;}
+  .band b{color:var(--amber);font-weight:700;}
+  ol{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;}
+  li{display:grid;grid-template-columns:52px 250px 1fr;align-items:center;border-top:1px solid var(--line);height:74px;}
+  li:last-child{border-bottom:1px solid var(--line);}
+  .rk{font-size:24px;color:var(--muted);}
+  .x{font-weight:900;font-size:44px;letter-spacing:-.02em;color:var(--accent);white-space:nowrap;}
+  li:nth-child(n+4) .x{font-size:38px;}
+  .t{min-width:0;}
+  .tt{font-size:25px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ww{font-size:19px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ww b{color:var(--ink);font-weight:600;}
+  .grow{flex:1;}
+  .src{font-size:16px;color:var(--muted);line-height:1.5;margin:0;}
+  footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:22px;margin-top:22px;}
+  .mark{display:block;font-weight:700;font-size:20px;}
+  .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+  footer > div:last-child{color:var(--muted);font-size:20px;}
+</style></head><body>
+<section class="card" id="card">
+  <div class="eyebrow mono"><span><b>IOSA</b> · Weekly Top 10</span><span id="where"></span></div>
+  <h1>The videos that beat <em>their own channel</em> the most this week</h1>
+  <div class="band mono" id="band"></div>
+  <ol id="rows"></ol>
+  <div class="grow"></div>
+  <p class="src mono" id="src"></p>
+  <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
+</section>
+<script>
+  const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  // multiples always with one decimal and a thousands separator: 401.0×, 1,751.5×
+  const fx=v=>(typeof v==='number'?v:parseFloat(String(v).replace(/[^0-9.]/g,''))).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1})+'×';
+  document.getElementById('where').textContent=D.where;
+  document.getElementById('band').innerHTML=D.band;
+  document.getElementById('src').innerHTML=D.src;
+  document.getElementById('rows').innerHTML=D.rows.map((r,i)=>
+    `<li><span class="rk mono">${String(i+1).padStart(2,'0')}</span><span class="x">${fx(r.x)}</span>`+
+    `<div class="t"><div class="tt">${esc(r.title)}</div><div class="ww mono">${r.flag||''} <b>${esc(r.who)}</b> · ${esc(r.views)}</div></div></li>`).join('');
+</script>
+</body></html>

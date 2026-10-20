@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<style>
+html,body{margin:0;background:#0d1117}
+/* 1080x1920, 24 s. Instagram safe area ~ y 250..1500. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;
+ background:radial-gradient(1000px 1000px at 50% 42%, rgba(0,229,255,var(--glow,0.05)), transparent 65%),#0d1117}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:24px;white-space:nowrap;font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#00e5ff}
+.layer{position:absolute;left:80px;right:80px;top:270px;height:1210px;opacity:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.rk{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:64px;letter-spacing:.1em;color:#8496a8}
+.x{font-weight:900;letter-spacing:-.04em;line-height:.95;color:#00e5ff;text-shadow:0 0 70px rgba(0,229,255,.45);white-space:nowrap}
+.cap{font-family:'JetBrains Mono',monospace;font-size:34px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8;margin-top:18px}
+.t{font-weight:800;font-size:58px;line-height:1.18;margin-top:56px;max-width:900px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.w{font-family:'JetBrains Mono',monospace;font-size:38px;color:#8496a8;margin-top:34px}
+.w b{color:#eef3f8}
+.prog{position:absolute;left:80px;right:80px;top:1530px;display:flex;gap:10px;opacity:0}
+.prog i{flex:1;height:8px;border-radius:4px;background:#26303d}
+.prog i.on{background:#00e5ff;box-shadow:0 0 16px rgba(0,229,255,.6)}
+</style></head><body><div id="s">
+ <div class="top mono"><span><b>IOSA</b> · Weekly Top 10</span><span id="ep"></span></div>
+ <div class="layer" id="intro">
+  <div class="mono" style="font-size:40px;letter-spacing:.16em;color:#00e5ff;font-weight:700">COUNTDOWN</div>
+  <div style="font-weight:900;font-size:118px;line-height:1.02;letter-spacing:-.03em;margin-top:40px">The 10 videos that beat <span style="color:#00e5ff">their own channel</span> the most</div>
+  <div class="w" id="band" style="margin-top:60px"></div>
+ </div>
+ <div id="items"></div>
+ <div class="layer" id="outro">
+  <div style="display:inline-flex;align-items:flex-end;gap:8px">
+   <svg width="190" height="273" viewBox="0 0 230 330" style="overflow:visible;filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+    <path d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+    <circle cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+   <div style="font-weight:900;font-size:273px;line-height:.74;letter-spacing:-.03em">OSA</div></div>
+  <div style="font-weight:900;font-size:96px;margin-top:90px">Every Friday.</div>
+  <div class="w" style="margin-top:24px">All of YouTube's Most Popular charts<br>in 34 countries, read every day.</div>
+  <div class="mono" style="font-size:54px;color:#00e5ff;margin-top:70px">iosaresearch.org</div>
+ </div>
+ <div class="prog" id="prog"></div>
+</div>
+<script>
+/* Data: {ep:"#1 · 2–8 Oct 2026", band:"Channels whose usual video gets <b>10K–100K views</b>",
+   rows:[{x:401.0, title, who, flag, views:"9.9M views"}, ... 10 rows, rank 1 first]}
+   Timeline (24 s): intro 0–2 | #10..#4 1.5 s each (2–12.5) | #3 12.5–14.5 | #2 14.5–16.5 | #1 16.5–21 | outro 21–24 */
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const win=(t,a,b,fi=.18,fo=.12)=>clamp(Math.min((t-a)/fi,(b-t)/fo));
+const fx=v=>Number(v).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1})+'×';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+$('ep').textContent=D.ep; $('band').innerHTML=D.band;
+const slots=[]; let t0=2;
+for(let r=10;r>=1;r--){const d=r>=4?1.5:(r>=2?2.0:4.5); slots.push({r,a:t0,b:t0+d}); t0+=d;}
+const items=$('items');
+slots.forEach(s=>{
+  const row=D.rows[s.r-1]; const big=s.r===1;
+  const el=document.createElement('div'); el.className='layer'; el.id='i'+s.r;
+  el.innerHTML=`<div class="rk">#${s.r}</div>`+
+   `<div class="x" id="x${s.r}" style="font-size:${big?250:(s.r<=3?210:190)}px;margin-top:30px">${fx(row.x)}</div>`+
+   `<div class="cap">its channel's usual</div>`+
+   `<div class="t">“${esc(row.title)}”</div>`+
+   `<div class="w">${row.flag||''} <b>${esc(row.who)}</b> · ${esc(row.views)}</div>`;
+  items.appendChild(el);
+});
+$('prog').innerHTML=slots.map(()=>'<i></i>').join('');
+function render(t){
+  $('intro').style.opacity=win(t,0.1,2.0,.3,.15);
+  slots.forEach((s,k)=>{
+    $('i'+s.r).style.opacity=win(t,s.a,s.b);
+    const p=clamp((t-s.a)/0.25); $('i'+s.r).style.transform=`translateY(${(1-ease(p))*40}px)`;
+    $('prog').children[k].className=t>=s.a?'on':'';
+  });
+  // #1: the multiple counts up from 1.0× before it lands
+  const s1=slots[slots.length-1], row1=D.rows[0];
+  const g=Math.pow(ease((t-s1.a-0.2)/1.8),2.2);
+  $('x1').textContent=fx(1+(row1.x-1)*g);
+  $('prog').style.opacity=clamp(Math.min((t-2)/.2,(21-t)/.2));
+  $('outro').style.opacity=clamp((t-21.0)/.35);
+  $('s').style.setProperty('--glow',(0.05+0.16*win(t,s1.a+2.0,21.0,.1,.5)).toFixed(3));
+}
+window.render=render; render(0);
+</script></body></html>

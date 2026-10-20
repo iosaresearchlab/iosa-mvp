@@ -1,0 +1,175 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<script src="gsap.min.js"></script><script src="DrawSVGPlugin.min.js"></script>
+<style>
+html,body{margin:0;background:#0d1117}
+/* IOSA "5 channels to watch" countdown (Monday), iosa-motion method: one paused GSAP timeline, render(t) seeks it;
+   window.CUES / window.DURATION feed render_motion.py. 1080x1920, safe area y 250..1500. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;background:#0d1117}
+#bg{position:absolute;inset:-60px;background-image:linear-gradient(rgba(132,150,168,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(132,150,168,.06) 1px,transparent 1px);background-size:90px 90px}
+.glow{position:absolute;width:1400px;height:1400px;left:-160px;border-radius:50%;pointer-events:none}
+#gc{top:-120px;background:radial-gradient(closest-side,rgba(0,229,255,.16),transparent)}
+#ga{top:700px;background:radial-gradient(closest-side,rgba(255,176,32,.13),transparent);opacity:0}
+#world{position:absolute;inset:0;transform-origin:50% 45%}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:40px;font-size:22px;white-space:nowrap;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#00e5ff}
+.sc{position:absolute;left:0;top:0;width:1080px;height:1920px;opacity:0;will-change:transform,opacity,filter}
+.c{position:absolute;left:80px;right:80px;text-align:center}
+.big{font-weight:900;letter-spacing:-.035em;line-height:.95}
+.meta{font-family:'JetBrains Mono',monospace;font-size:34px;color:#8496a8;line-height:1.4}
+.cy{color:#00e5ff}.am{color:#ffb020}
+.w{display:inline-block;will-change:transform,opacity}
+.rank{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:60px;letter-spacing:.06em;color:#8496a8}
+.nm{font-weight:900;letter-spacing:-.03em;line-height:1.02;font-size:92px;white-space:nowrap}
+.nm .fl{font-size:80px;margin-right:18px}
+.mt{font-family:'JetBrains Mono',monospace;font-size:32px;color:#8496a8}
+.cnt{font-weight:900;letter-spacing:-.03em}
+.lab{font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:.14em;color:#8496a8;text-transform:uppercase}
+#lad{position:absolute;left:80px;right:80px;top:1440px;display:flex;gap:14px}
+#lad span{flex:1;height:10px;border-radius:5px;background:#1b2330}
+svg{display:block;overflow:visible}
+</style></head><body><div id="s">
+ <div id="bg"></div><div class="glow" id="gc"></div><div class="glow" id="ga"></div>
+ <div id="world">
+  <div class="sc" id="S0">
+   <div class="c mono cy" style="top:380px;font-size:34px;letter-spacing:.2em;font-weight:700" id="kick">EVERY MONDAY</div>
+   <div class="c big" style="top:470px;font-size:100px;line-height:1.04" id="h0"></div>
+   <div class="c meta" style="top:860px;font-size:32px" id="h0s"></div>
+  </div>
+  <div id="items"></div>
+  <div class="sc" id="SE">
+   <div style="position:absolute;left:0;right:0;top:420px;display:flex;justify-content:center;align-items:flex-end;gap:8px">
+    <svg width="170" height="244" viewBox="0 0 230 330" style="filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+     <path id="logoP" d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+     <circle id="logoC" cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+    <div style="font-weight:900;font-size:244px;line-height:.74;letter-spacing:-.03em;display:flex" id="osa"></div></div>
+   <div class="c big" style="top:820px;font-size:96px" id="outT"></div>
+   <div class="c meta" style="top:940px;font-size:36px" id="outS"></div>
+   <div class="c big" style="top:1150px;font-size:64px" id="cta"></div>
+   <div class="c mono cy" style="top:1240px;font-size:56px" id="url">iosaresearch.org</div>
+  </div>
+  <div id="lad"></div>
+ </div>
+ <div class="top mono"><span><b>IOSA</b> · 5 channels to watch</span><span id="ep"></span></div>
+</div>
+<script>
+gsap.registerPlugin(DrawSVGPlugin);
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+function el(tag,at,par,txt){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;par.appendChild(e);return e;}
+const words=(s,cls='')=>s.split(' ').map(w=>`<span class="w ${cls}">${w}</span>`).join(' ');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const day=s=>Math.round(Date.parse(s+'T00:00:00Z')/864e5);
+const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const lab=d=>{const t=new Date(d*864e5);return t.getUTCDate()+' '+mon[t.getUTCMonth()];};
+
+/* ---------- build ---------- */
+$('ep').textContent=D.where;
+$('h0').innerHTML=words('5 channels')+'<br>'+words('that keep beating')+'<br>'+words('their own usual','cy');
+$('h0s').innerHTML=D.hook_sub;
+['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
+$('outT').innerHTML=words('Every Monday.');
+$('outS').innerHTML=D.out_sub;
+$('cta').innerHTML=words('Is your channel in our charts?');
+for(let i=0;i<5;i++){const s=document.createElement('span');$('lad').appendChild(s);}
+const LAD=[...$('lad').children];
+
+const d0=day(D.from), d1=day(D.to), VMAX=Math.max(...D.rows.flatMap(r=>r.points.map(p=>p.v)));
+const W=920, H=440, PAD=40, y=v=>H-PAD-(H-2*PAD)*Math.log(v)/Math.log(VMAX*1.15), x=d=>20+(W-150)*(d-d0)/(d1-d0); /* right gutter of 130px keeps the 1x/2x labels clear of the last spike */
+const rows=D.rows.map((r,i)=>({...r,rank:i+1})).reverse();     // #5 first
+const items=rows.map(r=>{
+  const top1=r.rank===1, n=r.points.length;
+  const d=document.createElement('div'); d.className='sc';
+  d.innerHTML=`
+   <div class="c rank" style="top:320px">#${r.rank}</div>
+   <div class="c nm" style="top:400px"><span class="fl">${r.flag}</span>${esc(r.name)}</div>
+   <div class="c mt" style="top:530px">${esc(r.meta)}</div>
+   <svg class="ch" width="${W}" height="${H}" style="position:absolute;left:80px;top:700px"></svg>
+   <div class="c" style="top:1200px"><span class="cnt cy" style="font-size:84px"><span class="nv">0</span> <span class="nu">videos</span></span></div>
+   <div class="c lab" style="top:1305px">in Most Popular · every one ≥ 2× its usual</div>
+   <div class="c mt" style="top:1360px;font-size:28px">usual ${esc(r.usual)} views</div>`;
+  $('items').appendChild(d);
+  const S=d.querySelector('.ch');
+  el('line',{x1:0,x2:W,y1:y(1),y2:y(1),stroke:'#3a4656','stroke-width':3},S);
+  el('line',{x1:0,x2:W,y1:y(2),y2:y(2),stroke:'#5b6b7d','stroke-width':2,'stroke-dasharray':'8 8'},S);
+  el('text',{x:W,y:y(1)-10,'text-anchor':'end','font-size':22,fill:'#8496a8','font-family':'JetBrains Mono'},S,'usual 1×');
+  el('text',{x:W,y:y(2)-10,'text-anchor':'end','font-size':22,fill:'#8496a8','font-family':'JetBrains Mono'},S,'2×');
+  el('text',{x:0,y:H+6,'font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},S,lab(d0));
+  el('text',{x:x(d1)+20,y:H+6,'text-anchor':'end','font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},S,lab(d1));
+  /* value labels: first free spot among above / right / left / higher, never over another stem, dot or label */
+  const P=r.points.map(p=>({X:x(day(p.d)),Y:y(p.v),t:p.v.toFixed(1)+'×'}));
+  const hit=(a,b)=>a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3];
+  const boxes=[]; const place=P.map((q,j)=>{
+    const w=q.t.length*15.8, obs=P.filter((_,k)=>k!==j).map(o=>[o.X-18,o.Y-20,o.X+18,y(1)]).concat(boxes);
+    const C=[{x:q.X,y:q.Y-26,a:'middle',b:[q.X-w/2,q.Y-48,q.X+w/2,q.Y-20]},
+             {x:q.X+18,y:q.Y+9,a:'start',b:[q.X+16,q.Y-13,q.X+18+w,q.Y+15]},
+             {x:q.X-18,y:q.Y+9,a:'end',b:[q.X-18-w,q.Y-13,q.X-16,q.Y+15]},
+             {x:q.X,y:q.Y-58,a:'middle',b:[q.X-w/2,q.Y-80,q.X+w/2,q.Y-52]}];
+    const c=C.find(c=>c.b[0]>=-10&&c.b[2]<=W&&!obs.some(o=>hit(c.b,o)))||C[0]; boxes.push(c.b); return c;});
+  const spikes=r.points.map((p,j)=>{
+    const X=P[j].X, Y=P[j].Y, col=top1?'#ffb020':'#00e5ff', L=place[j];
+    const ln=el('line',{x1:X,x2:X,y1:y(1),y2:Y,stroke:col,'stroke-width':10,'stroke-linecap':'round'},S);
+    const dot=el('circle',{cx:X,cy:Y,r:13,fill:col,style:`filter:drop-shadow(0 0 12px ${col})`},S);
+    const tx=el('text',{x:L.x,y:L.y,'text-anchor':L.a,'font-size':26,'font-weight':700,fill:col,'font-family':'JetBrains Mono'},S,P[j].t);
+    return {ln,dot,tx,p};
+  });
+  return {r,d,top1,spikes,n};
+});
+
+/* ---------- timeline ---------- */
+const tl=gsap.timeline({paused:true,defaults:{ease:'power3.out',duration:0.6}});
+const CUES=[]; const cue=(t,k,o={})=>CUES.push({t:+t.toFixed(3),k,...o}); window.CUES=CUES;
+const IN=(sel,t,o={})=>tl.fromTo(sel,{opacity:0,y:50,filter:'blur(12px)'},{opacity:1,y:0,filter:'blur(0px)',stagger:0.05,...o},t);
+const PUSH=(from,to,t,d=0.7)=>{ cue(t,'whoosh',{d});
+  tl.to(from,{yPercent:-14,opacity:0,filter:'blur(18px)',scale:0.96,duration:d,ease:'power3.inOut'},t);
+  tl.fromTo(to,{yPercent:14,opacity:0,filter:'blur(18px)',scale:1.04},{yPercent:0,opacity:1,filter:'blur(0px)',scale:1,duration:d,ease:'power3.inOut'},t);
+};
+// item starts: a 4 s grid (2 bars at 120 BPM) by default; D.times (5 values, #5 first) follow a supplied voice track
+const T0=3.0, STEP=4.0;
+const TS=(D.times&&D.times.length===5)?D.times:[...Array(5)].map((_,k)=>T0+k*STEP);
+const T1=TS[4], END1=D.outro_at||T1+5.0, DUR=D.duration||END1+4.3;
+window.DURATION=+DUR.toFixed(2);
+tl.fromTo('#world',{scale:1},{scale:1.035,duration:DUR,ease:'sine.inOut'},0);
+tl.fromTo('#bg',{y:0},{y:-90,duration:DUR,ease:'none'},0);
+tl.fromTo('#gc',{y:0,opacity:.7},{y:420,opacity:1,duration:DUR,ease:'sine.inOut'},0);
+
+tl.fromTo('#S0',{opacity:0},{opacity:1,duration:0.4,ease:'sine.out'},0);
+IN('#kick',0.15,{stagger:0}); IN('#h0 .w',0.35); IN('#h0s',1.4,{stagger:0});
+tl.fromTo('#lad span',{opacity:0,scaleX:0.3},{opacity:1,scaleX:1,duration:0.5,stagger:0.06},1.6);
+
+let prev='#S0';
+items.forEach((it,k)=>{
+  const t=TS[k], d=it.d, q=s=>d.querySelector(s), span=(k<4?TS[k+1]:END1)-t;
+  if(it.top1){ cue(t-1.6,'riser',{d:1.6}); tl.to('#ga',{opacity:1,duration:1.2,ease:'sine.inOut'},t-0.4); }
+  PUSH(prev,d,t,0.8);
+  tl.fromTo(q('.rank'),{opacity:0,y:30},{opacity:1,y:0,duration:0.5},t+0.15);
+  IN(q('.nm'),t+0.25,{stagger:0}); IN(q('.mt'),t+0.45,{stagger:0});
+  const st=Math.min(0.3,(span-2.0)/Math.max(1,it.n));            // spikes rise one by one
+  it.spikes.forEach((s,j)=>{
+    const tj=t+0.7+j*st, y1=+s.ln.getAttribute('y1'), y2=+s.ln.getAttribute('y2');
+    tl.fromTo(s.ln,{attr:{y2:y1}},{attr:{y2:y2},duration:0.45,ease:'power3.out'},tj);
+    tl.fromTo(s.dot,{attr:{cy:y1},opacity:0},{attr:{cy:y2},opacity:1,duration:0.45,ease:'power3.out'},tj);
+    tl.fromTo(s.tx,{opacity:0,y:10},{opacity:1,y:0,duration:0.3},tj+0.3);
+    cue(tj,'pluck',{p:Math.min(1,Math.log(s.p.v)/Math.log(VMAX)),alt:it.top1,mp:true});
+  });
+  const o={v:0}; tl.fromTo(o,{v:0},{v:it.n,duration:it.n*st+0.3,ease:'none',onUpdate:()=>{const v=Math.round(o.v);q('.nv').textContent=v;q('.nu').textContent=v===1?'video':'videos';}},t+0.7);
+  IN(q('.cnt'),t+0.6,{stagger:0}); IN(q('.lab'),t+0.9,{stagger:0}); IN(d.querySelectorAll('.mt')[1],t+1.1,{stagger:0});
+  tl.to(LAD[5-it.r.rank],{backgroundColor:it.top1?'#ffb020':'#00e5ff',boxShadow:it.top1?'0 0 18px rgba(255,176,32,.8)':'0 0 12px rgba(0,229,255,.6)',duration:0.3},t+0.3);
+  if(it.top1) cue(t+0.7+it.n*st+0.2,'hit',{g:0.8});
+  prev=d;
+});
+
+PUSH(prev,'#SE',END1,0.8);
+tl.to('#lad',{opacity:0,y:30,duration:0.6,ease:'power3.in'},END1);
+tl.fromTo('#logoP',{drawSVG:'0%'},{drawSVG:'100%',duration:0.9,ease:'power3.inOut'},END1+0.3);
+cue(END1+0.9,'impact');
+tl.fromTo('#logoC',{scale:0,transformOrigin:'50% 50%'},{scale:1,duration:0.6,ease:'back.out(1.6)'},END1+0.9);
+tl.fromTo('#osa .w',{opacity:0,y:80},{opacity:1,y:0,duration:0.7,stagger:0.08},END1+0.5);
+IN('#outT .w',END1+1.1); IN('#outS',END1+1.4,{stagger:0}); IN('#cta .w',END1+1.8); IN('#url',END1+2.2,{stagger:0});
+tl.to({},{duration:0.01},DUR);
+
+window.render=t=>{tl.seek(t,false);};
+document.fonts.ready.then(()=>{document.querySelectorAll('.nm').forEach(n=>{let f=92;while(n.scrollWidth>920&&f>48){f-=2;n.style.fontSize=f+'px';n.querySelector('.fl').style.fontSize=Math.round(f*.87)+'px';}});render(0);window.__ready=true;});
+render(0);
+</script></body></html>

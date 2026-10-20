@@ -1,0 +1,265 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<script src="gsap.min.js"></script><script src="DrawSVGPlugin.min.js"></script><script src="MotionPathPlugin.min.js"></script>
+<style>
+html,body{margin:0;background:#0d1117}
+/* 1080x1920, 26 s. One paused GSAP timeline; render(t) seeks it, so every frame is a pure function of t.
+   Instagram safe area ~ y 250..1500. No CSS transitions anywhere. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;background:#0d1117}
+#bg{position:absolute;inset:-60px;background-image:linear-gradient(rgba(132,150,168,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(132,150,168,.06) 1px,transparent 1px);background-size:90px 90px}
+.glow{position:absolute;width:1400px;height:1400px;left:-160px;border-radius:50%;pointer-events:none}
+#gc{top:-120px;background:radial-gradient(closest-side,rgba(0,229,255,.16),transparent)}
+#ga{top:700px;background:radial-gradient(closest-side,rgba(255,176,32,.12),transparent)}
+#world{position:absolute;inset:0;transform-origin:50% 45%}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:40px;font-size:22px !important;white-space:nowrap;font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#ffb020}
+.sc{position:absolute;left:0;top:0;width:1080px;height:1920px;opacity:0;will-change:transform,opacity,filter}
+.c{position:absolute;left:80px;right:80px;text-align:center}
+.big{font-weight:900;letter-spacing:-.035em;line-height:.95}
+.meta{font-family:'JetBrains Mono',monospace;font-size:34px;color:#8496a8;line-height:1.4}
+.cy{color:#00e5ff}.am{color:#ffb020}
+.w{display:inline-block;will-change:transform,opacity}
+.chip{display:inline-flex;align-items:center;padding:14px 28px;border-radius:999px;font-weight:800;font-size:38px;border:3px solid;margin:0 10px}
+.sqn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 27px 'JetBrains Mono',monospace;color:#0d1117;opacity:0}
+.sq{position:absolute;left:0;top:0;width:56px;height:56px;border-radius:10px;background:#1b2330;will-change:transform}
+svg{display:block;overflow:visible}
+</style></head><body><div id="s">
+ <div id="bg"></div><div class="glow" id="gc"></div><div class="glow" id="ga"></div>
+ <div id="world">
+  <!-- 1 hook -->
+  <div class="sc" id="S1">
+   <div class="c big" style="top:520px;font-size:300px" id="daysN">0</div>
+   <div class="c big" style="top:840px;font-size:100px" id="h1"></div>
+   <div class="c meta" style="top:990px;font-size:38px" id="h1s"></div>
+  </div>
+  <!-- 2 channel -->
+  <div class="sc" id="S2">
+   <div class="c mono am" style="top:380px;font-size:40px;letter-spacing:.16em;font-weight:700" id="rk"></div>
+   <div class="c big" style="top:450px;font-size:124px" id="nm"></div>
+   <div class="c meta" style="top:600px" id="meta"></div>
+   <svg id="clock" width="320" height="320" viewBox="-160 -160 320 320" style="position:absolute;left:380px;top:700px">
+    <circle r="140" fill="none" stroke="#26303d" stroke-width="10"/>
+    <circle id="clockArc" r="140" fill="none" stroke="#00e5ff" stroke-width="10" stroke-linecap="round" transform="rotate(-90)"/>
+    <g id="ticks"></g>
+    <line id="hand" x1="0" y1="0" x2="0" y2="-100" stroke="#00e5ff" stroke-width="12" stroke-linecap="round"/>
+    <circle r="15" fill="#00e5ff"/>
+   </svg>
+   <div class="c big" style="top:1090px;font-size:68px;line-height:1.15" id="when"></div>
+  </div>
+  <!-- 3 two series -->
+  <div class="sc" id="S3">
+   <div class="c big" style="top:300px;font-size:96px;line-height:1.02" id="t3"></div>
+   <div class="c" style="top:530px" id="chips"></div>
+   <div class="mono" style="position:absolute;left:80px;top:650px;font-size:22px;letter-spacing:.14em;color:#8496a8" id="laneLab"></div>
+   <div class="mono" id="laneFoot" style="position:absolute;left:80px;right:80px;top:752px;display:flex;justify-content:space-between;align-items:center;font-size:22px;color:#8496a8"><span id="lf0"></span><span id="laneCnt" style="font-size:26px;font-weight:700"></span><span id="lf1"></span></div>
+   <svg id="bars" width="920" height="760" style="position:absolute;left:80px;top:830px"></svg>
+  </div>
+  <!-- 4 rings -->
+  <div class="sc" id="S4">
+   <div class="c big" style="top:380px;font-size:84px" id="t4"></div>
+   <div id="rings" style="position:absolute;left:80px;right:80px;top:560px;display:flex;justify-content:center;gap:60px"></div>
+   <div class="c meta" style="top:1240px;font-size:34px" id="cmpNote"></div>
+  </div>
+  <!-- 5 usual -->
+  <div class="sc" id="S5">
+   <div class="c meta" style="top:400px;font-size:40px" id="t5"></div>
+   <div class="c" style="top:470px;display:flex;justify-content:center;align-items:baseline;gap:30px">
+    <span class="big" style="font-size:130px;color:#8496a8" id="u0"></span><span class="big" style="font-size:90px;color:#5b6b7d">→</span>
+    <span class="big cy" style="font-size:200px;text-shadow:0 0 60px rgba(0,229,255,.45)" id="u1"></span></div>
+   <svg id="uline" width="880" height="380" style="position:absolute;left:100px;top:760px"></svg>
+   <div class="c big" style="top:1220px;font-size:84px" id="ux"></div>
+   <div class="c meta" style="top:1330px;font-size:24px;color:#5b6b7d" id="uxs"></div>
+  </div>
+  <!-- 6 outro -->
+  <div class="sc" id="S6">
+   <div style="position:absolute;left:0;right:0;top:420px;display:flex;justify-content:center;align-items:flex-end;gap:8px">
+    <svg width="170" height="244" viewBox="0 0 230 330" style="filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+     <path id="logoP" d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+     <circle id="logoC" cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+    <div style="font-weight:900;font-size:244px;line-height:.74;letter-spacing:-.03em;display:flex" id="osa"></div></div>
+   <div class="c big" style="top:820px;font-size:84px" id="outT"></div>
+   <div class="c meta" style="top:930px;font-size:36px" id="outS"></div>
+   <div class="c big" style="top:1150px;font-size:64px" id="cta"></div>
+   <div class="c mono cy" style="top:1240px;font-size:56px" id="url">iosaresearch.org</div>
+  </div>
+  <div id="sqs"></div>
+ </div>
+ <div class="top mono"><span><b>IOSA</b> · <span id="ep"></span></span><span id="win"></span></div>
+</div>
+<script>
+gsap.registerPlugin(DrawSVGPlugin, MotionPathPlugin);
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+function el(tag,at,par,txt){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;par.appendChild(e);return e;}
+const words=(s,cls='')=>s.split(' ').map(w=>`<span class="w ${cls}">${w}</span>`).join(' ');
+const fmtK=v=>v>=1000?(v/1000).toFixed(v>=10000?0:1)+'K':String(Math.round(v));
+const day=s=>Date.parse(s+'T00:00:00Z')/864e5;
+$('ep').textContent=D.ep; $('win').textContent=D.window;
+
+/* ---------- build ---------- */
+$('h1').innerHTML=words('days in a row'); $('h1s').innerHTML=D.hook_sub;
+$('rk').textContent=D.rank; $('nm').innerHTML=words(D.flag+' '+D.name); $('meta').textContent=D.meta; $('when').innerHTML=D.when;
+for(let h=0;h<12;h++){const a=h/12*2*Math.PI;el('line',{x1:Math.sin(a)*112,y1:-Math.cos(a)*112,x2:Math.sin(a)*(h%3?124:100),y2:-Math.cos(a)*(h%3?124:100),stroke:'#5b6b7d','stroke-width':h%3?4:8,'stroke-linecap':'round'},$('ticks'));}
+$('t3').innerHTML=words('Two series.')+'<br>'+words('Which one got in?','cy');
+const col={}; D.series.forEach(s=>{col[s.key]=s.color;const c=document.createElement('span');c.className='chip';c.style.color=s.color;c.style.borderColor=s.color;c.innerHTML=s.label;$('chips').appendChild(c);});
+$('laneLab').textContent='IN THE CHART · '+D.slice.toUpperCase()+' · ONE READING A DAY';
+const B=$('bars'), BW=920, BOT=560, TOPY=60, n=D.uploads.length, cw=BW/n;
+const vmax=Math.max(...D.uploads.map(u=>u.vpd));
+el('text',{x:0,y:20,'font-size':22,'letter-spacing':'3',fill:'#8496a8','font-family':'JetBrains Mono'},B,'EVERY LONG UPLOAD · VIEWS PER DAY');
+el('line',{x1:0,x2:BW,y1:BOT,y2:BOT,stroke:'#26303d','stroke-width':3},B);
+const defs=el('defs',{},B); const f=el('filter',{id:'gl',x:'-60%',y:'-30%',width:'220%',height:'160%'},defs);
+el('feGaussianBlur',{stdDeviation:7,result:'b'},f); const mg=el('feMerge',{},f); el('feMergeNode',{in:'b'},mg); el('feMergeNode',{in:'SourceGraphic'},mg);
+const bars=D.uploads.map((u,i)=>{
+  const x=i*cw+7,w=cw-14,h=(BOT-TOPY)*u.vpd/vmax;
+  const r=el('rect',{x,y:BOT,width:w,height:0,rx:6,fill:col[u.s],opacity:u.mp?1:0.26},B);
+  if(u.mp) r.setAttribute('filter','url(#gl)');
+  const m=u.mp?el('text',{x:x+w/2,y:BOT-h-16,'text-anchor':'middle','font-size':21,'font-weight':700,fill:col[u.s],'font-family':'JetBrains Mono'},B,u.v.toFixed(1)+'×'):null;
+  return {u,r,m,h};
+});
+const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const lab=s=>{const t=new Date(day(s)*864e5);return t.getUTCDate()+' '+mon[t.getUTCMonth()];};
+el('text',{x:BW/2,y:BOT+78,'text-anchor':'middle','font-size':23,fill:'#5b6b7d','font-family':'JetBrains Mono'},B,'bright = observed in Most Popular · day-1 multiple on top');
+// rings
+$('t4').innerHTML=words('The answer:');
+const R=150, C=2*Math.PI*R;
+const rings=D.series.map(s=>{
+  const ups=D.uploads.filter(u=>u.s===s.key), hit=ups.filter(u=>u.mp).length;
+  const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;will-change:transform,opacity';
+  const sv=document.createElementNS(NS,'svg'); sv.setAttribute('width',360); sv.setAttribute('height',360); sv.setAttribute('viewBox','-180 -180 360 360');
+  el('circle',{r:R,fill:'none',stroke:'#1b2330','stroke-width':32},sv);
+  const arc=el('circle',{r:R,fill:'none',stroke:s.color,'stroke-width':32,'stroke-linecap':'round',transform:'rotate(-90)'},sv);
+  const num=el('text',{y:34,'text-anchor':'middle','font-size':120,'font-weight':900,fill:'#eef3f8','font-family':'Inter'},sv,'0');
+  el('text',{y:96,'text-anchor':'middle','font-size':32,fill:'#8496a8','font-family':'JetBrains Mono'},sv,'of '+ups.length);
+  wrap.appendChild(sv);
+  const lb=document.createElement('div'); lb.className='big'; lb.style.cssText=`font-size:50px;margin-top:24px;color:${s.color}`; lb.innerHTML=s.label; wrap.appendChild(lb);
+  $('rings').appendChild(wrap);
+  return {wrap,arc,num,hit,tot:ups.length};
+});
+$('cmpNote').textContent=D.cmp_note;
+// usual line: smooth Catmull-Rom → cubic Bézier through the record points
+$('t5').textContent=D.usual_title;
+const US=$('uline'), UW=880, UH=340, UP=D.usual_points, umax=Math.max(...UP.map(p=>p.u))*1.08, ud0=day(UP[0].d), ud1=day(UP[UP.length-1].d);
+const P=UP.map(p=>[(day(p.d)-ud0)/(ud1-ud0)*UW, UH-UH*p.u/umax]);
+let dpath=`M${P[0][0]},${P[0][1]}`;
+for(let i=0;i<P.length-1;i++){const p0=P[i-1]||P[i],p1=P[i],p2=P[i+1],p3=P[i+2]||p2,k=6;
+  dpath+=` C${p1[0]+(p2[0]-p0[0])/k},${p1[1]+(p2[1]-p0[1])/k} ${p2[0]-(p3[0]-p1[0])/k},${p2[1]-(p3[1]-p1[1])/k} ${p2[0]},${p2[1]}`;}
+el('line',{x1:0,x2:UW,y1:UH,y2:UH,stroke:'#26303d','stroke-width':3},US);
+const d2=el('defs',{},US); const gr=el('linearGradient',{id:'ug',x1:0,y1:0,x2:0,y2:1},d2); el('stop',{offset:0,'stop-color':'#00e5ff','stop-opacity':.28},gr); el('stop',{offset:1,'stop-color':'#00e5ff','stop-opacity':0},gr);
+const f2=el('filter',{id:'gl2',x:'-20%',y:'-60%',width:'140%',height:'220%'},d2); el('feGaussianBlur',{stdDeviation:9,result:'b'},f2); const m2=el('feMerge',{},f2); el('feMergeNode',{in:'b'},m2); el('feMergeNode',{in:'SourceGraphic'},m2);
+const area=el('path',{d:dpath+` L${UW},${UH} L0,${UH} Z`,fill:'url(#ug)',opacity:0},US);
+const upath=el('path',{d:dpath,fill:'none',stroke:'#00e5ff','stroke-width':10,'stroke-linecap':'round',filter:'url(#gl2)'},US);
+const tip=el('circle',{r:16,fill:'#eef3f8',stroke:'#00e5ff','stroke-width':6},US);
+UP.forEach((p,i)=>el('circle',{cx:P[i][0],cy:P[i][1],r:7,fill:'#00e5ff',class:'udot',opacity:0},US));
+el('text',{x:0,y:UH+40,'font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},US,lab(UP[0].d));
+el('text',{x:UW,y:UH+40,'text-anchor':'end','font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},US,lab(UP[UP.length-1].d));
+$('ux').innerHTML=D.usual_note; $('uxs').textContent=D.usual_src;
+// outro
+$('osa').innerHTML='OSA'.split('').map(c=>`<span class="w">${c}</span>`).join('');
+$('outT').innerHTML=words(D.out_title); $('outS').innerHTML=D.out_sub; $('cta').innerHTML=words(D.cta);
+// shared element: 18 squares, one per daily reading
+const SQ=[]; for(let i=0;i<D.days_total;i++){const q=document.createElement('div');q.className='sq';$('sqs').appendChild(q);SQ.push(q);}
+const G={x:(1080-(9*56+8*18))/2, y:1150};                 // scene 1: 9×2 grid
+const gridPos=i=>({x:G.x+(i%9)*74, y:G.y+Math.floor(i/9)*74, scale:1});
+const stripPos=i=>({x:80+i*(920/18)+(920/18-56)/2, y:1430, scale:0.62});   // scene 2: thin strip
+const lanePos=i=>({x:80+i*(920/18)+(920/18-56)/2, y:690, scale:0.84});     // scene 3: the chart lane
+const laneByDay={}; D.lane.forEach(l=>laneByDay[l.d]=l.n);
+const d0=day(D.uploads[0].d);
+const laneN=SQ.map((q,i)=>laneByDay[new Date((d0+i)*864e5).toISOString().slice(0,10)]||'');
+SQ.forEach((q,i)=>{const t=document.createElement('span');t.className='sqn';t.textContent=laneN[i];q.appendChild(t);});
+const laneCol=SQ.map((q,i)=>{const d=new Date((d0+i)*864e5).toISOString().slice(0,10);const up=D.uploads.find(u=>u.n===laneByDay[d]);return up?col[up.s]:'#1b2330';});
+
+// lane footer: first and last reading, and how many days each series held the place
+{const fmt=d=>{const t=new Date(d*864e5);return t.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][t.getUTCMonth()];};
+ $('lf0').textContent=fmt(d0); $('lf1').textContent=fmt(d0+SQ.length-1);
+ const cnt={}; laneN.forEach(nn=>{const up=D.uploads.find(u=>u.n===nn); if(up) cnt[up.s]=(cnt[up.s]||0)+1;});
+ $('laneCnt').innerHTML=D.series.map(se=>`<span style="color:${se.color}">${cnt[se.key]||0} days</span>`).join('<span style="color:#5b6b7d"> · </span>');}
+// the video number under each bar, the same number that sits in the lane squares
+D.uploads.forEach((u,i)=>el('text',{x:i*cw+cw/2,y:BOT+30,'text-anchor':'middle','font-size':19,'font-weight':700,fill:u.mp?col[u.s]:'#5b6b7d','font-family':'JetBrains Mono','class':'bn'},B,String(u.n)));
+
+/* ---------- timeline ---------- */
+const tl=gsap.timeline({paused:true,defaults:{ease:'power3.out',duration:0.7}});
+/* sound cues: the renderer reads window.CUES and synthesizes the audio from them, so sound and motion share one clock */
+const CUES=[]; const cue=(t,k,o={})=>CUES.push({t:+t.toFixed(3),k,...o}); window.CUES=CUES; window.DURATION=26;
+const IN=(sel,t,o={})=>tl.fromTo(sel,{opacity:0,y:60,filter:'blur(14px)'},{opacity:1,y:0,filter:'blur(0px)',stagger:0.06,...o},t);
+const PUSH=(from,to,t,d=0.8)=>{ cue(t,'whoosh',{d});           // outgoing and incoming move together: the motion IS the handoff
+  tl.to(from,{yPercent:-14,opacity:0,filter:'blur(18px)',scale:0.96,duration:d,ease:'power3.inOut'},t);
+  tl.fromTo(to,{yPercent:14,opacity:0,filter:'blur(18px)',scale:1.04},{yPercent:0,opacity:1,filter:'blur(0px)',scale:1,duration:d,ease:'power3.inOut'},t);
+};
+// camera: one slow continuous push for the whole piece
+tl.fromTo('#world',{scale:1},{scale:1.035,duration:26,ease:'sine.inOut'},0);
+tl.fromTo('#bg',{y:0},{y:-90,duration:26,ease:'none'},0);
+tl.fromTo('#gc',{y:0,opacity:.7},{y:420,opacity:1,duration:26,ease:'sine.inOut'},0);
+tl.fromTo('#ga',{opacity:0},{opacity:1,duration:3,ease:'sine.inOut'},13);
+
+// S1 — hook
+tl.fromTo('#S1',{opacity:0},{opacity:1,duration:0.4,ease:'sine.out'},0);
+SQ.forEach((q,i)=>{const g=gridPos(i); tl.fromTo(q,{x:g.x,y:g.y+40,scale:0.4,opacity:0},{x:g.x,y:g.y,scale:1,opacity:1,duration:0.5},0.15+i*0.02);});
+SQ.forEach((q,i)=>cue(0.6+i*0.105,'tick',{p:i/(SQ.length-1)}));
+cue(2.5,'hit',{g:0.7});
+SQ.forEach((q,i)=>tl.fromTo(q,{backgroundColor:'#1b2330',boxShadow:'0 0 0 rgba(0,229,255,0)'},{backgroundColor:'#00e5ff',boxShadow:'0 0 22px rgba(0,229,255,.75)',duration:0.25,ease:'power2.out'},0.6+i*0.105));
+const cnt={v:0}; tl.fromTo(cnt,{v:0},{v:D.days_in,duration:1.9,ease:'power2.inOut',onUpdate:()=>{$('daysN').textContent=Math.round(cnt.v);}},0.6);
+tl.fromTo('#daysN',{scale:0.85},{scale:1,duration:2.2,ease:'power3.out',transformOrigin:'50% 60%'},0.5);
+IN('#h1 .w',1.0); IN('#h1s',1.5,{stagger:0});
+
+// S1 → S2 (3.4): squares glide into a thin strip at the bottom, text pushes up
+PUSH('#S1','#S2',3.4);
+SQ.forEach((q,i)=>{const p=stripPos(i); tl.to(q,{x:p.x,y:p.y,scale:p.scale,boxShadow:'0 0 10px rgba(0,229,255,.4)',duration:1.0,ease:'power3.inOut'},3.35+i*0.012);});
+IN('#rk',3.9,{stagger:0}); IN('#nm .w',4.0); IN('#meta',4.25,{stagger:0});
+tl.fromTo('#clock',{scale:0.6,opacity:0,rotation:-30},{scale:1,opacity:1,rotation:0,duration:0.9,transformOrigin:'50% 50%'},4.3);
+cue(4.6,'whirr',{d:1.8}); cue(6.4,'ding',{f:880});
+tl.fromTo('#hand',{rotation:0},{rotation:360+D.hour/12*360,duration:1.8,ease:'expo.inOut',svgOrigin:'0 0'},4.6);
+tl.fromTo('#clockArc',{drawSVG:'0%'},{drawSVG:(D.hour/12*100)+'%',duration:1.0,ease:'power2.inOut'},5.6);
+IN('#when',5.3,{stagger:0});
+
+// S2 → S3 (7.3): the strip flies up and becomes the chart lane, recoloured by series
+PUSH('#S2','#S3',7.3,0.85);
+SQ.forEach((q,i)=>{const p=lanePos(i); tl.to(q,{x:p.x,y:p.y,scale:p.scale,borderRadius:8,duration:1.1,ease:'power3.inOut'},7.25+i*0.015);
+  tl.to(q,{backgroundColor:laneCol[i],boxShadow:laneCol[i]==='#ffb020'?'0 0 18px rgba(255,176,32,.7)':'0 0 18px rgba(0,229,255,.6)',duration:0.4,ease:'power2.out'},8.9+i*0.2);});
+IN('#t3 .w',7.6); tl.fromTo('#chips span',{opacity:0,scale:0.8},{opacity:1,scale:1,duration:0.5,stagger:0.12,ease:'power3.out'},8.0);
+IN('#laneLab',8.3,{stagger:0}); IN(['#lf0','#lf1'],8.5,{stagger:0.1});
+SQ.forEach((q,i)=>{const t=q.querySelector('.sqn'); if(t) tl.fromTo(t,{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.35,ease:'back.out(2)'},9.0+i*0.2);});
+tl.fromTo('.bn',{opacity:0,y:8},{opacity:1,y:0,duration:0.35,stagger:0.2},9.0);
+IN('#laneCnt',12.6,{stagger:0});
+bars.forEach((b,i)=>cue(8.9+i*0.2,'pluck',{p:Math.min(1,b.h/Math.max(...bars.map(x=>x.h))),alt:b.u.s!==D.series[0].key,mp:!!b.u.mp}));
+bars.forEach((b,i)=>{tl.fromTo(b.r,{attr:{y:BOT,height:0}},{attr:{y:BOT-b.h,height:b.h},duration:0.7,ease:'power3.out'},8.9+i*0.2);
+  if(b.m) tl.fromTo(b.m,{opacity:0,y:12},{opacity:1,y:0,duration:0.4},9.3+i*0.2);});
+
+// S3 → S4 (14.6): chart dissolves into the two rings
+PUSH('#S3','#S4',14.6,0.9);
+tl.to(SQ,{opacity:0,y:'-=60',filter:'blur(12px)',duration:0.8,ease:'power3.in',stagger:0.01},14.55);
+IN('#t4 .w',15.0);
+rings.forEach((r,i)=>cue(15.6+i*0.3+1.6,'ding',{f:i?1046.5:784}));
+rings.forEach((r,i)=>{
+  tl.fromTo(r.wrap,{opacity:0,scale:0.7,y:40},{opacity:1,scale:1,y:0,duration:0.8},15.2+i*0.18);
+  tl.fromTo(r.arc,{drawSVG:'0%'},{drawSVG:(100*r.hit/r.tot)+'%',duration:1.6,ease:'power3.inOut'},15.6+i*0.3);
+  const o={v:0}; tl.fromTo(o,{v:0},{v:r.hit,duration:1.6,ease:'power3.inOut',onUpdate:()=>{r.num.textContent=Math.round(o.v);}},15.6+i*0.3);
+});
+IN('#cmpNote',16.6,{stagger:0});
+
+// S4 → S5 (19.0): the line draws itself, a bright tip rides it, the number counts up
+PUSH('#S4','#S5',19.0,0.85);
+IN('#t5',19.4,{stagger:0});
+tl.fromTo(['#u0','#u1'],{opacity:0,y:40},{opacity:1,y:0,duration:0.7,stagger:0.15},19.5);
+const uc={v:D.usual_from}; $('u0').textContent=fmtK(D.usual_from);
+tl.fromTo(uc,{v:D.usual_from},{v:D.usual_to,duration:2.2,ease:'power2.inOut',onUpdate:()=>{$('u1').textContent=fmtK(uc.v);}},19.8);
+cue(19.8,'riser',{d:2.2}); cue(22.0,'hit',{g:0.8});
+tl.fromTo(upath,{drawSVG:'0%'},{drawSVG:'100%',duration:2.2,ease:'power2.inOut'},19.8);
+tl.fromTo(tip,{motionPath:{path:upath,align:upath,alignOrigin:[0.5,0.5],start:0,end:0}},{motionPath:{path:upath,align:upath,alignOrigin:[0.5,0.5],start:0,end:1},duration:2.2,ease:'power2.inOut'},19.8);
+tl.fromTo(area,{opacity:0},{opacity:1,duration:1.2,ease:'sine.inOut'},20.6);
+tl.fromTo('.udot',{opacity:0,scale:0},{opacity:1,scale:1,duration:0.3,stagger:0.3,transformOrigin:'50% 50%'},19.9);
+IN('#ux',21.4,{stagger:0}); IN('#uxs',21.7,{stagger:0});
+
+// S5 → S6 (22.6): logo assembles
+PUSH('#S5','#S6',22.6,0.8);
+tl.fromTo('#logoP',{drawSVG:'0%'},{drawSVG:'100%',duration:0.9,ease:'power3.inOut'},22.9);
+cue(23.5,'impact');
+tl.fromTo('#logoC',{scale:0,transformOrigin:'50% 50%'},{scale:1,duration:0.6,ease:'back.out(1.6)'},23.5);
+tl.fromTo('#osa .w',{opacity:0,y:80},{opacity:1,y:0,duration:0.7,stagger:0.08},23.1);
+IN('#outT .w',23.7); IN('#outS',24.0,{stagger:0}); IN('#cta .w',24.4); IN('#url',24.8,{stagger:0});
+tl.to({},{duration:0.01},26);
+
+window.render=t=>{tl.seek(t,false);};
+document.fonts.ready.then(()=>{window.__ready=true;});
+render(0);
+</script></body></html>

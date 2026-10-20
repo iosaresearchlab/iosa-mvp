@@ -1,0 +1,9 @@
+{"where":"week of 12 Oct · dry run","from":"2026-09-27","to":"2026-10-07",
+ "lede":"Each spike is one video caught in YouTube Most Popular: how many times the channel's usual it got on its first day.",
+ "rows":[
+ {"name":"NepentheZ 2","flag":"🇬🇧","meta":"Gaming · 554K subscribers","usual":"12K → 20K","points":[{"d":"2026-09-27","v":4.8},{"d":"2026-09-28","v":6.5},{"d":"2026-09-30","v":2.5},{"d":"2026-10-01","v":2.1},{"d":"2026-10-03","v":2.7},{"d":"2026-10-04","v":2.8},{"d":"2026-10-05","v":4.0}]},
+ {"name":"PLAY MAN","flag":"🇮🇳","meta":"Gaming · 48K subscribers","usual":"15K–26K","points":[{"d":"2026-09-27","v":5.9},{"d":"2026-09-28","v":15.3},{"d":"2026-09-30","v":21.0},{"d":"2026-10-02","v":7.7},{"d":"2026-10-03","v":8.0},{"d":"2026-10-04","v":4.7}]},
+ {"name":"Reminex Gameplay","flag":"🇨🇴","meta":"Gaming · 82K subscribers","usual":"37K → 52K","points":[{"d":"2026-09-27","v":12.2},{"d":"2026-10-02","v":12.8},{"d":"2026-10-06","v":8.6}]},
+ {"name":"Matt Burkeen","flag":"🇳🇿","meta":"Autos & Vehicles · 92K subscribers","usual":"20K → 21K","points":[{"d":"2026-10-02","v":3.0},{"d":"2026-10-05","v":3.8}]},
+ {"name":"LOVECARS!TV!","flag":"🇯🇵","meta":"Autos & Vehicles · 619K subscribers","usual":"48K–58K","points":[{"d":"2026-10-02","v":2.3},{"d":"2026-10-03","v":3.2}]}],
+ "src":"Height = views on the first day we observed the video in YouTube's Most Popular category charts ÷ the channel's usual (median views of its long-form videos published 7–90 days before that video). Log scale. Channels under 1M subscribers; not included: news, music, sports, TV broadcasters, live streams, re-uploads."}

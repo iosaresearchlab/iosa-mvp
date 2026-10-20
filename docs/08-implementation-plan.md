@@ -436,6 +436,10 @@ GRANTs from 30/10. The method is not touched.
   archived, 307 and the live HTML each in under 1 s, a token not archived
   answers 202 without raising the backend's RSS); then 3 days with no Render
   memory mail and no UptimeRobot down at 08:45-09:15 or 10:45-11:15 UTC.
+- **FIX-1e closing check**: `pytest social -q` green in CI; on the PC the
+  scheduled tasks' commands unchanged and working through the wrappers
+  (`cd renders/social && python3 publish_api.py queue/<old spec>.json
+  --dry-run` exits 0 and names every channel).
 - **FIX-1d closing check**: `python tests/check_og.py TOKEN x5 --creator
   HANDLE` on production prints PASS (og:image and twitter:image of each page
   point to its own record image: 200, `image/png`, the day-long immutable

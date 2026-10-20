@@ -1,0 +1,111 @@
+<!doctype html><html><head><meta charset="utf-8"><title>IOSA follow-up</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;800;900&display=swap">
+<style>
+  :root{--ground:#0d1117;--surface:#161c26;--line:#26303d;--ink:#eef3f8;--muted:#8496a8;--accent:#00e5ff;--amber:#ffb020;}
+  html,body{margin:0;}
+  body{background:var(--ground);color:var(--ink);font-family:"Inter",sans-serif;-webkit-font-smoothing:antialiased;}
+  .card{display:flex;flex-direction:column;background:radial-gradient(900px 600px at 15% 8%, rgba(255,176,32,.10), transparent 60%), radial-gradient(800px 600px at 90% 98%, rgba(0,229,255,.08), transparent 60%), var(--ground);width:1080px;height:1350px;box-sizing:border-box;padding:56px 72px 46px;}
+  .mono{font-family:"JetBrains Mono",monospace;}
+  .eyebrow{font-size:19px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:24px;white-space:nowrap;}
+  .eyebrow b{color:var(--amber);font-weight:700;}
+  .head{display:grid;grid-template-columns:1fr 150px;column-gap:28px;margin-top:22px;align-items:start;}
+  h1{margin:0;font-size:60px;line-height:1.02;font-weight:900;letter-spacing:-.03em;}
+  h1 em{font-style:normal;color:var(--amber);}
+  .lede{margin-top:12px;font-size:18px;color:var(--muted);line-height:1.4;}
+  .prev{position:relative;}
+  .prev img{width:150px;height:188px;object-fit:cover;object-position:top;border-radius:8px;border:2px solid var(--amber);display:block;box-shadow:0 0 30px rgba(255,176,32,.25);}
+  .prev span{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:13px;letter-spacing:.12em;color:var(--amber);text-transform:uppercase;}
+  .legend{display:flex;gap:22px;margin-top:22px;font-size:15px;color:var(--muted);align-items:center;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:8px;}
+  .list{margin-top:14px;display:flex;flex-direction:column;gap:9px;}
+  .ch{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 16px 8px 18px;display:grid;grid-template-columns:290px 1fr;column-gap:14px;align-items:center;height:150px;box-sizing:border-box;}
+  .nm{font-size:22px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nm .rk{color:var(--amber);font-family:"JetBrains Mono",monospace;font-size:21px;margin-right:6px;}
+  .tn{font-size:15px;color:var(--muted);margin-top:6px;line-height:1.55;}
+  .tn b{color:var(--ink);font-weight:700;}
+  .tn .c{color:var(--accent);}
+  .tn .a{color:var(--amber);}
+  svg{display:block;overflow:visible;}
+  .grow{flex:1;}
+  .src{font-size:13.5px;color:var(--muted);line-height:1.5;margin:0;}
+  footer{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid var(--line);padding-top:16px;margin-top:16px;}
+  .mark{display:block;font-weight:700;font-size:20px;}
+  .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
+  footer > div:last-child{color:var(--muted);font-size:20px;}
+</style></head><body>
+<section class="card" id="card">
+  <div class="eyebrow mono"><span><b>IOSA</b> · Follow-up of <b id="of"></b></span><span id="where"></span></div>
+  <div class="head"><div><h1 id="title"></h1><div class="lede mono" id="lede"></div></div>
+    <div class="prev" id="prevbox"><img id="prev" alt=""><span class="mono">Previously</span></div></div>
+  <div class="legend mono" id="legend"></div>
+  <div class="list" id="rows"></div>
+  <div class="grow"></div>
+  <p class="src mono" id="src"></p>
+  <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
+</section>
+<script>
+/* A follow-up continues one earlier card: same channels, same order, same rank numbers, the earlier card shown
+   as "Previously", and every row split at the day of that card ("listed").
+   Data: {of:"5 channels to watch #1", where, title (HTML), lede (HTML), src, prev:"<path or data URI of the earlier card>",
+          from, to, listed:"YYYY-MM-DD",
+          rows:[{rank, name, flag, subs:"41.3K → 48.0K", subsPct:"+16%", excess:"1.18M",
+                 uploads:[{d, k:"hit", v:12.2} | {d, k:"miss", r:9.7} | {d, k:"short"}]}]}
+   hit  = first observed in Most Popular at 2× its usual or more on day 1 (v = day-1 multiple)
+   miss = long-form upload never observed in Most Popular (r = views today ÷ the channel's latest usual: a later,
+          different reading, shown in grey and never mixed with day-1 multiples)
+   short = a Short (not measured) */
+const ICONS={"calendar": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "stopwatch": "<circle cx=\"12\" cy=\"14\" r=\"7.5\"/><path d=\"M12 14V10M9.5 2.5h5M12 2.5v4M18.2 7.3l1.6-1.6\"/>"};
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+$('of').textContent=D.of; $('where').textContent=D.where; $('title').innerHTML=D.title; $('lede').innerHTML=D.lede; $('src').innerHTML=D.src;
+if(D.prev)$('prev').src=D.prev; else $('prevbox').style.visibility='hidden';
+const sw={hit:'<svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#00e5ff"/></svg>',
+  miss:'<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="#c6d2de" stroke-width="2"/></svg>',
+  short:'<svg width="16" height="16"><rect x="6" y="3" width="4" height="10" rx="1" fill="#4a5869"/></svg>'};
+$('legend').innerHTML=`<span>${sw.hit} in Most Popular · day-1 multiple</span><span>${sw.miss} never in it · grey: views today ÷ usual (2×+)</span><span>${sw.short} Short</span>`;
+const day=s=>Date.parse(s+'T00:00:00Z')/864e5, x0=day(D.from), x1=day(D.to), xl=day(D.listed);
+const W=590,H=124,PL=36,PR=20,BASE=66;
+const X=d=>PL+(day(d)-x0)/(x1-x0||1)*(W-PL-PR);
+function el(tag,at,par,txt){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;par.appendChild(e);return e;}
+const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const lab=d=>{const t=new Date(day(d)*864e5);return t.getUTCDate()+' '+mon[t.getUTCMonth()];};
+const fr=r=>r>=10?Math.round(r)+'×':r.toFixed(1)+'×';
+D.rows.forEach(r=>{
+  const before=r.uploads.filter(u=>day(u.d)<xl), after=r.uploads.filter(u=>day(u.d)>=xl);
+  const hb=before.filter(u=>u.k==='hit').length;
+  const ha=after.filter(u=>u.k==='hit').length, la=after.filter(u=>u.k!=='short').length;
+  const div=document.createElement('div'); div.className='ch';
+  div.innerHTML=`<div style="min-width:0"><div class="nm"><span class="rk">#${r.rank}</span>${r.flag||''} ${esc(r.name)}</div>`+
+   `<div class="tn mono"><span class="a">listed with</span> <b>${hb}</b> hits<br><span class="c">next:</span> <b>${ha} of ${la}</b> long uploads hit<br>`+
+   `subs <b>${esc(r.subs)}</b> <span class="c">${esc(r.subsPct||'')}</span><br>views above usual <b>${esc(r.excess)}</b></div></div>`;
+  const s=document.createElementNS(NS,'svg'); s.setAttribute('width',W); s.setAttribute('height',H);
+  // the day of the earlier card splits THEN from NEXT
+  const xm=PL+(xl-x0-0.5)/(x1-x0||1)*(W-PL-PR);
+  el('rect',{x:xm,y:4,width:W-PR-xm+6,height:H-34,rx:6,fill:'rgba(0,229,255,.05)'},s);
+  el('line',{x1:xm,x2:xm,y1:2,y2:H-28,stroke:'#ffb020','stroke-width':2,'stroke-dasharray':'5 5'},s);
+  el('text',{x:xm-8,y:14,'text-anchor':'end','font-size':12,'letter-spacing':'1.5',fill:'#ffb020','font-family':'JetBrains Mono'},s,'THEN');
+  el('text',{x:xm+8,y:14,'text-anchor':'start','font-size':12,'letter-spacing':'1.5',fill:'#00e5ff','font-family':'JetBrains Mono'},s,'NEXT');
+  el('line',{x1:PL,x2:W-PR,y1:BASE,y2:BASE,stroke:'#26303d','stroke-width':2},s);
+  const dayW=(W-PL-PR)/((x1-x0)||1), byDay={};
+  r.uploads.forEach(u=>{const key=u.d+(u.k==='short'?'s':'l');(byDay[key]=byDay[key]||[]).push(u);});
+  Object.values(byDay).forEach(g=>{
+    const isShort=g[0].k==='short', step=isShort?Math.min(6,dayW*0.8/g.length):Math.min(24,dayW*0.95/g.length);
+    g.forEach((u,j)=>{
+      const x=X(u.d)+(j-(g.length-1)/2)*step;
+      if(u.k==='hit'){el('circle',{cx:x,cy:BASE,r:9,fill:'#00e5ff'},s);
+        el('text',{x:x,y:BASE-17,'text-anchor':'middle','font-size':14,'font-weight':700,fill:'#eef3f8','font-family':'JetBrains Mono'},s,u.v.toFixed(1)+'×');}
+      else if(u.k==='miss'){const strong=u.r!=null&&u.r>=2;
+        el('circle',{cx:x,cy:BASE,r:7,fill:'#161c26',stroke:strong?'#c6d2de':'#4a5869','stroke-width':2.2},s);
+        if(strong) el('text',{x:x,y:BASE+(j%2?33:25),'text-anchor':'middle','font-size':12,fill:'#aab8c6','font-family':'JetBrains Mono'},s,fr(u.r));}
+      else {el('rect',{x:x-2,y:BASE+13,width:4,height:9,rx:1,fill:'#4a5869'},s);}
+    });
+  });
+  const ax=document.createElementNS(NS,'g'); ax.setAttribute('transform',`translate(${PL-30},${H-19})`);
+  ax.innerHTML=`<g fill="none" stroke="#8496a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="scale(0.7)">${ICONS.calendar}</g>`; s.appendChild(ax);
+  el('text',{x:PL,y:H-6,'text-anchor':'start','font-size':13,fill:'#8496a8','font-family':'JetBrains Mono'},s,lab(D.from));
+  el('text',{x:xm,y:H-6,'text-anchor':'middle','font-size':13,fill:'#ffb020','font-family':'JetBrains Mono'},s,'listed '+lab(D.listed));
+  el('text',{x:W-PR,y:H-6,'text-anchor':'end','font-size':13,fill:'#8496a8','font-family':'JetBrains Mono'},s,lab(D.to));
+  div.appendChild(s); $('rows').appendChild(div);
+});
+</script></body></html>

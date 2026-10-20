@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<style>
+html,body{margin:0;background:#0d1117}
+/* 1080x1920. Instagram safe area ~ y 250..1500: nothing important outside it. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;
+ background:radial-gradient(1000px 1000px at 50% 45%, rgba(0,229,255,var(--glow,0.05)), transparent 65%),#0d1117}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;font-size:27px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#00e5ff}
+.layer{position:absolute;left:80px;right:80px;opacity:0}
+.safe{top:270px;height:1210px;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;text-align:center}
+.lab{font-size:42px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.num{font-weight:900;letter-spacing:-.03em;line-height:1;white-space:nowrap}
+.sub{font-weight:500;font-size:50px;color:#8496a8;line-height:1.3}
+.cy{color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,.45)}
+#bars{position:absolute;left:80px;right:80px;top:660px;height:560px;display:flex;align-items:flex-end;gap:90px;padding:0 110px;border-bottom:3px solid #26303d}
+.bar{flex:1;border-radius:18px 18px 0 0;position:relative}
+#b1{background:#8496a8;height:8px}
+#b2{background:#00e5ff;height:0;box-shadow:0 0 70px rgba(0,229,255,.6)}
+.bl{position:absolute;bottom:-62px;left:-40px;right:-40px;text-align:center;font-size:32px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.foot{position:absolute;left:80px;right:80px;top:1340px;text-align:center}
+</style></head><body><div id="s">
+ <div class="top mono"><span><b>IOSA</b> · Breakout of the day</span><span>🇵🇭 Philippines</span></div>
+
+ <!-- S1 -->
+ <div class="layer" id="l1" style="top:290px;text-align:center">
+  <div class="lab mono">This channel usually gets</div>
+  <div class="num" style="font-size:200px;margin-top:28px">151 views</div>
+ </div>
+ <div class="foot" id="f1" style="opacity:0">
+  <div class="sub" style="color:#eef3f8;font-weight:700">YouTube Most Popular</div>
+  <div class="sub" style="margin-top:8px">34 countries · read every day</div>
+ </div>
+
+ <!-- S2 -->
+ <div class="layer" id="l2" style="top:290px;text-align:center">
+  <div class="lab mono">This video, in 3 days</div>
+  <div class="num cy" style="font-size:200px;margin-top:28px" id="cnt">151</div>
+ </div>
+ <div class="foot" id="f2" style="opacity:0">
+  <div class="sub">First observed 30 Sep 2026</div>
+ </div>
+
+ <!-- S3 -->
+ <div class="layer safe" id="l3">
+  <div>
+   <div class="mono" style="font-size:64px;letter-spacing:.2em;color:#eef3f8;font-weight:700">VPI</div>
+   <div class="sub" style="margin-top:14px">Viral Performance Index</div>
+  </div>
+  <div class="num cy" style="font-size:240px;text-shadow:0 0 90px rgba(0,229,255,.5)">2,925×</div>
+  <div style="font-weight:800;font-size:84px">its channel's usual</div>
+ </div>
+
+ <!-- S4 -->
+ <div class="layer safe" id="l4">
+  <div>
+   <div style="font-weight:900;font-size:116px;letter-spacing:-.02em">Rey Sotto TV</div>
+   <div class="sub" style="margin-top:22px">a mechanic who rescues<br>stranded riders, camera on</div>
+  </div>
+  <div>
+   <div class="num" style="font-size:110px">13.5K subscribers.</div>
+   <div class="num cy" style="font-size:138px;margin-top:34px">Didn't matter.</div>
+  </div>
+ </div>
+
+ <!-- S5 -->
+ <div class="layer safe" id="l5">
+  <div style="display:inline-flex;align-items:flex-end;gap:8px">
+   <svg width="210" height="302" viewBox="0 0 230 330" style="overflow:visible;filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+    <path d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+    <circle cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+   <div class="num" style="font-size:302px;line-height:.74">OSA</div></div>
+  <div>
+   <div class="num" style="font-size:116px">Spot the outlier.</div>
+   <div class="sub" style="margin-top:26px">YouTube breakouts, every day.</div>
+  </div>
+  <div class="mono" style="font-size:54px;color:#00e5ff">iosaresearch.org</div>
+ </div>
+
+ <div id="bars"><div class="bar" id="b1"><div class="bl mono">usual</div></div><div class="bar" id="b2"><div class="bl mono">this video</div></div></div>
+</div>
+<script>
+// 16 s at 120 BPM (one bar = 2 s): S1 0-4 | S2 4-8 (counter = riser) | S3 8-10 (drop at 8.0) | S4 10-14 | S5 14-16
+const $=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const win=(t,a,b,fi=.3,fo=.3)=>clamp(Math.min((t-a)/fi,(b-t)/fo));
+function render(t){
+  $('l1').style.opacity=win(t,0.15,4.0);
+  $('f1').style.opacity=win(t,0.8,4.0,.4,.3);
+  $('l2').style.opacity=win(t,4.0,7.95,.3,.15);
+  $('f2').style.opacity=win(t,4.3,7.95,.4,.15);
+  $('l3').style.opacity=win(t,8.0,10.0,.08,.3);
+  $('l4').style.opacity=win(t,10.0,14.0);
+  $('l5').style.opacity=clamp((t-14.0)/.35);
+  const k=ease((t-4.3)/2.9);             // counter 4.3 -> 7.2, then holds
+  const g=Math.pow(k,2.4);
+  $('cnt').textContent=Math.round(151+(441699-151)*g).toLocaleString('en-US');
+  $('bars').style.opacity=clamp(Math.min((t-0.3)/.3,(7.95-t)/.15));
+  $('b2').style.height=(g*560)+'px';
+  $('s').style.setProperty('--glow',(0.05+0.15*win(t,8.0,10.0,.08,.4)).toFixed(3));
+}
+window.render=render; render(0);
+</script></body></html>

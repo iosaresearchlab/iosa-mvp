@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1e: the social tooling is versioned
+
+- **Everything that publishes was outside git** (`renders/`, ignored): no
+  history, no tests, a broken edit found on a live post. The code and the
+  templates are now in `social/`, tested in CI; `renders/social/` stays the
+  working folder, and its entry points are wrappers, so the scheduled tasks'
+  commands do not change. `publish_api.py --dry-run` says what would go out.
+- *(Corrected: `02` §6.11; `social/README.md`; `08` FIX-1.)*
+
 ### 20 October 2026 — FIX-1c: a failed read is not an empty page
 
 - **The site served 404s for creators that exist.** About ten reads an hour

@@ -1,0 +1,184 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<style>
+html,body{margin:0;background:#0d1117}
+/* 1080x1920, 26 s, render(t) is deterministic. Instagram safe area ~ y 250..1500. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;
+ background:radial-gradient(900px 900px at 50% var(--gy,40%), rgba(0,229,255,var(--glow,0.05)), transparent 65%),
+            radial-gradient(800px 700px at 15% 85%, rgba(255,176,32,var(--glowa,0.03)), transparent 65%),#0d1117}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:24px;white-space:nowrap;font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#ffb020}
+.layer{position:absolute;left:80px;right:80px;top:250px;height:1250px;opacity:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+.big{font-weight:900;letter-spacing:-.035em;line-height:.95}
+.meta{font-family:'JetBrains Mono',monospace;font-size:34px;color:#8496a8;line-height:1.4}
+.cy{color:#00e5ff}.am{color:#ffb020}
+.chip{display:inline-flex;align-items:center;gap:16px;padding:16px 28px;border-radius:999px;font-weight:800;font-size:40px;border:3px solid}
+.sq{width:38px;height:38px;border-radius:8px;background:#1b2330;display:inline-block}
+svg{display:block;overflow:visible}
+</style></head><body><div id="s">
+ <div class="top mono"><span><b>IOSA</b> · <span id="ep"></span></span><span id="win"></span></div>
+
+ <!-- 1 hook -->
+ <div class="layer" id="L1">
+  <div class="big" style="font-size:260px" id="daysN">0</div>
+  <div class="big" style="font-size:96px;margin-top:10px">days in a row</div>
+  <div class="meta" style="margin-top:40px;font-size:38px">in YouTube's Most Popular,<br>always with <span class="cy" style="font-weight:700">one video at a time</span></div>
+  <div id="sqs" style="display:grid;grid-template-columns:repeat(9,38px);gap:14px;margin-top:70px"></div>
+ </div>
+
+ <!-- 2 channel -->
+ <div class="layer" id="L2">
+  <div class="mono am" style="font-size:40px;letter-spacing:.16em;font-weight:700" id="rk"></div>
+  <div class="big" style="font-size:120px;margin-top:24px" id="nm"></div>
+  <div class="meta" style="margin-top:22px" id="meta"></div>
+  <svg width="300" height="300" viewBox="-150 -150 300 300" style="margin-top:80px">
+   <circle r="130" fill="none" stroke="#26303d" stroke-width="10"/>
+   <g id="ticks"></g>
+   <line id="hand" x1="0" y1="0" x2="0" y2="-95" stroke="#00e5ff" stroke-width="12" stroke-linecap="round"/>
+   <circle r="14" fill="#00e5ff"/>
+  </svg>
+  <div class="big" style="font-size:66px;line-height:1.12;margin-top:50px" id="when"></div>
+ </div>
+
+ <!-- 3 two series, bars -->
+ <div class="layer" id="L3" style="justify-content:flex-start;padding-top:40px">
+  <div class="big" style="font-size:96px">Two series.<br><span class="cy">Which one got in?</span></div>
+  <div style="display:flex;gap:24px;margin-top:50px" id="chips"></div>
+  <svg id="bars" width="920" height="760" style="margin-top:50px"></svg>
+ </div>
+
+ <!-- 4 comparison -->
+ <div class="layer" id="L4">
+  <div style="display:flex;gap:70px;align-items:flex-start" id="rings"></div>
+  <div class="meta" style="margin-top:70px;font-size:36px" id="cmpNote"></div>
+ </div>
+
+ <!-- 5 the usual -->
+ <div class="layer" id="L5">
+  <div class="meta" style="font-size:40px">and the channel's usual</div>
+  <div style="display:flex;align-items:baseline;gap:30px;margin-top:40px">
+   <span class="big" style="font-size:130px;color:#8496a8" id="u0"></span>
+   <span class="big" style="font-size:90px;color:#8496a8">→</span>
+   <span class="big cy" style="font-size:190px;text-shadow:0 0 60px rgba(0,229,255,.45)" id="u1"></span>
+  </div>
+  <svg id="uline" width="860" height="300" style="margin-top:50px"></svg>
+  <div class="big" style="font-size:84px;margin-top:40px" id="ux"></div>
+ </div>
+
+ <!-- 6 outro -->
+ <div class="layer" id="L6">
+  <div style="display:inline-flex;align-items:flex-end;gap:8px">
+   <svg width="170" height="244" viewBox="0 0 230 330" style="overflow:visible;margin:0;filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+    <path d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+    <circle cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+   <div style="font-weight:900;font-size:244px;line-height:.74;letter-spacing:-.03em">OSA</div></div>
+  <div class="big" style="font-size:80px;margin-top:80px" id="outT"></div>
+  <div class="meta" style="margin-top:26px;font-size:36px" id="outS"></div>
+  <div class="big" style="font-size:62px;margin-top:80px" id="cta"></div>
+  <div class="mono cy" style="font-size:54px;margin-top:22px">iosaresearch.org</div>
+ </div>
+</div>
+<script>
+/* Data: {ep, window, rank, name, flag, meta, when, hour, series:[{key,label,color}], uploads:[{n,d,vpd,mp,v,s}], lane:[{d,n}],
+          days_in, days_total, usual_from, usual_to, out_title, out_sub, cta}
+   Timeline (26 s): hook 0–3.4 | channel 3.4–7.2 | bars 7.2–14.8 | comparison 14.8–19 | usual 19–22.6 | outro 22.6–26 */
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)), ease=x=>1-Math.pow(1-clamp(x),3), pop=x=>{x=clamp(x);return 1+0.12*Math.sin(Math.PI*x)*(1-x)};
+const win=(t,a,b,fi=.25,fo=.2)=>clamp(Math.min((t-a)/fi,(b-t)/fo));
+function el(tag,at,par,txt){const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;par.appendChild(e);return e;}
+const fmtK=v=>v>=1000?(v/1000).toFixed(v>=10000?0:1)+'K':String(Math.round(v));
+$('ep').textContent=D.ep; $('win').textContent=D.window;
+// 1
+for(let i=0;i<D.days_total;i++){const q=document.createElement('span');q.className='sq';q.id='q'+i;$('sqs').appendChild(q);}
+// 2
+$('rk').textContent=D.rank; $('nm').textContent=D.flag+' '+D.name; $('meta').innerHTML=D.meta; $('when').innerHTML=D.when;
+for(let h=0;h<12;h++){const a=h/12*2*Math.PI;el('line',{x1:Math.sin(a)*112,y1:-Math.cos(a)*112,x2:Math.sin(a)*(h%3?122:100),y2:-Math.cos(a)*(h%3?122:100),stroke:'#5b6b7d','stroke-width':h%3?4:8,'stroke-linecap':'round'},$('ticks'));}
+// 3
+const col={}; D.series.forEach(s=>{col[s.key]=s.color;const c=document.createElement('span');c.className='chip';c.style.color=s.color;c.style.borderColor=s.color;c.innerHTML=s.label;$('chips').appendChild(c);});
+const B=$('bars'), BW=920, LANE_Y=40, BOT=640, TOPY=150, n=D.uploads.length, cw=BW/n;
+const vmax=Math.max(...D.uploads.map(u=>u.vpd));
+el('text',{x:0,y:LANE_Y-14,'font-size':22,'letter-spacing':'2',fill:'#8496a8','font-family':'JetBrains Mono'},B,'IN THE CHART · '+D.slice.toUpperCase());
+const laneByDay={}; D.lane.forEach(l=>laneByDay[l.d]=l.n);
+const day=s=>Date.parse(s+'T00:00:00Z')/864e5, d0=day(D.uploads[0].d);
+const laneCells=[];
+for(let i=0;i<n;i++){
+  const d=new Date((d0+i)*864e5).toISOString().slice(0,10), k=laneByDay[d];
+  const up=D.uploads.find(u=>u.n===k);
+  const r=el('rect',{x:i*cw+3,y:LANE_Y,width:cw-6,height:46,rx:7,fill:'#1b2330'},B);
+  laneCells.push({r,c:up?col[up.s]:null});
+}
+el('text',{x:0,y:TOPY-30,'font-size':22,'letter-spacing':'2',fill:'#8496a8','font-family':'JetBrains Mono'},B,'EVERY UPLOAD · VIEWS PER DAY');
+el('line',{x1:0,x2:BW,y1:BOT,y2:BOT,stroke:'#26303d','stroke-width':3},B);
+const bars=D.uploads.map((u,i)=>{
+  const x=i*cw+6,w=cw-12,h=(BOT-TOPY)*u.vpd/vmax;
+  const g=el('g',{},B);
+  const r=el('rect',{x,y:BOT,width:w,height:0,rx:6,fill:col[u.s],opacity:u.mp?1:0.28},g);
+  const m=u.mp?el('text',{x:x+w/2,y:BOT-h-16,'text-anchor':'middle','font-size':20,'font-weight':700,fill:col[u.s],'font-family':'JetBrains Mono',opacity:0},g,u.v.toFixed(1)+'×'):null;
+  if(u.mp) r.setAttribute('filter','url(#gl)');
+  return {u,r,m,h,x,w};
+});
+const defs=el('defs',{},B); const f=el('filter',{id:'gl',x:'-50%',y:'-50%',width:'200%',height:'200%'},defs);
+el('feGaussianBlur',{stdDeviation:6,result:'b'},f); const mg=el('feMerge',{},f); el('feMergeNode',{in:'b'},mg); el('feMergeNode',{in:'SourceGraphic'},mg);
+const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const lab=s=>{const t=new Date(day(s)*864e5);return t.getUTCDate()+' '+mon[t.getUTCMonth()];};
+el('text',{x:0,y:BOT+40,'font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},B,lab(D.uploads[0].d));
+el('text',{x:BW,y:BOT+40,'text-anchor':'end','font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},B,lab(D.uploads[n-1].d));
+el('text',{x:BW/2,y:BOT+90,'text-anchor':'middle','font-size':24,fill:'#5b6b7d','font-family':'JetBrains Mono'},B,'bright = observed in Most Popular · day-1 multiple on top');
+// 4
+const rings=D.series.map(s=>{
+  const ups=D.uploads.filter(u=>u.s===s.key), hit=ups.filter(u=>u.mp).length;
+  const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center';
+  const sv=document.createElementNS(NS,'svg'); sv.setAttribute('width',380); sv.setAttribute('height',380); sv.setAttribute('viewBox','-190 -190 380 380');
+  el('circle',{r:160,fill:'none',stroke:'#1b2330','stroke-width':34},sv);
+  const arc=el('circle',{r:160,fill:'none',stroke:s.color,'stroke-width':34,'stroke-linecap':'round',transform:'rotate(-90)','stroke-dasharray':`0 ${2*Math.PI*160}`},sv);
+  const num=el('text',{y:30,'text-anchor':'middle','font-size':110,'font-weight':900,fill:'#eef3f8','font-family':'Inter'},sv,'0');
+  el('text',{y:92,'text-anchor':'middle','font-size':34,fill:'#8496a8','font-family':'JetBrains Mono'},sv,'of '+ups.length);
+  wrap.appendChild(sv);
+  const lb=document.createElement('div'); lb.className='big'; lb.style.cssText=`font-size:52px;margin-top:26px;color:${s.color}`; lb.innerHTML=s.label; wrap.appendChild(lb);
+  $('rings').appendChild(wrap);
+  return {arc,num,hit,tot:ups.length};
+});
+$('cmpNote').innerHTML=D.cmp_note;
+// 5
+const US=$('uline'), u0=D.usual_from, u1=D.usual_to;
+el('line',{x1:0,x2:860,y1:280,y2:280,stroke:'#26303d','stroke-width':3},US);
+const upath=el('polyline',{points:'',fill:'none',stroke:'#00e5ff','stroke-width':10,'stroke-linecap':'round','stroke-linejoin':'round',filter:'url(#gl2)'},US);
+const d2=el('defs',{},US); const f2=el('filter',{id:'gl2',x:'-20%',y:'-50%',width:'140%',height:'200%'},d2); el('feGaussianBlur',{stdDeviation:8,result:'b'},f2); const m2=el('feMerge',{},f2); el('feMergeNode',{in:'b'},m2); el('feMergeNode',{in:'SourceGraphic'},m2);
+const UP=D.usual_points, umax=Math.max(...UP.map(p=>p.u)), ud0=day(UP[0].d), ud1=day(UP[UP.length-1].d);
+const UX=p=>(day(p.d)-ud0)/(ud1-ud0)*860, UY=p=>280-260*p.u/umax;
+$('ux').innerHTML=D.usual_note;
+// 6
+$('outT').innerHTML=D.out_title; $('outS').innerHTML=D.out_sub; $('cta').innerHTML=D.cta;
+
+function render(t){
+  // 1 hook: squares light one by one, counter follows
+  $('L1').style.opacity=win(t,0.05,3.4);
+  const lit=Math.floor(clamp((t-0.3)/2.2)*D.days_in+1e-6);
+  $('daysN').textContent=lit; $('daysN').style.transform=`scale(${pop((t-0.3)/2.4)})`;
+  for(let i=0;i<D.days_total;i++){const q=$('q'+i);q.style.background=i<lit?'#00e5ff':'#1b2330';q.style.boxShadow=i<lit?'0 0 18px rgba(0,229,255,.7)':'none';}
+  // 2 channel + clock to the upload hour
+  $('L2').style.opacity=win(t,3.4,7.2);
+  const ang=ease((t-4.0)/1.6)*(D.hour/12*360+360);
+  $('hand').setAttribute('transform',`rotate(${ang})`);
+  // 3 bars
+  $('L3').style.opacity=win(t,7.2,14.8);
+  bars.forEach((b,i)=>{const k=ease((t-7.7-i*0.28)/0.4);b.r.setAttribute('y',BOT-b.h*k);b.r.setAttribute('height',b.h*k);if(b.m)b.m.setAttribute('opacity',k>=1?1:0);});
+  laneCells.forEach((c,i)=>{const on=c.c&&t>7.7+i*0.28+0.3;c.r.setAttribute('fill',on?c.c:'#1b2330');});
+  // 4 rings
+  $('L4').style.opacity=win(t,14.8,19);
+  rings.forEach((r,i)=>{const k=ease((t-15.3-i*0.5)/1.2);r.arc.setAttribute('stroke-dasharray',`${2*Math.PI*160*k*r.hit/r.tot} ${2*Math.PI*160}`);r.num.textContent=Math.round(k*r.hit);});
+  // 5 usual
+  $('L5').style.opacity=win(t,19,22.6);
+  const k5=ease((t-19.4)/1.8);
+  $('u0').textContent=fmtK(u0); $('u1').textContent=fmtK(u0+(u1-u0)*k5);
+  const upto=UP.filter(p=>UX(p)<=860*k5+1); if(upto.length) upath.setAttribute('points',upto.map(p=>UX(p)+','+UY(p)).join(' '));
+  $('ux').style.opacity=clamp((t-21.1)/.3);
+  // 6 outro
+  $('L6').style.opacity=clamp((t-22.6)/.35);
+  $('s').style.setProperty('--glow',(0.05+0.10*win(t,0.3,3.4)+0.10*win(t,15,19)+0.12*win(t,19.4,22.6)).toFixed(3));
+  $('s').style.setProperty('--glowa',(0.03+0.08*win(t,14.8,19)).toFixed(3));
+}
+window.render=render; render(0);
+</script></body></html>

@@ -1,0 +1,155 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<script src="gsap.min.js"></script><script src="DrawSVGPlugin.min.js"></script>
+<style>
+html,body{margin:0;background:#0d1117}
+/* IOSA Weekly Top 10 countdown, motion method of 16-17/10 (iosa-motion): one paused GSAP timeline,
+   render(t) seeks it; window.CUES / window.DURATION feed render_motion.py. 1080x1920, safe area y 250..1500. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;background:#0d1117}
+#bg{position:absolute;inset:-60px;background-image:linear-gradient(rgba(132,150,168,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(132,150,168,.06) 1px,transparent 1px);background-size:90px 90px}
+.glow{position:absolute;width:1400px;height:1400px;left:-160px;border-radius:50%;pointer-events:none}
+#gc{top:-120px;background:radial-gradient(closest-side,rgba(0,229,255,.16),transparent)}
+#ga{top:700px;background:radial-gradient(closest-side,rgba(255,176,32,.13),transparent);opacity:0}
+#world{position:absolute;inset:0;transform-origin:50% 45%}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:40px;font-size:22px;white-space:nowrap;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#00e5ff}
+.sc{position:absolute;left:0;top:0;width:1080px;height:1920px;opacity:0;will-change:transform,opacity,filter}
+.c{position:absolute;left:80px;right:80px;text-align:center}
+.big{font-weight:900;letter-spacing:-.035em;line-height:.95}
+.meta{font-family:'JetBrains Mono',monospace;font-size:34px;color:#8496a8;line-height:1.4}
+.cy{color:#00e5ff}.am{color:#ffb020}
+.w{display:inline-block;will-change:transform,opacity}
+.rank{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:64px;letter-spacing:.06em;color:#8496a8}
+.mult{font-weight:900;letter-spacing:-.04em;line-height:.9;color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,.45)}
+.lab{font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:.16em;color:#8496a8;text-transform:uppercase}
+.ttl{font-weight:800;font-size:54px;line-height:1.12;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.who{font-weight:800;font-size:52px;letter-spacing:-.01em;color:#eef3f8}
+.who .fl{font-size:48px;margin-right:14px}
+.bar{position:absolute;left:80px;height:44px;border-radius:10px}
+.bl{position:absolute;left:80px;font-family:'JetBrains Mono',monospace;font-size:26px;color:#8496a8}
+#lad{position:absolute;left:80px;right:80px;top:1440px;display:flex;gap:10px}
+#lad span{flex:1;height:10px;border-radius:5px;background:#1b2330}
+</style></head><body><div id="s">
+ <div id="bg"></div><div class="glow" id="gc"></div><div class="glow" id="ga"></div>
+ <div id="world">
+  <div class="sc" id="S0">
+   <div class="c mono cy" style="top:380px;font-size:34px;letter-spacing:.2em;font-weight:700" id="kick">COUNTDOWN</div>
+   <div class="c big" style="top:470px;font-size:100px;line-height:1.04" id="h0"></div>
+   <div class="c meta" style="top:980px" id="h0s"></div>
+  </div>
+  <div id="items"></div>
+  <div class="sc" id="SE">
+   <div style="position:absolute;left:0;right:0;top:420px;display:flex;justify-content:center;align-items:flex-end;gap:8px">
+    <svg width="170" height="244" viewBox="0 0 230 330" style="filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+     <path id="logoP" d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+     <circle id="logoC" cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+    <div style="font-weight:900;font-size:244px;line-height:.74;letter-spacing:-.03em;display:flex" id="osa"></div></div>
+   <div class="c big" style="top:820px;font-size:96px" id="outT"></div>
+   <div class="c meta" style="top:940px;font-size:36px" id="outS"></div>
+   <div class="c big" style="top:1150px;font-size:64px" id="cta"></div>
+   <div class="c mono cy" style="top:1240px;font-size:56px" id="url">iosaresearch.org</div>
+  </div>
+  <div id="lad"></div>
+ </div>
+ <div class="top mono"><span><b>IOSA</b> · Weekly Top 10</span><span id="ep"></span></div>
+</div>
+<script>
+gsap.registerPlugin(DrawSVGPlugin);
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id);
+const words=(s,cls='')=>s.split(' ').map(w=>`<span class="w ${cls}">${w}</span>`).join(' ');
+const flag=cc=>cc&&cc.length===2?String.fromCodePoint(...[...cc.toUpperCase()].map(c=>0x1F1A5+c.charCodeAt(0))):'';
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- build ---------- */
+$('ep').textContent=D.date_line;
+$('h0').innerHTML=words('The 10 videos')+'<br>'+words('that beat')+'<br>'+words('their own channel','cy')+'<br>'+words('the most');
+$('h0s').innerHTML=D.band_html;
+['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
+$('outT').innerHTML=words('Every Friday.');
+$('outS').innerHTML=D.out_sub;
+$('cta').innerHTML=words('Is your channel in our charts?');
+for(let i=0;i<10;i++){const s=document.createElement('span');$('lad').appendChild(s);}
+const LAD=[...$('lad').children];
+
+const rows=[...D.rows].sort((a,b)=>b.rank-a.rank);          // #10 first
+const XMAX=Math.max(...rows.map(r=>r.x));
+const BW=920;
+const items=rows.map(r=>{
+  const top1=r.rank===1;
+  const d=document.createElement('div'); d.className='sc';
+  const wThis=Math.max(60,BW*r.x/XMAX), wUsual=Math.max(14,BW*1/XMAX);
+  d.innerHTML=`
+   <div class="c rank" style="top:330px">#${r.rank}</div>
+   <div class="c mult" style="top:410px;font-size:${top1?250:210}px"><span class="xv">1.0</span>×</div>
+   <div class="c lab" style="top:${top1?650:620}px">its channel's usual</div>
+   <div class="bar bu" style="top:720px;width:${wUsual}px;background:#3a4656"></div>
+   <div class="bl" style="top:770px">usual · ${fmt(r.usual)}</div>
+   <div class="bar bt" style="top:830px;width:${wThis}px;background:#00e5ff;box-shadow:0 0 26px rgba(0,229,255,.55);transform-origin:0 50%"></div>
+   <div class="bl" style="top:880px;color:#00e5ff">this one · ${fmt(r.views)} on day 1</div>
+   <div class="c ttl" style="top:980px">“${esc(r.title)}”</div>
+   <div class="c who" style="top:1230px"><span class="fl">${flag(r.flag)}</span>${esc(r.channel)}</div>`;
+  $('items').appendChild(d);
+  return {r,d,top1};
+});
+
+/* ---------- timeline ---------- */
+const tl=gsap.timeline({paused:true,defaults:{ease:'power3.out',duration:0.6}});
+const CUES=[]; const cue=(t,k,o={})=>CUES.push({t:+t.toFixed(3),k,...o}); window.CUES=CUES;
+const IN=(sel,t,o={})=>tl.fromTo(sel,{opacity:0,y:50,filter:'blur(12px)'},{opacity:1,y:0,filter:'blur(0px)',stagger:0.05,...o},t);
+const PUSH=(from,to,t,d=0.7)=>{ cue(t,'whoosh',{d});
+  tl.to(from,{yPercent:-14,opacity:0,filter:'blur(18px)',scale:0.96,duration:d,ease:'power3.inOut'},t);
+  tl.fromTo(to,{yPercent:14,opacity:0,filter:'blur(18px)',scale:1.04},{yPercent:0,opacity:1,filter:'blur(0px)',scale:1,duration:d,ease:'power3.inOut'},t);
+};
+// Item start times: on a 2 s grid by default; D.times (10 values, #10 first) follow a supplied voice track,
+// D.outro_at / D.duration set the hand-off to the logo and the total length.
+const T0=3.0, STEP=2.0;
+const TS=(D.times&&D.times.length===10)?D.times:[...Array(10)].map((_,k)=>T0+k*STEP);
+const T1=TS[9], END1=D.outro_at||T1+3.2, DUR=D.duration||END1+4.3;
+window.DURATION=+DUR.toFixed(2);
+tl.fromTo('#world',{scale:1},{scale:1.035,duration:DUR,ease:'sine.inOut'},0);
+tl.fromTo('#bg',{y:0},{y:-90,duration:DUR,ease:'none'},0);
+tl.fromTo('#gc',{y:0,opacity:.7},{y:420,opacity:1,duration:DUR,ease:'sine.inOut'},0);
+
+// hook
+tl.fromTo('#S0',{opacity:0},{opacity:1,duration:0.4,ease:'sine.out'},0);
+IN('#kick',0.15,{stagger:0}); IN('#h0 .w',0.35); IN('#h0s',1.4,{stagger:0});
+tl.fromTo('#lad span',{opacity:0,scaleX:0.3},{opacity:1,scaleX:1,duration:0.5,stagger:0.04},1.6);
+
+// countdown
+let prev='#S0';
+items.forEach((it,k)=>{
+  const t=TS[k], d=it.d, span=(k<9?TS[k+1]:END1)-t;
+  if(it.top1){ cue(T1-1.6,'riser',{d:1.6}); tl.to('#ga',{opacity:1,duration:1.2,ease:'sine.inOut'},T1-0.4); }
+  PUSH(prev,d,t,it.top1?0.8:0.7);
+  const q=s=>d.querySelector(s);
+  tl.fromTo(q('.rank'),{opacity:0,y:30},{opacity:1,y:0,duration:0.5},t+0.15);
+  const o={v:1}; tl.fromTo(o,{v:1},{v:it.r.x,duration:it.top1?1.4:0.9,ease:'power2.out',onUpdate:()=>{q('.xv').textContent=o.v.toFixed(1);}},t+0.25);
+  tl.fromTo(q('.mult'),{scale:0.8},{scale:1,duration:it.top1?1.4:0.9,ease:'power3.out',transformOrigin:'50% 60%'},t+0.2);
+  IN(q('.lab'),t+0.35,{stagger:0});
+  tl.fromTo([q('.bu'),q('.bl')],{opacity:0},{opacity:1,duration:0.3},t+0.35);
+  tl.fromTo(q('.bt'),{scaleX:0},{scaleX:1,duration:it.top1?1.4:0.9,ease:'power2.out'},t+0.3);
+  tl.fromTo(d.querySelectorAll('.bl')[1],{opacity:0},{opacity:1,duration:0.3},t+0.7);
+  cue(t+0.3,'pluck',{p:Math.min(1,it.r.x/XMAX),mp:true});
+  IN(q('.ttl'),t+0.45,{stagger:0}); IN(q('.who'),t+0.6,{stagger:0});
+  tl.to(LAD[10-it.r.rank],{backgroundColor:it.top1?'#ffb020':'#00e5ff',boxShadow:it.top1?'0 0 18px rgba(255,176,32,.8)':'0 0 12px rgba(0,229,255,.6)',duration:0.3},t+0.3);
+  if(it.top1){ cue(T1+1.7,'hit',{g:0.8}); tl.fromTo(q('.mult'),{textShadow:'0 0 60px rgba(0,229,255,.45)'},{textShadow:'0 0 110px rgba(0,229,255,.9)',duration:0.6,yoyo:true,repeat:1,ease:'sine.inOut'},T1+1.6); }
+  prev=d;
+});
+
+// outro
+PUSH(prev,'#SE',END1,0.8);
+tl.to('#lad',{opacity:0,y:30,duration:0.6,ease:'power3.in'},END1);
+tl.fromTo('#logoP',{drawSVG:'0%'},{drawSVG:'100%',duration:0.9,ease:'power3.inOut'},END1+0.3);
+cue(END1+0.9,'impact');
+tl.fromTo('#logoC',{scale:0,transformOrigin:'50% 50%'},{scale:1,duration:0.6,ease:'back.out(1.6)'},END1+0.9);
+tl.fromTo('#osa .w',{opacity:0,y:80},{opacity:1,y:0,duration:0.7,stagger:0.08},END1+0.5);
+IN('#outT .w',END1+1.1); IN('#outS',END1+1.4,{stagger:0}); IN('#cta .w',END1+1.8); IN('#url',END1+2.2,{stagger:0});
+tl.to({},{duration:0.01},DUR);
+
+window.render=t=>{tl.seek(t,false);};
+document.fonts.ready.then(()=>{window.__ready=true;});
+render(0);
+</script></body></html>
