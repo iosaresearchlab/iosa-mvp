@@ -87,14 +87,33 @@ type Esito<T> = { data: T | null; error: { message: string } | null; count?: num
 const SENZA_DATABASE = !/^https:\/\//.test(process.env.NEXT_PUBLIC_SUPABASE_URL || '')
   || /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
 
+/**
+ * FIX-1c (20/10/2026, second part): the production build prerenders /outliers
+ * and /sitemap.xml, and 5 of 14 production builds of 20/10 failed on one of
+ * these reads (statement timeout, or a failed fetch with no message) while
+ * the next commit passed. Measured the same evening over the API as anon: the
+ * first read after a pause took 3.7 s and timed out, the next ones 0.5-1.2 s.
+ * During `next build` (NEXT_PHASE, set by Next before its build workers start)
+ * a failed read is tried again after 2, 4, 8 and 16 s: five tries, 30 s of
+ * waits; a page has 120 s to render at build time (staticPageGenerationTimeout
+ * in next.config.ts, default 60 s, which a failing read that takes several
+ * seconds each try can exceed). A visitor's request keeps the single retry
+ * after 1 s.
+ */
+const IN_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
+const ATTESE_MS = IN_BUILD ? [2000, 4000, 8000, 16000] : [1000];
+
 export async function leggi<T>(etichetta: string, query: () => PromiseLike<Esito<T>>): Promise<Esito<T>> {
   let esito = await query();
   if (!esito.error) return esito;
   if (SENZA_DATABASE) return { data: null, error: null, count: null };
-  await new Promise((r) => setTimeout(r, 1000));
-  esito = await query();
-  if (esito.error) throw new Error(`${etichetta}: ${esito.error.message}`);
-  return esito;
+  for (const attesa of ATTESE_MS) {
+    if (IN_BUILD) console.warn(`[leggi] ${etichetta}: ${esito.error?.message || 'read failed'}; retry in ${attesa / 1000} s`);
+    await new Promise((r) => setTimeout(r, attesa));
+    esito = await query();
+    if (!esito.error) return esito;
+  }
+  throw new Error(`${etichetta}: ${esito.error?.message}`);
 }
 
 /** I record v2 di un segmento ancora in classifica, ordinati per views (docs/02 §6.2). */

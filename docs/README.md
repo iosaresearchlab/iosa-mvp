@@ -69,6 +69,16 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1c: production builds no longer fail on one slow read
+
+- 5 of the 14 production builds of 20/10 failed (`cb5ce73`, `8107817`,
+  `6c48f1d`, `72b67b5`, `2327e11`) and the next commit passed: each time a
+  `public_records` read of a page prerendered by the build (`/sitemap.xml`,
+  `/outliers`, the segment pages before `134af2e`) timed out twice. During
+  `next build` a failed read is now tried five times over 30 s (a page
+  has 120 s to render at build time); a visitor's request keeps one retry.
+- *(Corrected: task log FIX-1c builds.)*
+
 ### 20 October 2026 — FIX-1c: the backend downs, each with its cause
 
 - 17/10, 18/10, 20/10: plaque renders (fixed by FIX-1a). 19/10: the site's
