@@ -819,8 +819,12 @@ def _band_cells_sql(fmt):
     day1_band_cells() in the database: the same filters as _day1_rows, the
     band edges of BASELINE_BANDS."""
     edges = [b[0] for b in BASELINE_BANDS]
-    rows = supabase.rpc("day1_band_cells", {"p_floor": vpi_core.series_floor(), "p_format": fmt,
-                                             "p_edges": edges}).execute().data or []
+    # The service client when there is one: 8 s of statement time instead of
+    # the anonymous role's 3 s (one call timed out at 3 s on 20/10 under load;
+    # typical 0.4-0.8 s). The function returns aggregates of public records only.
+    client = supabase_service or supabase
+    rows = client.rpc("day1_band_cells", {"p_floor": vpi_core.series_floor(), "p_format": fmt,
+                                           "p_edges": edges}).execute().data or []
     names = {i + 1: b[2] for i, b in enumerate(BASELINE_BANDS)}
     order = [b[2] for b in BASELINE_BANDS]
     cells = [{"baseline_band": names[r["band_idx"]], "format": fmt, "n": int(r["n"]),

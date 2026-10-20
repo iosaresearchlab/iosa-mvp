@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1c: the backend downs, each with its cause
+
+- 17/10, 18/10, 20/10: plaque renders (fixed by FIX-1a). 19/10: the site's
+  disclosure box paged the whole long-form day-1 series into memory (+111 MB);
+  the cells are now computed in the database (+1 MB). 16/10: no cause in the
+  application log. Every restart downloaded Chromium for ~2 min 30 s: the
+  start command no longer does, a restart takes 17 s.
+- *(Corrected: `02` §4.8; task log FIX-1c.)*
+
 ### 20 October 2026 — FIX-1i: a new table carries its GRANTs
 
 - From 30/10 Supabase grants nothing on new tables: a migration that creates

@@ -57,7 +57,8 @@ def test_sql_cells_equal_the_python_cells(db, monkeypatch):
     with db.cursor() as cur:
         _load(cur)
         expected = _reference(cur, "LONG")
-    monkeypatch.setattr(main, "supabase", PgClient(db))
+    monkeypatch.setattr(main, "supabase", None)
+    monkeypatch.setattr(main, "supabase_service", PgClient(db))     # the service client is used
     cells, without = main._band_cells_sql("LONG")
     assert without == expected[1] == {"not_computable": 1, "pending": 2}
     assert [(c["baseline_band"], c["n"]) for c in cells] == [(c["baseline_band"], c["n"]) for c in expected[0]]

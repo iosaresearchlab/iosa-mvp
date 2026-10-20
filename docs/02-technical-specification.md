@@ -936,6 +936,19 @@ the database at once during the build and a few reads timed out twice; each
 page is now rendered on its first visit and kept 6 hours, like the creator
 pages, so the build reads only `/outliers` and the sitemap.
 
+**Backend memory (FIX-1c, 20/10/2026).** The free Render instance has 512 MB.
+Measured with `tools/measure_peak_rss.py`: a plaque render +522-527 MB (gone
+from the backend, FIX-1a); the long-form day-1 series paged with every post
+column +111 MB, the cause of the 19/10 restart. The disclosure cells
+(`/api/analytics/day1-bands`) come from `day1_band_cells()` in the database
+(one row per band, +1 MB); `top10`, `insights` and `keywords` page only the
+post columns they use, and `top10` reads the full record for the rows it
+returns only (+37 MB for every long-form record). The start command is
+`uvicorn main:app --host 0.0.0.0 --port $PORT` (as in `render.yaml`): it no
+longer downloads Chromium, which made every restart a ~2 min 30 s outage; a
+restart now takes 17 s. `/api/trophy/generate` refuses unless
+`PLAQUE_RENDER_LOCAL=1`.
+
 ### 4.9 The format rule: Short as YouTube defines it *(FMT-1, owner decision 04/10/2026)*
 
 `01` §1.1 is the rule; this section is how it is built. Measurements in `03`
