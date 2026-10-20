@@ -592,6 +592,17 @@ around it in the meantime, and **records are never deleted to make room**.
 The nightly check (`tests/check_run.sql`) carries the database size and fails
 above 400 MiB, so the approach of the limit is reported, not discovered.
 
+### 3.9 GRANTs on new tables *(FIX-1i, 20/10/2026)*
+
+From 30/10/2026 Supabase no longer grants new tables in `public` to the API
+roles by default (Supabase mail of 23/09). Every migration that creates a
+table grants, in the same file, what the table needs: `service_role` always
+(the backend); `anon` or `authenticated` only with row level security enabled
+and a policy for that role, otherwise revoked explicitly. `tests/check_grants.py`
+holds it for every migration from 20/10/2026 on (`supabase/migrations` and
+`supabase/pending`), and CI runs it through `tests/test_fix1i_grants.py`.
+Earlier migrations ran under the old default and keep their grants.
+
 ---
 
 ## 4. Backend

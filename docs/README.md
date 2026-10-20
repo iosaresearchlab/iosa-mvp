@@ -69,6 +69,13 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1i: a new table carries its GRANTs
+
+- From 30/10 Supabase grants nothing on new tables: a migration that creates
+  one grants it to `service_role` (and to the site's roles only with row level
+  security and a policy). CI fails a migration that does not.
+- *(Corrected: `02` §3.9; `tests/check_grants.py`.)*
+
 ### 20 October 2026 — FIX-1h: database runway re-measured
 
 - **263.7 MiB, 5.48 MiB a day** (measured, `docs/db-growth.sql` on 19/10): the

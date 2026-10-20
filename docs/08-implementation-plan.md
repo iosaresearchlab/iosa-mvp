@@ -440,6 +440,8 @@ GRANTs from 30/10. The method is not touched.
   scheduled tasks' commands unchanged and working through the wrappers
   (`cd renders/social && python3 publish_api.py queue/<old spec>.json
   --dry-run` exits 0 and names every channel).
+- **FIX-1i closing check**: `tests/check_grants.py` fails a test migration
+  that creates a table without a GRANT and passes on the real ones; CI runs it.
 - **FIX-1f closing check**: `pytest social -q` (twitter-text conformance and
   the 19/10 texts); `validate_spec.py` on every spec of 19-20/10 flags the two
   X texts of 19/10 (slot 2 Venruki, slot 4 brujeriatech) and no other X text.
