@@ -587,6 +587,8 @@ own closing check above, and are reported as they do:
 | T-25 final review | real distributions in hand, external reviewers | after T-23 |
 | FMT-1 step 3 | the first reading after the deploy | the morning after |
 | FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate); **reached 15/10/2026**, after ten runs |
+| FIX-1a milestone | 3 days without a Render memory mail or an UptimeRobot down of the backend (the nightly check reads the mailbox, step 1b, and reports only a failure) | 23/10/2026 |
+| FIX-1b milestone | 3 nights with no failure and the slowest database call under 2,000 ms (already in `tests/check_run.sql`; the nightly check reports only a failure) | 23/10/2026 |
 
 The loop itself ends with T-21.
 
