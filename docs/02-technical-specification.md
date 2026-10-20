@@ -1451,6 +1451,34 @@ are not duplicates; the static pages (`privacy.html`, `terms.html`,
 `tests/check_seo.py` (every sitemap URL 200 and self-canonical, `/?page=2`
 -> `/`).
 
+### 6.10 Link previews *(FIX-1d, 20/10/2026)*
+
+A claim page and a creator page preview as their record, not as the site
+logo: `opengraph-image.tsx` and `twitter-image.tsx` in `claim/[token]` and
+`creators/[handle]`, both drawing `lib/og-card.tsx` with `next/og`
+(Satori + Resvg on Vercel, no Chromium), 1200x630. The card carries the
+breakout content: "Usually X views. This one: Y (as of D)", the multiple in
+its level colour with the level name, the status line, the title, the handle
+and the IOSA mark. The figures are the page's own (`record-status.ts`: the VPI
+of the day while charting, the highest observed after the exit with its
+views); D is the day of the reading of those views (after the exit
+`vpi_max_on`, while charting the latest `post_daily` day, a v1 archive record
+its `detected_at`). The claim card reads what the claim page reads
+(`public_records` by token, then `claim_record_v1`); the creator card is the
+first record `recordDelCreator` lists. A title's glyphs are fetched from
+Google Fonts for that text only (Noto Sans plus the families of the scripts
+it uses): titles come in the scripts of 34 countries. A token or handle that
+resolves to nothing gets the site card.
+
+No ISR write (OPS-1): the image routes are `dynamic = 'force-dynamic'`, never
+revalidated or prerendered, and answer `Cache-Control: public,
+max-age=86400, immutable`. `/claim/` stays disallowed to search engines, but
+`robots.ts` lets the link-preview fetchers read it (Twitterbot obeys
+robots.txt: without that, X shows no card). The site description is the
+positioning ("How far a YouTube video beat its own channel's usual views,
+read every day in YouTube's Most Popular charts of 34 countries."). Held by
+`tests/test_fix1d_og.py`; checked live by `tests/check_og.py`.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and

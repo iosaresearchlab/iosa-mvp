@@ -1,0 +1,71 @@
+"""FIX-1d (20/10/2026): link previews carry the record, without ISR writes.
+
+The live check is tests/check_og.py, run after the deploy."""
+import importlib.util
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+APP = ROOT / "frontend" / "src" / "app"
+CARD = ROOT / "frontend" / "src" / "lib" / "og-card.tsx"
+ROUTES = ["claim/[token]", "creators/[handle]"]
+
+
+def _check_og():
+    spec = importlib.util.spec_from_file_location("check_og", ROOT / "tests" / "check_og.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_both_pages_have_their_own_card_for_og_and_x():
+    for route in ROUTES:
+        for name in ("opengraph-image.tsx", "twitter-image.tsx"):
+            src = (APP / route / name).read_text(encoding="utf-8")
+            assert "cardDelRecord(" in src, (route, name)
+            # No ISR write (OPS-1): dynamic, never revalidated, never prerendered.
+            assert "export const dynamic = 'force-dynamic'" in src, (route, name)
+            assert "revalidate" not in src and "generateStaticParams" not in src, (route, name)
+
+
+def test_the_card_sets_its_own_cache_and_never_uses_chromium():
+    src = CARD.read_text(encoding="utf-8")
+    assert "'Cache-Control': 'public, max-age=86400, immutable'" in src
+    assert "from 'next/og'" in src
+    assert "playwright" not in src.lower() and "chromium" not in re.sub(r"//.*|/\*.*?\*/|\*.*", "", src).lower()
+
+
+def test_the_card_states_the_reading_date():
+    src = CARD.read_text(encoding="utf-8")
+    assert "This one: ${views}" in src and "(as of ${quando})" in src
+    assert "Usually ${formatCountFull(r.baseline_score)} views." in src
+    # The same reads as the pages.
+    assert ".from('public_records')" in src and "rpc('claim_record_v1'" in src
+    creator = (APP / "creators/[handle]" / "opengraph-image.tsx").read_text(encoding="utf-8")
+    assert "recordDelCreator(" in creator
+
+
+def test_no_page_of_a_record_pins_the_site_image():
+    page = (APP / "creators/[handle]" / "page.tsx").read_text(encoding="utf-8")
+    assert "/og-image.png" not in page
+
+
+def test_site_description_is_the_positioning():
+    layout = (APP / "layout.tsx").read_text(encoding="utf-8")
+    assert ("How far a YouTube video beat its own channel's usual views, read every day in "
+            "YouTube's Most Popular charts of 34 countries.") in layout
+    assert "Independent audit of social media metrics" not in layout
+
+
+def test_preview_crawlers_may_read_claim_pages_search_engines_may_not():
+    robots = (APP / "robots.ts").read_text(encoding="utf-8")
+    assert "disallow: ['/claim/']" in robots
+    for bot in ("Twitterbot", "facebookexternalhit", "Bluesky Cardyb"):
+        assert f"'{bot}'" in robots
+
+
+def test_robots_parser_of_the_live_check():
+    m = _check_og()
+    closed = "User-Agent: *\nAllow: /\nDisallow: /claim/\n"
+    assert not m.twitterbot_may_read_claims(closed)
+    assert m.twitterbot_may_read_claims(closed + "\nUser-Agent: Twitterbot\nUser-Agent: Slackbot\nAllow: /\n")

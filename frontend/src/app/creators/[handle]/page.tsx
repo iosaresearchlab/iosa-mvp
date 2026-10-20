@@ -51,13 +51,11 @@ export async function generateMetadata({
       title: titolo,
       description: descrizione,
       url: `${SITO}/creators/${handle}`,
-      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: titolo }],
     },
     twitter: {
       card: 'summary_large_image',
       title: titolo,
       description: descrizione,
-      images: ['/og-image.png'],
     },
     robots: indicizzabile ? undefined : { index: false, follow: true },
   };

@@ -69,6 +69,16 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1d: a link shows its record
+
+- **A claim link previewed as the site logo**, in DMs and on X, Bluesky and
+  Threads, with the old description. Each claim and creator page now has its
+  own card, "Usually X views. This one: Y (as of D)" with the multiple, drawn
+  on Vercel without Chromium and without ISR writes; X can read `/claim/`
+  (search engines still cannot). The site description is the positioning.
+- *(Corrected: `02` §6.10; `frontend/src/app/layout.tsx`, `robots.ts`; `08`
+  FIX-1.)*
+
 ### 20 October 2026 — FIX-1b: a statement timeout in the nightly processing
 
 - On 19/10 at 00:37:56 UTC `close_exits_of_day` hit the 8 s timeout; the

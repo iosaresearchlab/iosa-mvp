@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://iosaresearch.org";
 const TITLE = "IOSA — Institute for Open Social Analytics";
 const DESCRIPTION =
-  "Independent audit of social media metrics against statistical baselines.";
+  "How far a YouTube video beat its own channel's usual views, read every day in YouTube's Most Popular charts of 34 countries.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

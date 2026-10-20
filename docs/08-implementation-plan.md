@@ -436,6 +436,13 @@ GRANTs from 30/10. The method is not touched.
   archived, 307 and the live HTML each in under 1 s, a token not archived
   answers 202 without raising the backend's RSS); then 3 days with no Render
   memory mail and no UptimeRobot down at 08:45-09:15 or 10:45-11:15 UTC.
+- **FIX-1d closing check**: `python tests/check_og.py TOKEN x5 --creator
+  HANDLE` on production prints PASS (og:image and twitter:image of each page
+  point to its own record image: 200, `image/png`, the day-long immutable
+  Cache-Control, under 1.5 s on a miss; Twitterbot may read `/claim/`); the X
+  and Bluesky previews of one claim link show the card; Vercel ISR writes the
+  day after the deploy not higher than the day before (both numbers in the
+  task log).
 
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
