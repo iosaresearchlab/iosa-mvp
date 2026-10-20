@@ -675,12 +675,16 @@ def _latest_reading_day():
     return (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
 
 
-def _day1_rows(since=None, country=None, category=None, format=None):
-    """post_daily at day_index = 1, joined to its v2 record, certain entries only."""
+def _day1_rows(since=None, country=None, category=None, format=None, columns=DAY1_POST_COLUMNS):
+    """post_daily at day_index = 1, joined to its v2 record, certain entries only.
+
+    FIX-1c (20/10/2026): `columns` names only the post columns the caller
+    uses. With every column, the long-form day-1 series (46,739 records on
+    20/10) held in memory restarted the instance on 19/10."""
     rows, offset, page = [], 0, 1000
     while True:
         q = (supabase.table("post_daily")
-             .select(f"day, day_index, views, vpi_ratio, posts!inner({DAY1_POST_COLUMNS})")
+             .select(f"day, day_index, views, vpi_ratio, posts!inner({columns})")
              .eq("day_index", 1)
              .eq("posts.method_version", "v2")
              .eq("posts.hidden", False)                     # OPTOUT-1
@@ -732,12 +736,12 @@ def get_top10_analytics(
     try:
         if not supabase:
             return {"timeframe": timeframe, "day_index": 1, "n": 0, "top10": []}
-        every = _day1_rows(since, country, category, format)
+        every = _day1_rows(since, country, category, format, columns=DAY1_LEAN_COLUMNS)
         rows = [r for r in every if r.get("vpi_ratio") is not None]
         rows.sort(key=lambda r: float(r["vpi_ratio"]), reverse=True)
         ages = [r["posts"]["age_at_first_obs_days"] for r in rows
                 if r["posts"].get("age_at_first_obs_days") is not None]
-        top = rows[:min(max(limit, 10), 1000)]
+        top = _with_full_posts(rows[:min(max(limit, 10), 1000)])
         return {
             "timeframe": timeframe,
             "since": since,
@@ -771,7 +775,7 @@ def _calcola_insights():
     try:
         if not supabase:
             return {"day_index": 1, "by_country": {}, "by_category": {}, "macro_regions": {}}
-        rows = _day1_rows()
+        rows = _day1_rows(columns="baseline_score, format, countries, categories")
         country_to_region = {c: reg for reg, cs in MACRO_REGIONS.items() for c in cs}
         by_country, by_category, by_region = {}, {}, {}
         for r in rows:
@@ -792,6 +796,40 @@ def _calcola_insights():
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
+
+
+# FIX-1c: what the top-10 needs of every day-1 record; the full columns are
+# read afterwards for the rows it returns only.
+DAY1_LEAN_COLUMNS = "id, baseline_score, baseline_rule, age_at_first_obs_days"
+
+
+def _with_full_posts(rows):
+    """The same rows with every DAY1_POST_COLUMNS column of their record."""
+    ids = [r["posts"]["id"] for r in rows]
+    full = {}
+    for i in range(0, len(ids), 100):
+        for p in (supabase.table("posts").select(DAY1_POST_COLUMNS)
+                  .in_("id", ids[i:i + 100]).execute().data or []):
+            full[p["id"]] = p
+    return [{**r, "posts": full.get(r["posts"]["id"], r["posts"])} for r in rows]
+
+
+def _band_cells_sql(fmt):
+    """(cells, without_vpi) of _cells / _without_vpi for one format, computed by
+    day1_band_cells() in the database: the same filters as _day1_rows, the
+    band edges of BASELINE_BANDS."""
+    edges = [b[0] for b in BASELINE_BANDS]
+    rows = supabase.rpc("day1_band_cells", {"p_floor": vpi_core.series_floor(), "p_format": fmt,
+                                             "p_edges": edges}).execute().data or []
+    names = {i + 1: b[2] for i, b in enumerate(BASELINE_BANDS)}
+    order = [b[2] for b in BASELINE_BANDS]
+    cells = [{"baseline_band": names[r["band_idx"]], "format": fmt, "n": int(r["n"]),
+              "median_vpi": float(r["median_vpi"])}
+             for r in rows if r.get("band_idx") in names and int(r["n"] or 0) > 0]
+    cells.sort(key=lambda c: order.index(c["baseline_band"]))
+    without = {"not_computable": sum(int(r["not_computable"] or 0) for r in rows),
+               "pending": sum(int(r["pending"] or 0) for r in rows)}
+    return cells, without
 
 
 def _without_vpi(rows):
@@ -820,12 +858,14 @@ def get_day1_bands(format: str = "LONG"):
         if not supabase:
             return {"day_index": 1, "format": fmt, "cells": [], "n": 0,
                     "without_vpi": {"not_computable": 0, "pending": 0}}
-        rows = _day1_rows(format=fmt)
-        cells = _cells(rows)
+        # FIX-1c (20/10/2026): aggregated in the database, one row per band.
+        # The whole day-1 series paged into memory (46,739 long-form records
+        # on 20/10) restarted the instance on 19/10 at 05:49 UTC.
+        cells, without = _band_cells_sql(fmt)
         return {"day_index": 1, "format": fmt,
                 "baseline_bands": [b[2] for b in BASELINE_BANDS],
                 "cells": cells, "n": sum(c["n"] for c in cells),
-                "without_vpi": _without_vpi(rows)}
+                "without_vpi": without}
     try:
         return _statistiche_in_memoria(f"day1-bands-{fmt}", calcola)
     except HTTPException:
@@ -965,7 +1005,7 @@ def _calcola_keywords(min_vpi: float, limit: int):
         if not supabase:
             return {"day_index": 1, "min_vpi": min_vpi, "segments": []}
         groups = {}
-        for r in _day1_rows():
+        for r in _day1_rows(columns="baseline_score, format, content_text"):
             p = r["posts"]
             band = baseline_band(p.get("baseline_score"))
             if band is None or r.get("vpi_ratio") is None or float(r["vpi_ratio"]) < min_vpi:
@@ -995,6 +1035,11 @@ def _calcola_keywords(min_vpi: float, limit: int):
 async def api_generate_trophy(data: TrophyRequest, x_iosa_admin_key: str = Header(None)):
     if not ADMIN_API_KEY or x_iosa_admin_key != ADMIN_API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if not PLAQUE_RENDER_LOCAL:
+        # FIX-1c: Render no longer installs Chromium (start command without
+        # `playwright install`): a render here could only fail. Plaques are
+        # rendered by the GitHub workflow (FIX-1a).
+        raise HTTPException(status_code=409, detail="plaques are rendered by the plaques workflow, not by this server")
     try:
         image_path = await generate_trophy_png(
             record_id=data.record_id,

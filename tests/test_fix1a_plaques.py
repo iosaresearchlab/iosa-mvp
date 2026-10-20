@@ -233,3 +233,17 @@ def test_the_workflow_renders_with_the_shared_module():
     assert "python render_plaques.py --mug --needed --token $TOKENS" in wf
     assert "/api/orders/fulfill-pending" in wf and "secrets.IOSA_ADMIN_KEY" in wf
     assert "secrets.SUPABASE_SERVICE_KEY" in wf and "playwright install --with-deps chromium" in wf
+
+
+
+def test_the_admin_render_endpoint_never_opens_chromium_on_render(monkeypatch):
+    """FIX-1c: the start command no longer installs Chromium; the one admin
+    endpoint that rendered a plaque refuses unless PLAQUE_RENDER_LOCAL=1."""
+    monkeypatch.setattr(main, "ADMIN_API_KEY", "k")
+    monkeypatch.setattr(main, "PLAQUE_RENDER_LOCAL", False)
+    monkeypatch.setattr(main, "generate_trophy_png", lambda **k: pytest.fail("Chromium opened"))
+    r = TestClient(main.app).post("/api/trophy/generate", headers={"x-iosa-admin-key": "k"},
+                                  json={"record_id": "r", "vpi_ratio": "+2.0x", "author": "@a",
+                                        "content_title": "t", "e_act": "1", "e_base": "1",
+                                        "gamma": "1", "date_str": "2026-10-20", "level_name": "x"})
+    assert r.status_code == 409

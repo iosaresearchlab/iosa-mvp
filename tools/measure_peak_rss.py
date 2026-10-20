@@ -2,6 +2,9 @@
 
     python tools/measure_peak_rss.py plaque     # one plaque render (Chromium)
     python tools/measure_peak_rss.py room       # /api/room/latest on a cache miss
+    python tools/measure_peak_rss.py day1-full  # the long-form day-1 series with every post column (before FIX-1c)
+    python tools/measure_peak_rss.py day1-bands # /api/analytics/day1-bands?format=LONG (after FIX-1c: SQL)
+    python tools/measure_peak_rss.py top10-all  # /api/analytics/top10?timeframe=all&format=LONG (after FIX-1c)
 
 Each path runs in a child process; this process samples the resident memory
 of the child and of every process below it (Chromium's) from /proc every
@@ -71,6 +74,48 @@ generate_trophy._render_png_sync(record_id="rss_probe", vpi_score="+48.5x", user
     content_title="A measured video", e_act="125000", e_base="2577", recorded_date="2026-10-10",
     measured_date="2026-10-14", output_dir="renders", file_id="rss_probe")
 time.sleep(0.5)
+""",
+    "day1-full": """
+import os, time, resource
+from dotenv import load_dotenv
+load_dotenv(".env")
+import main
+def vmrss():
+    for line in open("/proc/self/status"):
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1])
+base = vmrss()
+rows = main._day1_rows(format="LONG", columns=main.DAY1_POST_COLUMNS)
+peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(f"day1-full: {len(rows)} rows; RSS after imports {base // 1024} MB, peak {peak // 1024} MB, added {(peak - base) // 1024} MB", flush=True)
+""",
+    "day1-bands": """
+import os, time, resource
+from dotenv import load_dotenv
+load_dotenv(".env")
+import main
+def vmrss():
+    for line in open("/proc/self/status"):
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1])
+base = vmrss()
+cells, without = main._band_cells_sql("LONG")
+peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(f"day1-bands: {sum(c['n'] for c in cells)} records in {len(cells)} cells; RSS after imports {base // 1024} MB, peak {peak // 1024} MB, added {(peak - base) // 1024} MB", flush=True)
+""",
+    "top10-all": """
+import os, time, resource
+from dotenv import load_dotenv
+load_dotenv(".env")
+import main
+def vmrss():
+    for line in open("/proc/self/status"):
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1])
+base = vmrss()
+body = main.get_top10_analytics(timeframe="all", format="LONG", limit=300)
+peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(f"top10-all: n {body['n']}, {len(body['top10'])} returned; RSS after imports {base // 1024} MB, peak {peak // 1024} MB, added {(peak - base) // 1024} MB", flush=True)
 """,
     "room": """
 import gzip, json, os, time

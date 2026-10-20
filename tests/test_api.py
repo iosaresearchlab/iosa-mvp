@@ -34,7 +34,7 @@ class _Query:
         for name, args, _ in self.calls:            # claim lookups by token
             if name == "eq" and args[0] == "claim_token":
                 rows = [r for r in rows if r.get("claim_token") == args[1]]
-            if name == "rpc":
+            if name == "rpc" and "p_token" in args[1]:
                 rows = [r for r in rows if r.get("claim_token") == args[1]["p_token"]]
         for name, args, _ in self.calls:            # the one filter the lock needs
             if self.table == "ingest_run" and name == "eq" and args[0] == "day":
@@ -477,12 +477,22 @@ def test_the_plaque_states():
 
 
 def test_day1_bands_one_format_with_n_and_the_records_without_a_vpi(api):
+    """FIX-1c: one aggregate call in the database, one row per band (the SQL
+    itself is held by tests/test_fix1c_day1.py on PostgreSQL)."""
     client, db = api
+    db.data["rpc:day1_band_cells"] = [
+        {"band_idx": 1, "n": 2, "median_vpi": 50.0, "not_computable": 0, "pending": 0},
+        {"band_idx": 4, "n": 1, "median_vpi": 2.0, "not_computable": 0, "pending": 0},
+        {"band_idx": None, "n": 0, "median_vpi": None, "not_computable": 1, "pending": 0},
+    ]
     body = client.get("/api/analytics/day1-bands?format=SHORT").json()
-    q = db.last("post_daily")
-    assert q.has("eq", "day_index", 1) and q.has("eq", "posts.format", "SHORT")
-    # the fake does not filter: the format filter is asserted on the query above
-    assert body["n"] == sum(c["n"] for c in body["cells"])
+    q = db.last("rpc:day1_band_cells")
+    (name, params), = [a for n, a, _ in q.calls if n == "rpc"]
+    assert params["p_format"] == "SHORT" and params["p_edges"] == [b[0] for b in main.BASELINE_BANDS]
+    assert not [x for x in db.queries if x.table == "post_daily"], "no day-1 row is paged into memory"
+    assert body["cells"] == [{"baseline_band": "<100", "format": "SHORT", "n": 2, "median_vpi": 50.0},
+                             {"baseline_band": "10k-100k", "format": "SHORT", "n": 1, "median_vpi": 2.0}]
+    assert body["n"] == 3
     assert body["without_vpi"] == {"not_computable": 1, "pending": 0}   # the "nc" row
     assert client.get("/api/analytics/day1-bands?format=both").status_code == 400
 
@@ -491,6 +501,17 @@ def test_top10_counts_the_records_without_a_vpi_beside_n(api):
     client, db = api
     body = client.get("/api/analytics/top10?timeframe=all").json()
     assert body["without_vpi"] == {"not_computable": 1, "pending": 0}
+
+
+def test_top10_pages_lean_rows_and_reads_full_records_for_the_top_only(api):
+    """FIX-1c: the day-1 pass selects four post columns; the full columns are
+    read for the rows returned, by id."""
+    client, db = api
+    client.get("/api/analytics/top10?timeframe=all&limit=10")
+    (cols,) = [a[0] for n, a, _ in db.last("post_daily").calls if n == "select"]
+    assert cols.endswith(f"posts!inner({main.DAY1_LEAN_COLUMNS})")
+    full = [q for q in db.queries if q.table == "posts" and q.has("in_", "id")]
+    assert full and all(len(a[1]) <= 100 for q in full for n, a, _ in q.calls if n == "in_")
 
 
 # --- APP-11: "latest" is the day of the latest reading ------------------------
@@ -502,5 +523,5 @@ def test_top10_latest_is_the_latest_reading_day(api):
     body = client.get("/api/analytics/top10?timeframe=latest").json()
     assert body["since"] == "2026-09-30"
     assert db.last("post_daily").has("gte", "posts.entered_on", "2026-09-30")
-    q = [q for q in db.queries if q.table == "posts"][-1]
-    assert q.has("eq", "hidden", False) and q.has("order", "entered_on")
+    q = [q for q in db.queries if q.table == "posts" and q.has("order", "entered_on")][-1]
+    assert q.has("eq", "hidden", False)

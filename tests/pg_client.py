@@ -188,11 +188,17 @@ class _Rpc:
 
     def execute(self):
         with self.conn.cursor() as cur:
-            cur.execute("select proretset from pg_proc where proname = %s", (self.fn,))
-            retset = cur.fetchone()[0]
+            cur.execute("select proretset, proargnames, "
+                        "array(select t.typcategory from unnest(proargtypes) a join pg_type t on t.oid = a) "
+                        "from pg_proc where proname = %s", (self.fn,))
+            retset, argnames, cats = cur.fetchone()
+        # PostgREST turns a JSON array into a PostgreSQL array for an array
+        # parameter, and passes JSON otherwise: the same here.
+        array_args = {n for n, c in zip(argnames or [], cats or []) if c == "A"}
         args = sql.SQL(", ").join(
             sql.SQL("{} => {}").format(sql.Identifier(k), sql.Placeholder()) for k in self.params)
-        vals = [Jsonb(v) if isinstance(v, (list, dict)) else v for v in self.params.values()]
+        vals = [v if k in array_args and isinstance(v, list) else Jsonb(v) if isinstance(v, (list, dict)) else v
+                for k, v in self.params.items()]
         if retset:
             q = sql.SQL("select * from {}({})").format(sql.Identifier(self.fn), args)
             if self._order:
