@@ -23,6 +23,7 @@ def api(db, monkeypatch, tmp_path):
     monkeypatch.setattr(archivio_targhe, "esiste", lambda nome: names.append(nome) or False)
     monkeypatch.setattr(archivio_targhe, "carica", lambda nome, percorso: None)
     monkeypatch.setattr(main, "_cached_render", lambda key: None)
+    monkeypatch.setattr(main, "PLAQUE_RENDER_LOCAL", True)        # FIX-1a: local development path
     rendered = []
     png = tmp_path / "plaque.png"
     png.write_bytes(b"\x89PNG\r\n\x1a\n")

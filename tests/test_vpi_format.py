@@ -88,7 +88,9 @@ def test_examples(value, compact, full):
 
 def test_every_formatter_for_people_uses_it():
     main = (ROOT / "backend" / "main.py").read_text(encoding="utf-8")
-    assert ':.1f}x"' not in main and main.count("format_vpi_full(") >= 4
+    # FIX-1a: the plaque's two calls moved to plaque_spec.py with the plaque fields.
+    spec = (ROOT / "backend" / "plaque_spec.py").read_text(encoding="utf-8")
+    assert ':.1f}x"' not in main + spec and (main + spec).count("format_vpi_full(") >= 4
     fmt = (ROOT / "frontend" / "src" / "lib" / "format.ts").read_text(encoding="utf-8")
     assert "export { formatVPI, formatVPIFull } from './vpi-format.mjs';" in fmt
     assert "toFixed(1)}x" not in fmt and "toFixed(1)}Kx" not in fmt

@@ -425,6 +425,18 @@ of 30 slices counts channels with two or more videos per slice (`03` §12).
   writes them); the script's output committed with the note in `03`;
   `pytest -q` green; `check_run` green; bytes added per day reported.
 
+### FIX-1 — what is broken, 20/10/2026 *(owner's brief, `Claude outputs/FIX-1-developer-prompt.md`)*
+Nine sub-tasks, one commit each: FIX-1a plaques off Render, 1b statement
+timeout of 19/10, 1c other backend downs, 1d link previews, 1e social tooling
+versioned, 1f X text length, 1g Threads insights, 1h database runway, 1i
+GRANTs from 30/10. The method is not touched.
+
+- **FIX-1a closing check**: `python tests/check_plaques.py --token ...
+  --not-archived ...` prints PASS (every plaque in scope archived, 307 in
+  under 1 s, a token not archived answers 202 without raising the backend's
+  RSS); then 3 days with no Render memory mail and no UptimeRobot down at
+  08:45-09:15 or 10:45-11:15 UTC.
+
 ### T-17 — day 1 audit and data validation
 The numbers that decide whether this is a measurement or not:
 

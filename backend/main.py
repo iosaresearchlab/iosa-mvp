@@ -20,12 +20,13 @@ import stripe
 import traceback
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from supabase import create_client
 
 import archivio_targhe
+import plaque_spec
 import vpi_core
 from vpi_format import format_vpi_full  # UI-11: a VPI written for people is rounded down
 from trophy_pipeline import fulfill_trophy_order, generate_and_publish_trophy
@@ -67,15 +68,18 @@ ENABLE_ORDERS = os.getenv("ENABLE_ORDERS", "false").lower() == "true"
 PRODUCT_CATALOG = {"mug": 1900}
 DEFAULT_PRODUCT_KEY = "mug"
 
+# FIX-1a (20/10/2026): plaques are rendered by .github/workflows/plaques.yml,
+# never on Render. PLAQUE_RENDER_LOCAL=1 keeps the in-process path for local
+# development only.
+PLAQUE_RENDER_LOCAL = os.getenv("PLAQUE_RENDER_LOCAL", "0") == "1"
+
 # Limita i rendering Chromium simultanei e mette in cache le preview su disco.
 RENDER_SEMAPHORE = asyncio.Semaphore(2)
 PREVIEW_CACHE_SECONDS = 24 * 60 * 60
 RENDERS_DIR = Path(__file__).resolve().parent / "renders"
 
 
-def _safe_record_id(value) -> str:
-    """Rende un record_id sicuro come nome file senza alterare i claim_token."""
-    return re.sub(r"[^A-Za-z0-9_-]", "_", str(value or "preview"))[:120]
+_safe_record_id = plaque_spec.safe_record_id
 
 
 def _cached_render(record_id: str):
@@ -514,25 +518,29 @@ def read_root():
     # viene ricostruita da zero: si vede da fuori, senza guardare i log.
     return {"status": "online", "system": "IOSA Lab Backend",
             "motore": (os.getenv("IOSA_ENGINE_MODE") or "inline").strip().lower(),
-            "archivio_targhe": archivio_targhe.attivo()}
+            "archivio_targhe": archivio_targhe.attivo(),
+            # FIX-1a: the process's resident memory, read by tests/check_plaques.py
+            "rss_kb": _rss_kb()}
+
+
+def _rss_kb():
+    """VmRSS of this process in kB (Linux), None elsewhere."""
+    try:
+        with open("/proc/self/status", encoding="ascii") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
 
 # ==============================================================================
 # POSTS & FEED ENDPOINTS
 # ==============================================================================
 
 def _claim_lookup(token):
-    """The record a claim token names: posts first, then the v1 archive.
-
-    The v1 records left posts on 25/09/2026 (02 section 3.6); claim tokens
-    already sent must still resolve (08 T-20). claim_record_v1 returns the one
-    archived row with that token and nothing else. Both answers carry .data.
-    """
-    # A record hidden on a removal request (OPTOUT-1) resolves to nothing.
-    res = (supabase.table("posts").select("*").eq("claim_token", token)
-           .eq("hidden", False).execute())
-    if (res and res.data) or not token:
-        return res
-    return supabase.rpc("claim_record_v1", {"p_token": token}).execute()
+    """The record a claim token names (plaque_spec.claim_lookup)."""
+    return plaque_spec.claim_lookup(supabase, token)
 
 
 # What /api/posts returns. An explicit list, never "*". claim_token is in it:
@@ -1032,128 +1040,48 @@ async def get_trophy_preview(
     level_name: str = None
 ):
     try:
-        resolved_title = title
-        resolved_record_id = claim_token
-        resolved_level_name = level_name
-        req_date = recorded_date
-        misura_date = None
-        req_misura = measured_date
-        plaque_v2 = None        # the closed v2 record's figures (APP-2)
-        refused = None
-        metodo = None
-
+        post = None
         if supabase and claim_token:
             try:
                 res = _claim_lookup(claim_token)
-                
                 if res and res.data and len(res.data) > 0:
                     post = res.data[0]
-                    refused = _plaque_state(post)
-                    plaque_v2 = _plaque_figures_v2(post)
-                    metodo = METHOD_TEXT_V2 if plaque_v2 else METHOD_TEXT_V1
-                    author = post.get("author_handle") or author
-                    resolved_title = post.get("content_text") or resolved_title
-                    resolved_record_id = post.get("claim_token") or claim_token
-                    resolved_level_name = post.get("vpi_level_name") or resolved_level_name
-                    
-                    if post.get("vpi_ratio") is not None:
-                        raw_vpi = post.get("vpi_ratio")
-                        try:
-                            v_float = float(raw_vpi)
-                            vpi = format_vpi_full(v_float)
-                        except (ValueError, TypeError):
-                            vpi = str(raw_vpi)
-                            if not vpi.startswith("+"):
-                                vpi = f"+{vpi}"
-
-                    if post.get("engagement_score") is not None:
-                        e_act = str(post.get("engagement_score"))
-
-                    if post.get("baseline_score") is not None:
-                        e_base = str(post.get("baseline_score"))
-
-                    if post.get("created_at"):
-                        req_date = str(post.get("created_at"))[:10]
-
-                    # La targa porta due date: quando il video e' uscito e
-                    # quando lo abbiamo misurato. Il conteggio e' congelato
-                    # alla seconda, e senza dirlo la prima si presterebbe a
-                    # essere letta come la data delle visualizzazioni.
-                    if post.get("detected_at"):
-                        misura_date = str(post.get("detected_at"))[:10]
             except Exception as db_err:
                 log.info(f"Error fetching post details for trophy preview: {db_err}")
 
+        refused, nome_archivio, kwargs = plaque_spec.build(
+            post, claim_token=claim_token, author=author, vpi=vpi, title=title,
+            e_act=e_act, e_base=e_base, gamma=gamma, level_name=level_name,
+            recorded_date=recorded_date, measured_date=measured_date)
         # No plaque while the video is in Most Popular, none without a VPI.
         if refused == "charting":
             raise HTTPException(status_code=409, detail=PLAQUE_REFUSED["charting"])
         if refused == "no_vpi":
             raise HTTPException(status_code=404, detail=PLAQUE_REFUSED["no_vpi"])
-        if plaque_v2:
-            vpi, e_act = plaque_v2["vpi"], plaque_v2["views"]
-            req_date, misura_date = plaque_v2["entered_on"], plaque_v2["left_on"]
-        
-        if not resolved_title:
-            resolved_title = "Viral Content Title"
 
-        if resolved_record_id:
-            cache_key = _safe_record_id(resolved_record_id)
-        else:
-            # Senza claim_token la targa e' un esempio: la chiave nasce dai
-            # parametri, altrimenti due esempi diversi finirebbero sullo stesso
-            # file in archivio e il secondo riceverebbe l'immagine del primo.
-            impronta = hashlib.sha1("|".join([
-                str(author), str(vpi), str(resolved_title), str(e_act),
-                str(e_base), str(gamma), str(resolved_level_name),
-                str(req_date), str(req_misura),
-            ]).encode("utf-8")).hexdigest()[:12]
-            cache_key = _safe_record_id(f"preview_{impronta}")
-        # The archive key of a v2 plaque is tied to the closed state: it names
-        # the day the record left Most Popular, so no plaque rendered under
-        # another state (or before APP-2) is ever served for it.
-        file_key = f"{cache_key}_closed_{plaque_v2['left_on']}" if plaque_v2 else cache_key
-        nome_archivio = f"{file_key}.png"
-
-        # 1. Archivio su Storage: sopravvive ai riavvii ed e' servito dal CDN,
-        #    quindi il backend esce dal percorso. E' il caso normale.
+        # 1. The archive on Storage, served by the CDN: the normal case.
         if archivio_targhe.esiste(nome_archivio):
             return RedirectResponse(archivio_targhe.url_pubblico(nome_archivio),
                                     status_code=307)
 
-        # 2. File locale: vale solo finche' vive questo processo, ma evita di
-        #    rendere due volte la stessa targa nello stesso minuto.
+        # 2. FIX-1a (20/10/2026): Render never starts Chromium. Rendering a
+        #    plaque took the free instance over its 512 MB on 18/10 and 20/10;
+        #    plaques are rendered by .github/workflows/plaques.yml.
+        if not PLAQUE_RENDER_LOCAL:
+            return JSONResponse({"status": "preparing"}, status_code=202,
+                                headers={"Cache-Control": "no-store"})
+
+        # 3. Local development only (PLAQUE_RENDER_LOCAL=1).
+        file_key = kwargs["file_id"]
         cached = _cached_render(file_key)
-        if cached:
-            archivio_targhe.carica(nome_archivio, cached)
-            return FileResponse(str(cached), media_type="image/png")
-
-        # 3. Si rende. Dodici-venti secondi, e deve capitare una volta sola
-        #    per targa nella vita del progetto.
-        async with RENDER_SEMAPHORE:
-            cached = _cached_render(file_key)
-            if not cached:
-                cached = await generate_trophy_png(
-                    record_id=cache_key,
-                    file_id=file_key,
-                    days_charting=(plaque_v2 or {}).get("days"),
-                    entered_on=(plaque_v2 or {}).get("entered_on"),
-                    left_on=(plaque_v2 or {}).get("left_on"),
-                    method_text=metodo,
-                    vpi_score=vpi,
-                    user_handle=author,
-                    content_title=resolved_title,
-                    e_act=e_act,
-                    e_base=e_base,
-                    recorded_date=req_date or "2026-08-20",
-                    measured_date=misura_date or req_misura or req_date or "2026-08-20",
-                    level_name=resolved_level_name
-                )
-
+        if not cached:
+            async with RENDER_SEMAPHORE:
+                cached = _cached_render(file_key)
+                if not cached:
+                    cached = await generate_trophy_png(**kwargs)
         url = archivio_targhe.carica(nome_archivio, cached)
         if url:
             return RedirectResponse(url, status_code=307)
-        # Archiviazione non riuscita: si serve comunque il file appena reso e
-        # si riprovera' alla prossima richiesta.
         return FileResponse(str(cached), media_type="image/png")
     except HTTPException:
         raise
@@ -1168,24 +1096,22 @@ async def get_trophy_mug_preview(
     record_id: str = "PREVIEW_MUG_REC"
 ):
     try:
-        # L'anteprima della tazza e' un campione uguale per tutti: il nome del
-        # creator e il VPI non finiscono nell'immagine, come dice la didascalia
-        # sotto di essa. Quindi in archivio ne basta una sola, e da li' la
-        # prendono tutti dal CDN invece di aspettare venti secondi di
-        # impaginazione. Il nome dipende dall'immagine di partenza: se si
-        # cambia campione, cambia il nome e l'archivio si rinnova da solo.
-        nome_archivio = f"mug_{impronta_campione_tazza()}.png"
+        # The mug preview is one sample, the same for everyone: the creator's
+        # name and VPI are not in the image. One file in the archive; its name
+        # follows the sample image (MUG_SAMPLE_FILE).
+        nome_archivio = plaque_spec.mug_archive_name()
         if archivio_targhe.esiste(nome_archivio):
             return RedirectResponse(archivio_targhe.url_pubblico(nome_archivio),
                                     status_code=307)
-
+        if not PLAQUE_RENDER_LOCAL:
+            return JSONResponse({"status": "preparing"}, status_code=202,
+                                headers={"Cache-Control": "no-store"})
         async with RENDER_SEMAPHORE:
             image_path = await generate_mug_preview_png(
                 record_id=_safe_record_id(record_id),
                 vpi_score=vpi,
                 user_handle=author
             )
-
         url = archivio_targhe.carica(nome_archivio, Path(image_path))
         if url:
             return RedirectResponse(url, status_code=307)
@@ -1269,36 +1195,9 @@ async def initialize_claim_product(token: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e) or repr(e))
 
-def plaque_state_v2(record):
-    """CLAIM-2 (01/10/2026), v2 records only: "open" once the record has closed
-    with a VPI; "charting" while it is in Most Popular (no plaque, no order);
-    "no_vpi" when it closed without a computable baseline (no plaque)."""
-    if record.get("status") != "CLOSED":
-        return "charting"
-    if record.get("vpi_max") is None:
-        return "no_vpi"
-    return "open"
-
-
-def _plaque_figures_v2(record):
-    """APP-2: what the plaque of a closed v2 record carries - the highest VPI
-    observed, the views, the days in Most Popular, first observed and left.
-    None for anything else (a v1 archive record, an open record)."""
-    if (record or {}).get("method_version") != "v2" or plaque_state_v2(record) != "open":
-        return None
-    return {"vpi": format_vpi_full(float(record['vpi_max'])),
-            "views": str(record.get("views_max") if record.get("views_max") is not None
-                         else record.get("engagement_score")),
-            "days": record.get("days_charting"),
-            "entered_on": str(record.get("entered_on"))[:10],
-            "left_on": str(record.get("left_on"))[:10]}
-
-
-def _plaque_state(record):
-    """v1 archive records all closed under v1 and keep their plaque."""
-    if (record or {}).get("method_version") != "v2":
-        return "open"
-    return plaque_state_v2(record)
+plaque_state_v2 = plaque_spec.plaque_state_v2
+_plaque_figures_v2 = plaque_spec.plaque_figures_v2
+_plaque_state = plaque_spec.plaque_state
 
 
 PLAQUE_REFUSED = {

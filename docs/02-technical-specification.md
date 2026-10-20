@@ -837,7 +837,8 @@ the reference and an entry not written would not return.)*
   wording rules are checked on every output and a draft that breaks one is
   not written (`tests/test_weekly_digest.py`)
 - `printify_service.py`, `trophy_pipeline.py`, `generate_trophy.py`,
-  `archivio_targhe.py`, `scalda_targhe.py` — **unchanged** *(01/10/2026:
+  `archivio_targhe.py`, `scalda_targhe.py` — **unchanged** (FIX-1a adds
+  `plaque_spec.py` and `render_plaques.py` beside them) *(01/10/2026:
   `generate_trophy.py` changed at APP-2, §6.7: no gamma, the v2 figures;
   optional parameters only)*
 
@@ -1481,6 +1482,18 @@ always with views and days in Most Popular (01 §4.1).
   file and their method line. The signatures of the render functions only
   gain optional parameters: the Printify path (`trophy_pipeline`) is
   unchanged.
+- **FIX-1a** *(20/10/2026)* — plaques are rendered on a GitHub runner by
+  `.github/workflows/plaques.yml` (`backend/render_plaques.py`, 03:30 and
+  09:00 UTC and by hand with a list of claim tokens), never on Render: a
+  Chromium render took the free instance over its 512 MB on 18/10 and 20/10.
+  `backend/plaque_spec.py` builds the plaque's arguments and archive name for
+  both the endpoint and the job. `/api/trophy/preview` and
+  `/api/trophy/preview-mug` answer 307 to the archived file or `202
+  {"status": "preparing"}`; the in-process render is kept only behind
+  `PLAQUE_RENDER_LOCAL=1` (local development). The claim page asks first and
+  shows *"Your plaque is being prepared: come back later today"* on 202; the
+  mug sample is one archived file (`MUG_SAMPLE_FILE`,
+  `frontend/src/lib/plaque.ts`). `/` reports the process's `rss_kb`.
 - **APP-1** — `/insights` leaves the navigation and the sitemap and is not
   indexed. It comes back rebuilt on the per-band × format cells (n and
   median, long-form only), never on pooled figures.

@@ -69,6 +69,21 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 20 October 2026 — FIX-1a: plaques leave Render (Migert)
+
+- **The plaque render crashed the backend.** A Chromium render on the free
+  Render instance (512 MB) went over its memory on 18/10 at 10:11 UTC and on
+  20/10 at 09:01 UTC, the minutes the social preparation asked for three
+  plaques. Plaques are now rendered on a GitHub runner
+  (`.github/workflows/plaques.yml`); the backend serves the archived file or
+  answers 202 (`02` §6.7, FIX-1a).
+- **Scope of the rendering**: rendering every record closed with a level is
+  not feasible on the 1 GB Storage plan (14,801 plaques, ~2.9 GB, ~750 more
+  a day, *estimated* at ~200 KB each from the 26 files archived). Which
+  plaques are rendered is the owner's decision; until then the workflow
+  renders the claim tokens it is given and the mug sample.
+- *(Corrected: `02` §6.7, module list; `08` FIX-1.)*
+
 ### 15 October 2026 — FMT-2 closed: the past is under the rule
 
 - **The recovery ended on 15/10/2026**, after ten runs on the quota the

@@ -10,6 +10,7 @@ import { WaitlistForm } from '@/components/WaitlistForm';
 import { createClient } from '@supabase/supabase-js';
 import { ShieldCheck, CheckCircle2, Timer, Calendar, Loader2, Sparkles, ArrowLeft, CupSoda, Award, Download, Heart } from 'lucide-react';
 import ClaimForm from './ClaimForm';
+import { MUG_SAMPLE_FILE, archivedPlaqueUrl, plaqueStatus, type PlaqueStatus } from '@/lib/plaque';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 // Deve corrispondere a ENABLE_ORDERS nel backend. Default acceso.
@@ -34,6 +35,15 @@ export default function ClaimPage({
   
   // Tab state switcher
   const [activeTab, setActiveTab] = useState<'plaque' | 'mug'>('plaque');
+  // FIX-1a: 'preparing' when the plaque is not archived yet (backend 202).
+  const [plaqueState, setPlaqueState] = useState<PlaqueStatus>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    plaqueStatus(`${BACKEND_URL}/api/trophy/preview?claim_token=${encodeURIComponent(token)}`)
+      .then((st) => { if (!cancelled) setPlaqueState(st); });
+    return () => { cancelled = true; };
+  }, [token]);
 
   const [tokenWindow, setTokenWindow] = useState({ start: '', end: '', openUntil: '', days: 0 });
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
@@ -300,10 +310,13 @@ export default function ClaimPage({
     e_base: formatCountFull(Number(post.baseline_score ?? post.e_base)),
   };
 
-  const mugMockupUrl = `${BACKEND_URL}/api/trophy/preview-mug?author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}`;
+  // FIX-1a: one fixed mug sample, served from the archive.
+  const mugMockupUrl = archivedPlaqueUrl(MUG_SAMPLE_FILE);
   const plaquePreviewUrl = `${BACKEND_URL}/api/trophy/preview?claim_token=${encodeURIComponent(token)}&recorded_date=${encodeURIComponent(trophyPayload.date_str)}&author=${encodeURIComponent(trophyPayload.author)}&vpi=${encodeURIComponent(trophyPayload.vpi_ratio)}&e_act=${encodeURIComponent(trophyPayload.e_act)}&e_base=${encodeURIComponent(trophyPayload.e_base)}&content_title=${encodeURIComponent(trophyPayload.content_title)}&title=${encodeURIComponent(trophyPayload.content_title)}&level_name=${encodeURIComponent(trophyPayload.level_name)}`;
 
   const currentPreviewUrl = activeTab === 'plaque' ? plaquePreviewUrl : mugMockupUrl;
+  const plaquePreparing = activeTab === 'plaque' && plaqueState === 'preparing';
+  const plaqueChecking = activeTab === 'plaque' && plaqueState === 'checking';
 
   const formattedDetectedDate = post.entered_on
     ? new Date(`${post.entered_on}T00:00:00Z`).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
@@ -437,13 +450,19 @@ export default function ClaimPage({
             
             {/* Download and Preview Viewport */}
             <div className="w-full mx-auto h-[240px] sm:h-[270px] rounded-xl bg-black/50 border border-[#00E5FF]/30 flex flex-col items-center justify-center mb-2 overflow-hidden relative group shadow-lg p-2">
-              {artifactLoading && (
+              {plaquePreparing && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-xs text-[#00E5FF] gap-2 px-6 text-center">
+                  <Timer className="w-5 h-5 text-[#00E5FF]" />
+                  <span>Your plaque is being prepared: come back later today.</span>
+                </div>
+              )}
+              {!plaquePreparing && (artifactLoading || plaqueChecking) && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 font-mono text-[10px] text-[#00E5FF] gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-[#00E5FF]" />
                   <span>RENDERING PREVIEW...</span>
                 </div>
               )}
-              <img 
+              {!plaquePreparing && !plaqueChecking && <img 
                 key={currentPreviewUrl}
                 src={currentPreviewUrl}
                 alt={activeTab === 'plaque' ? "Accreditation Plaque Preview" : "IOSA Physical Artifact Sample"}
@@ -453,9 +472,9 @@ export default function ClaimPage({
                   (e.target as HTMLElement).style.display = 'none';
                 }}
                 className={`w-full h-full object-contain transform group-hover:scale-105 transition-transform duration-300 ${artifactLoading ? 'opacity-0' : 'opacity-100'}`}
-              />
+              />}
 
-              {activeTab === 'plaque' && !artifactLoading && (
+              {activeTab === 'plaque' && !artifactLoading && plaqueState === 'ready' && (
                 <div className="absolute bottom-2 inset-x-2 flex flex-col items-center z-20">
                   <a
                     href={plaquePreviewUrl}

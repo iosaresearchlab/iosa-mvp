@@ -38,6 +38,11 @@ def _claim_functions():
             if node.name in ("claim_window", "_reserve_order", "_record_order") or (
                     "_claim_lookup(" in src and node.name != "_claim_lookup"):
                 out.append((node.name, src))
+    # FIX-1a: what /api/trophy/preview reads of the record moved to plaque_spec.build.
+    spec = (ROOT / "backend" / "plaque_spec.py").read_text(encoding="utf-8")
+    for node in ast.walk(ast.parse(spec)):
+        if isinstance(node, ast.FunctionDef) and node.name == "build":
+            out.append(("plaque_spec.build", ast.get_source_segment(spec, node)))
     return out
 
 
@@ -106,6 +111,7 @@ def api(db, monkeypatch, tmp_path):
     monkeypatch.setattr(archivio_targhe, "esiste", lambda nome: False)
     monkeypatch.setattr(archivio_targhe, "carica", lambda nome, percorso: None)
     monkeypatch.setattr(main, "_cached_render", lambda key: None)
+    monkeypatch.setattr(main, "PLAQUE_RENDER_LOCAL", True)        # FIX-1a: local development path
     rendered = []
     png = tmp_path / "plaque.png"
     png.write_bytes(b"\x89PNG\r\n\x1a\n")
