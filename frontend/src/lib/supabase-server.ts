@@ -103,6 +103,21 @@ const SENZA_DATABASE = !/^https:\/\//.test(process.env.NEXT_PUBLIC_SUPABASE_URL 
 const IN_BUILD = process.env.NEXT_PHASE === 'phase-production-build';
 const ATTESE_MS = IN_BUILD ? [2000, 4000, 8000, 16000] : [1000];
 
+/**
+ * FIX-1c (21/10/2026): a retry must reach the database. Next memoizes identical
+ * GET/HEAD fetches within a render (server/lib/dedupe-fetch.js, React cache)
+ * unless the call carries its own signal: the 3d6d761 retries of /outliers at
+ * the 3085ab7 build (20/10 22:04 UTC) all returned the first, failed response
+ * (edge log: 3 requests, one per read, against 15 attempts in the build log).
+ * Each retry gets its own AbortSignal, so it is a new request; the first read
+ * keeps Next's deduplication.
+ */
+function nuovaLettura<T>(query: () => PromiseLike<Esito<T>>): PromiseLike<Esito<T>> {
+  const q = query() as PromiseLike<Esito<T>> & { abortSignal?: (s: AbortSignal) => unknown };
+  q.abortSignal?.(new AbortController().signal);
+  return q;
+}
+
 export async function leggi<T>(etichetta: string, query: () => PromiseLike<Esito<T>>): Promise<Esito<T>> {
   let esito = await query();
   if (!esito.error) return esito;
@@ -110,7 +125,7 @@ export async function leggi<T>(etichetta: string, query: () => PromiseLike<Esito
   for (const attesa of ATTESE_MS) {
     if (IN_BUILD) console.warn(`[leggi] ${etichetta}: ${esito.error?.message || 'read failed'}; retry in ${attesa / 1000} s`);
     await new Promise((r) => setTimeout(r, attesa));
-    esito = await query();
+    esito = await nuovaLettura(query);
     if (!esito.error) return esito;
   }
   throw new Error(`${etichetta}: ${esito.error?.message}`);

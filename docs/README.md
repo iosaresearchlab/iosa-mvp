@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 21 October 2026 — FIX-1c: the build's retries now reach the database
+
+- The build of `3085ab7` failed although each read was tried five times:
+  Next serves an identical request made in the same render from memory, so
+  the retries returned the first failure without leaving the build machine
+  (3 requests reached the database for 15 attempts). Each retry is now a new
+  request. The 5-READY milestone restarts from the next good build.
+- *(Corrected: task log FIX-1c builds; `08` milestone table.)*
+
 ### 20 October 2026 — FIX-1d: a claim link no longer says it is the home page
 
 - The root layout gave every page `og:url` = the home page; a shared claim

@@ -56,3 +56,14 @@ def test_the_build_retries_a_failed_read_within_the_page_timeout():
     cfg = (SRC.parent / "next.config.ts").read_text(encoding="utf-8")
     timeout_s = int(re.search(r"staticPageGenerationTimeout: (\d+)", cfg).group(1))
     assert sum(build) / 1000 + 5 * 3 < timeout_s      # five reads of at most 3 s each
+
+
+def test_every_retry_is_a_new_request():
+    """FIX-1c (21/10/2026): Next memoizes identical GETs within a render unless the
+    call carries a signal; the 3085ab7 build's retries never left the build machine
+    (3 requests in the edge log for 15 attempts). Each retry gets its own signal."""
+    helper = (SRC / "lib" / "supabase-server.ts").read_text(encoding="utf-8")
+    assert "q.abortSignal?.(new AbortController().signal);" in helper
+    loop = helper[helper.index("for (const attesa of ATTESE_MS)"):]
+    loop = loop[:loop.index("throw new Error")]
+    assert "await nuovaLettura(query)" in loop and "await query()" not in loop

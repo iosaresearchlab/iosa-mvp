@@ -589,7 +589,7 @@ own closing check above, and are reported as they do:
 | FMT-2 milestone | the recovery finishing on unused quota | 4-8 days after it starts (estimate); **reached 15/10/2026**, after ten runs |
 | FIX-1a milestone | 3 days without a Render memory mail or an UptimeRobot down of the backend (the nightly check reads the mailbox, step 1b, and reports only a failure) | 23/10/2026 |
 | FIX-1b milestone | 3 nights with no failure and the slowest database call under 2,000 ms (already in `tests/check_run.sql`; the nightly check reports only a failure) | 23/10/2026 |
-| FIX-1c builds milestone | 5 consecutive production builds READY on Vercel, counted on the next real commits from `3d6d761` (READY, the first); no redeploys (owner, 20/10). The nightly check lists the production builds since the previous check and reports only an ERROR | the fifth real commit after `3d6d761` |
+| FIX-1c builds milestone | 5 consecutive production builds READY on Vercel, counted on the next real commits; no redeploys (owner, 20/10). Restarted (owner, 21/10) from the first READY build after the fix of the build of `3085ab7` (retries memoized by Next). The nightly check lists the production builds since the previous check and reports only an ERROR | the fifth READY build after that fix |
 | FIX-1d milestone | Vercel ISR writes of 21/10 (first full day after the FIX-1d deploys) not higher than those of 19/10, both read on the usage page (Edge is signed in; Usage → Incremental Static Regeneration → Writes, per day) and written in the task log | 22/10/2026 |
 
 The loop itself ends with T-21.
