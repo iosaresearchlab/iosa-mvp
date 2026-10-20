@@ -168,3 +168,26 @@ def test_check_insights_reports_without_printing_the_token(work, monkeypatch, ca
     monkeypatch.setattr(pa.requests, "get", lambda *a, **k: R(200, {"data": [{"name": "views"}, {"name": "followers_count"}]}))
     assert pa.check_insights() == 0
     assert "OK views, followers_count" in capsys.readouterr().out
+
+
+def test_no_credential_ever_printed(work, monkeypatch, capsys):
+    """A network error carries the URL with access_token=...: it is redacted, in check_insights
+    and in any traceback of the script."""
+    monkeypatch.setenv("IOSA_SOCIAL_WORK", str(work))
+    import importlib
+    import social.publish_api as pa
+    importlib.reload(pa)
+    (work.parent / "threads_token.json").write_text(json.dumps({"access_token": "SECRET-TOKEN", "user_id": "1"}))
+    def boom(*a, **k):
+        raise pa.requests.ConnectionError("Max retries exceeded with url: /me?access_token=SECRET-TOKEN (x)")
+    monkeypatch.setattr(pa.requests, "get", boom)
+    assert pa.check_insights() == 2
+    assert "SECRET-TOKEN" not in capsys.readouterr().out
+    try:
+        boom()
+    except Exception:
+        pa._excepthook(*sys.exc_info())
+    err = capsys.readouterr().err
+    assert "SECRET-TOKEN" not in err and "access_token=***" in err
+    assert pa._redact('{"accessJwt": "abc.def", "x": 1}') == '{"accessJwt": "***", "x": 1}'
+    assert pa._redact("Authorization: Bearer abc123") == "Authorization: Bearer ***"

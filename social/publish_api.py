@@ -35,6 +35,23 @@ import requests
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))  # the repo: social.paths
 from social import paths, validate_spec
 
+# Never print a credential (20/10/2026: a DNS failure in --check-insights printed the
+# exception of requests, whose message carries the URL with access_token=...). Every
+# traceback and every error line of this script goes through _redact.
+_SECRET = re.compile(r"(access_token=|Bearer\s+|\"(?:access_token|accessJwt|refreshJwt|password)\":\s*\")[^&\s'\"),]+")
+
+
+def _redact(text):
+    return _SECRET.sub(lambda m: m.group(1) + "***", str(text))
+
+
+def _excepthook(kind, value, tb):
+    import traceback
+    sys.stderr.write(_redact("".join(traceback.format_exception(kind, value, tb))))
+
+
+sys.excepthook = _excepthook
+
 HERE = paths.work()                                        # renders/social: queue and media
 RENDERS = paths.renders()                                  # renders: credentials
 REPO = paths.REPO                                          # iosa-lab: backend/.env
@@ -48,7 +65,7 @@ def env():
 
 
 def die(msg):
-    print("ERRORE:", msg)
+    print("ERRORE:", _redact(msg))
     sys.exit(1)
 
 
@@ -311,9 +328,13 @@ def check_insights():
     (th_refresh_token) keeps the token's permissions; this reads /me/threads_insights once and
     says whether it answers, without printing the token. Exit 0 = data."""
     t = json.loads((RENDERS / "threads_token.json").read_text(encoding="utf-8"))
-    r = requests.get(f"{TH_API}/me/threads_insights", params={"metric": "views,followers_count",
-                     "access_token": t["access_token"]}, timeout=30)
-    j = r.json()
+    try:
+        r = requests.get(f"{TH_API}/me/threads_insights", params={"metric": "views,followers_count",
+                         "access_token": t["access_token"]}, timeout=30)
+        j = r.json()
+    except requests.RequestException as e:
+        print("threads insights: NO, network:", type(e).__name__)
+        return 2
     names = [d.get("name") for d in j.get("data") or []]
     if r.status_code == 200 and names:
         print("threads insights: OK", ", ".join(names))

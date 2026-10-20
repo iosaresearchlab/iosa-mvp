@@ -1560,6 +1560,13 @@ without alt text, Threads over 500 characters, an Instagram caption over
 the reasons. `publish_api.py` runs the same checks on the channels still to
 publish before publishing anything: an invalid spec publishes nothing.
 
+**Threads insights (FIX-1g, 20/10/2026).** Reading Threads metrics needs the
+app permission `threads_manage_insights` on the token (`renders/threads_token.json`).
+`--refresh-tokens` (`th_refresh_token`) extends the token and keeps its
+permissions; `publish_api.py --check-insights` reads `/me/threads_insights`
+(`views,followers_count`) once and says whether it answers, without printing
+the token.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and
