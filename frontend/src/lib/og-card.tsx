@@ -13,7 +13,7 @@
  *
  * Rendered by next/og (Satori + Resvg, on Vercel): no Chromium. Titles come
  * in 34 countries' scripts, so the glyphs a title needs are fetched from
- * Google Fonts for that text only.
+ * Google Fonts for that text only (Latin, Greek and Cyrillic ship with the app).
  */
 // Satori draws <img>, not next/image.
 /* eslint-disable @next/next/no-img-element */
@@ -90,26 +90,39 @@ function giornoBreve(iso: string | null): string | null {
   return `${d.getUTCDate()} ${mesi[d.getUTCMonth()]}`;
 }
 
-// Google Fonts families by script, in the order Satori falls back through
-// them. Noto Sans covers Latin, Cyrillic, Greek and Vietnamese.
+// Latin, Greek, Cyrillic and Vietnamese: Noto Sans, subset to those scripts
+// and shipped with the app (src/assets/og, OFL), read once per instance.
+// Other scripts: the Google Fonts family, for the title's text only, in the
+// order Satori falls back through them. A cold instance pays no font
+// download for four titles in five (FIX-1d, 20/10: 21% of the v2 titles
+// carry a character outside Latin, symbols and emoji).
 const FAMIGLIE: ReadonlyArray<readonly [RegExp, string]> = [
-  [/[぀-ヿ㐀-鿿豈-﫿＀-￯]/, 'Noto Sans JP'],
-  [/[가-힯ᄀ-ᇿ㄰-㆏]/, 'Noto Sans KR'],
-  [/[฀-๿]/, 'Noto Sans Thai'],
-  [/[ऀ-ॿ]/, 'Noto Sans Devanagari'],
-  [/[ঀ-৿]/, 'Noto Sans Bengali'],
-  [/[஀-௿]/, 'Noto Sans Tamil'],
-  [/[ఀ-౿]/, 'Noto Sans Telugu'],
-  [/[ಀ-೿]/, 'Noto Sans Kannada'],
-  [/[ഀ-ൿ]/, 'Noto Sans Malayalam'],
-  [/[઀-૿]/, 'Noto Sans Gujarati'],
-  [/[਀-੿]/, 'Noto Sans Gurmukhi'],
-  [/[؀-ۿݐ-ݿ]/, 'Noto Sans Arabic'],
-  [/[ក-៿]/, 'Noto Sans Khmer'],
-  [/[֐-׿]/, 'Noto Sans Hebrew'],
+  [/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/, 'Noto Sans JP'],
+  [/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/, 'Noto Sans KR'],
+  [/[\u0e00-\u0e7f]/, 'Noto Sans Thai'],
+  [/[\u0900-\u097f]/, 'Noto Sans Devanagari'],
+  [/[\u0980-\u09ff]/, 'Noto Sans Bengali'],
+  [/[\u0b80-\u0bff]/, 'Noto Sans Tamil'],
+  [/[\u0c00-\u0c7f]/, 'Noto Sans Telugu'],
+  [/[\u0c80-\u0cff]/, 'Noto Sans Kannada'],
+  [/[\u0d00-\u0d7f]/, 'Noto Sans Malayalam'],
+  [/[\u0a80-\u0aff]/, 'Noto Sans Gujarati'],
+  [/[\u0a00-\u0a7f]/, 'Noto Sans Gurmukhi'],
+  [/[\u0600-\u06ff\u0750-\u077f]/, 'Noto Sans Arabic'],
+  [/[\u1780-\u17ff]/, 'Noto Sans Khmer'],
+  [/[\u0590-\u05ff]/, 'Noto Sans Hebrew'],
 ];
 
-type Font = { name: string; data: ArrayBuffer; weight: 400 | 700; style: 'normal' };
+type Font = { name: string; data: ArrayBuffer | Buffer; weight: 400 | 700; style: 'normal' };
+
+const ASSETS = join(process.cwd(), 'src/assets/og');
+const NOTO_LOCALE: Promise<Font[]> = Promise.all([
+  readFile(join(ASSETS, 'NotoSans-Regular-subset.ttf')),
+  readFile(join(ASSETS, 'NotoSans-Bold-subset.ttf')),
+]).then(([r, b]) => [
+  { name: 'Noto Sans', data: r, weight: 400, style: 'normal' },
+  { name: 'Noto Sans', data: b, weight: 700, style: 'normal' },
+]);
 
 async function fontGoogle(famiglia: string, testo: string): Promise<Font[]> {
   const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(famiglia)}:wght@400;700&text=${encodeURIComponent(testo)}`;
@@ -134,19 +147,18 @@ async function fontGoogle(famiglia: string, testo: string): Promise<Font[]> {
 
 /** The fonts for this text: Noto Sans always, then only the scripts it uses. */
 async function fontPer(testo: string): Promise<Font[]> {
-  const famiglie = ['Noto Sans', ...FAMIGLIE.filter(([re]) => re.test(testo)).map(([, f]) => f)];
+  const altre = FAMIGLIE.filter(([re]) => re.test(testo)).map(([, f]) => f);
   const caratteri = Array.from(new Set(Array.from(testo))).join('');
-  const lotti = await Promise.all(famiglie.map((f) => fontGoogle(f, caratteri).catch(() => [] as Font[])));
+  const lotti = await Promise.all([
+    NOTO_LOCALE,
+    ...altre.map((f) => fontGoogle(f, caratteri).catch(() => [] as Font[])),
+  ]);
   return lotti.flat();
 }
 
-let logo: Promise<string> | null = null;
-function logoIosa(): Promise<string> {
-  logo ??= readFile(join(process.cwd(), 'public/brand/iosa-logo@2x.png'), 'base64').then(
-    (b) => `data:image/png;base64,${b}`
-  );
-  return logo;
-}
+const LOGO: Promise<string> = readFile(join(process.cwd(), 'public/brand/iosa-logo@2x.png'), 'base64').then(
+  (b) => `data:image/png;base64,${b}`
+);
 
 function tronca(s: string, n: number): string {
   const c = Array.from(s);
@@ -185,7 +197,7 @@ export function testiDellaCard(r: OgRecord, giorno: string | null) {
 
 /** The card. `r` null: the site card (a link to nothing still previews). */
 export async function cardDelRecord(r: OgRecord | null): Promise<ImageResponse> {
-  const marchio = await logoIosa();
+  const marchio = await LOGO;
   if (!r) {
     const fonts = await fontPer('IOSA How far a YouTube video beat its own channel usual views');
     return new ImageResponse(
@@ -207,19 +219,19 @@ export async function cardDelRecord(r: OgRecord | null): Promise<ImageResponse> 
           <div style={{ display: 'flex', fontSize: 24, color: '#9ca3af', letterSpacing: 1 }}>{t.stato}</div>
           <img src={marchio} width={106} height={72} alt="" />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 28 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 20, flexShrink: 0 }}>
           {t.usuale ? <div style={{ display: 'flex', fontSize: 44, color: '#d1d5db' }}>{t.usuale}</div> : null}
           <div style={{ display: 'flex', fontSize: 52, fontWeight: 700, marginTop: 6 }}>{t.questo}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', marginTop: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', marginTop: 18, flexShrink: 0 }}>
           {t.multiplo ? (
             <div style={{ display: 'flex', fontSize: 104, fontWeight: 700, color: t.colore, lineHeight: 1 }}>{t.multiplo}</div>
           ) : null}
           <div style={{ display: 'flex', fontSize: 30, color: t.colore, marginLeft: t.multiplo ? 28 : 0 }}>{t.livello}</div>
         </div>
         <div style={{ display: 'flex', flexGrow: 1 }} />
-        <div style={{ display: 'flex', fontSize: 34, lineHeight: 1.25, maxHeight: 86, overflow: 'hidden', marginTop: 18 }}>{t.titolo}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontSize: 26, color: '#9ca3af' }}>
+        <div style={{ display: 'flex', fontSize: 34, lineHeight: 1.25, maxHeight: 86, overflow: 'hidden', marginTop: 16, flexShrink: 0 }}>{t.titolo}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, fontSize: 26, color: '#9ca3af', flexShrink: 0 }}>
           <div style={{ display: 'flex' }}>{t.handle}</div>
           <div style={{ display: 'flex', color: '#00E5FF' }}>iosaresearch.org</div>
         </div>

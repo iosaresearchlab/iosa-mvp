@@ -1465,9 +1465,10 @@ views); D is the day of the reading of those views (after the exit
 `vpi_max_on`, while charting the latest `post_daily` day, a v1 archive record
 its `detected_at`). The claim card reads what the claim page reads
 (`public_records` by token, then `claim_record_v1`); the creator card is the
-first record `recordDelCreator` lists. A title's glyphs are fetched from
-Google Fonts for that text only (Noto Sans plus the families of the scripts
-it uses): titles come in the scripts of 34 countries. A token or handle that
+first record `recordDelCreator` lists. Titles come in the scripts of 34 countries:
+Noto Sans for Latin, Greek and Cyrillic ships with the app
+(`frontend/src/assets/og`, subset, OFL); the glyphs of any other script are
+fetched from Google Fonts for that title's text only. A token or handle that
 resolves to nothing gets the site card.
 
 No ISR write (OPS-1): the image routes are `dynamic = 'force-dynamic'`, never
