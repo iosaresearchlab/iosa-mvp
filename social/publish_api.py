@@ -1,9 +1,10 @@
-"""IOSA social publisher: Bluesky, Instagram and Threads through their official APIs.
+"""IOSA social publisher: Bluesky, Instagram, Threads and X (through Buffer) by their official APIs.
 
 Usage (from C:\\Work\\iosa-lab\\renders\\social, through the wrapper there):
     python3 publish_api.py queue/<post>.json            # publish every channel still missing
     python3 publish_api.py queue/<post>.json --only bluesky,threads
     python3 publish_api.py queue/<post>.json --dry-run  # say what would go out; no network, no writes
+    python3 publish_api.py queue/<post>.json --x        # also X, through Buffer (SOC-X, see below)
 
 Before publishing anything the spec is checked (social/validate_spec.py, FIX-1f): X over 280
 weighted, Bluesky over 300 graphemes or without alt text, Threads over 500, an Instagram caption
@@ -21,8 +22,21 @@ Post spec (JSON):
   "video": null, "cover": null,                     # a Reel/video instead of images (mp4 + jpg cover)
   "bluesky":   {"text": "...", "alt": "..."},       # null to skip
   "instagram": {"caption": "...", "user_tags": [{"username": "x", "x": 0.5, "y": 0.8}]},
-  "threads":   {"text": "...", "topic_tag": "YouTube Creators"}
+  "threads":   {"text": "...", "topic_tag": "YouTube Creators"},
+  "x":         {"text": "...", "reply": "https://youtu.be/... ..."}   # the card + the first reply
 }
+
+X (SOC-X, owner 20/10/2026) goes through Buffer's GraphQL API (api.buffer.com, key in
+renders/buffer_key.txt), never the browser, and only when asked: --x, or --only with x in it,
+until the slot tasks are switched to it. The post is x.text with the first image as the card;
+x.reply (text only, YouTube link first) is the second item of the thread; the card is x.card
+when the spec names one, else the first image. Buffer wants every
+item in metadata.twitter.thread, the first one repeating the post (developers.buffer.com,
+"create threaded post": the thread is the source of truth). Mode shareNow. The Buffer post id
+is written to result.x_buffer at once, so a run that stops before the X link comes back reads
+that post again instead of creating a second one. Free plan: 3,000 requests in 30 days; every
+request is logged in renders/social/buffer_requests.log and the script refuses to start an X
+publication past BUFFER_BUDGET of them (a publication costs 2 to 6).
 Results (links and ids) are written back into the spec under "result". A channel that already has a
 result is never published again, so a retry cannot double-post.
 
@@ -248,6 +262,95 @@ def publish_threads(spec, urls):
     return {"id": m["id"], "url": info.get("permalink")}
 
 
+# ---------- x, through buffer (SOC-X) ----------
+BUFFER_API = "https://api.buffer.com"
+BUFFER_ORG = "6ad7c7bbf110b1e5ece4214e"
+BUFFER_X_CHANNEL = "6ad7c83b778b240e2f6ee253"          # @IOSAResearch
+BUFFER_BUDGET = 1000                                   # of the plan's 3,000 requests in 30 days
+BUFFER_POLL_S = (15, 30, 45, 90)                       # waits before reading the post: 4 reads at most
+BUFFER_LOG = "buffer_requests.log"
+
+
+def buffer_used(days=30):
+    """Buffer requests of the last `days` days, from the log."""
+    f = HERE / BUFFER_LOG
+    if not f.is_file():
+        return 0
+    since = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    n = 0
+    for line in f.read_text(encoding="utf-8").splitlines():
+        try:
+            if datetime.datetime.fromisoformat(line.split()[0].rstrip("Z")) >= since:
+                n += 1
+        except (ValueError, IndexError):
+            continue
+    return n
+
+
+def buffer(query, variables, label):
+    key = (RENDERS / "buffer_key.txt").read_text(encoding="utf-8-sig").strip()
+    r = requests.post(BUFFER_API, json={"query": query, "variables": variables},
+                      headers={"Authorization": "Bearer " + key}, timeout=60)
+    with (HERE / BUFFER_LOG).open("a", encoding="utf-8") as f:
+        f.write(f"{datetime.datetime.utcnow().isoformat(timespec='seconds')}Z {label} {r.status_code}\n")
+    try:
+        j = r.json()
+    except ValueError:
+        die(f"buffer {label}: {r.status_code} {r.text[:200]}")
+    if j.get("errors"):
+        die(f"buffer {label}: {j['errors'][0].get('message')}")
+    return j["data"]
+
+
+BUFFER_CREATE = """mutation($input: CreatePostInput!) { createPost(input: $input) {
+  ... on PostActionSuccess { post { id status } }
+  ... on MutationError { message } } }"""
+BUFFER_READ = """query($id: PostId!) { post(input: {id: $id}) {
+  id status externalLink sentAt error { message } } }"""
+
+
+def x_input(spec, image_url):
+    """createPost input for the X post: the card post, then the reply, as Buffer's thread."""
+    x = spec["x"]
+    assets = [{"image": {"url": image_url}}] if image_url else []
+    thread = [{"text": x["text"], "assets": assets}]
+    if x.get("reply"):
+        thread.append({"text": x["reply"], "assets": []})
+    return {"channelId": BUFFER_X_CHANNEL, "schedulingType": "automatic", "mode": "shareNow",
+            "text": x["text"], "assets": assets, "metadata": {"twitter": {"thread": thread}}}
+
+
+def publish_x(spec, urls, save):
+    """Publish spec x through Buffer; returns result.x. Resumes a post already created."""
+    res = spec["result"]
+    pid = res.get("x_buffer")
+    if not pid:
+        used = buffer_used()
+        if used + 6 > BUFFER_BUDGET:
+            die(f"buffer: {used} richieste negli ultimi 30 giorni, budget {BUFFER_BUDGET}: X non pubblicato")
+        card = (spec.get("x") or {}).get("card")       # the X card (PNG) when the spec names one
+        if card and not urls.get("x_card"):
+            urls["x_card"] = upload_public(card)
+            res["_media"] = urls
+            save()
+        image = urls.get("x_card") or (urls.get("images") or [None])[0]
+        d = buffer(BUFFER_CREATE, {"input": x_input(spec, image)}, "createPost " + spec.get("id", ""))
+        out = d["createPost"]
+        if "post" not in out:
+            die(f"buffer createPost: {out.get('message')}")
+        pid = out["post"]["id"]
+        res["x_buffer"] = pid                              # before anything else can fail
+        save()
+    for wait in BUFFER_POLL_S:
+        time.sleep(wait)
+        post = buffer(BUFFER_READ, {"id": pid}, "read " + pid)["post"]
+        if post["status"] == "sent" and post.get("externalLink"):
+            return {"post": post["externalLink"], "buffer": pid, "via": "buffer"}
+        if post["status"] == "error":
+            die(f"buffer: post {pid} in errore: {(post.get('error') or {}).get('message')}")
+    die(f"buffer: post {pid} non ancora inviato (stato {post['status']}); rilancia: rilegge lo stesso post")
+
+
 # ---------- tokens ----------
 def refresh_tokens():
     for name, url, grant in (("instagram_token.json", "https://graph.instagram.com/refresh_access_token", "ig_refresh_token"),
@@ -265,7 +368,8 @@ def refresh_tokens():
 
 
 CAP = {"instagram": 2, "threads": 2}
-CHANNELS = ("bluesky", "instagram", "threads")
+CHANNELS = ("bluesky", "instagram", "threads", "x")
+OPT_IN = {"x"}                    # published only when asked (--x, or --only naming it)
 
 
 def used_today(sp, ch):
@@ -290,8 +394,10 @@ def plan(spec, sp, only=None, force_volume=False):
     for c in CHANNELS:
         if not spec.get(c) or (only is not None and c not in only):
             continue
+        if c in OPT_IN and not (only and c in only):
+            continue
         if c in res:
-            out.append((c, f"done {res[c].get('url')}"))
+            out.append((c, f"done {res[c].get('url') or res[c].get('post')}"))
         elif c in CAP and not force_volume and used_today(sp, c) >= CAP[c]:
             out.append((c, "capped"))
         else:
@@ -357,6 +463,8 @@ def main():
     only = None
     if "--only" in sys.argv:
         only = set(sys.argv[sys.argv.index("--only") + 1].split(","))
+    if "--x" in sys.argv:          # every channel still missing, X included
+        only = (only or set(c for c in CHANNELS)) | {"x"}
     force_volume = "--force-volume" in sys.argv
     if "--dry-run" in sys.argv:
         sys.exit(dry_run(spec, sp, only, force_volume))
@@ -371,9 +479,9 @@ def main():
     def save():
         sp.write_text(json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    want = [c for c in CHANNELS if spec.get(c) and (only is None or c in only)]
+    want = [c for c, action in plan(spec, sp, only, force_volume) if action == "publish"]
     urls = res.get("_media")
-    if any(c in ("instagram", "threads") and c not in res for c in want) and not urls:
+    if any(c in ("instagram", "threads", "x") for c in want) and not urls:
         urls = {"images": [upload_public(p) for p in spec.get("images") or []]}
         if spec.get("video"):
             urls["video"] = upload_public(spec["video"])
@@ -387,7 +495,7 @@ def main():
     day = sp.name[:10]
     for c, action in plan(spec, sp, only, force_volume):
         if action.startswith("done"):
-            print(c, "già pubblicato:", res[c].get("url"))
+            print(c, "già pubblicato:", res[c].get("url") or res[c].get("post"))
             continue
         if action == "capped":
             print(c, f"SALTATO: tetto di {CAP[c]} post al giorno già raggiunto per {day} (playbook, Slots and volumes)")
@@ -396,11 +504,12 @@ def main():
             continue
         out = {"bluesky": lambda: publish_bluesky(spec),
                "instagram": lambda: publish_instagram(spec, urls),
-               "threads": lambda: publish_threads(spec, urls)}[c]()
+               "threads": lambda: publish_threads(spec, urls),
+               "x": lambda: publish_x(spec, urls, save)}[c]()
         out["at"] = datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
         res[c] = out
         save()
-        print(c, "OK", out.get("url"))
+        print(c, "OK", out.get("url") or out.get("post"))
 
 
 if __name__ == "__main__":
