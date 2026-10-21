@@ -213,6 +213,20 @@ def publish_instagram(spec, urls):
 
 
 # ---------- threads ----------
+def tag_word(topic):
+    """A Threads topic as an in-text tag: no spaces, periods or ampersands."""
+    return re.sub(r"[\s.&]+", "", topic or "")
+
+
+def text_with_tag(text, topic):
+    """The text with the topic as its one tag at the end, if it has none and it fits in 500."""
+    word = tag_word(topic)
+    if not word or re.search(r"(?:^|\s)#\w", text or ""):
+        return text
+    out = f"{text}\n\n#{word}" if text else f"#{word}"
+    return out if len(out) <= 500 else text
+
+
 def publish_threads(spec, urls):
     t = json.loads((RENDERS / "threads_token.json").read_text(encoding="utf-8"))
     tok, uid = t["access_token"], t["user_id"]
@@ -224,11 +238,20 @@ def publish_threads(spec, urls):
         base["topic_tag"] = th["topic_tag"]
 
     def create(p):
+        # Threads keeps topic_tag on carousels too (read back 21/10: snepy CAROUSEL_ALBUM "Gaming
+        # Threads"); the deep dive of 21/10 lost it on one failed create that was taken for a
+        # refusal. So a failure is retried once as it is; only then the topic goes into the text
+        # as its one tag (Threads: one tag per post, no spaces, periods or ampersands).
         r = requests.post(f"{TH_API}/{uid}/threads", data=p, timeout=60).json()
-        if "id" not in r and "topic_tag" in p:          # topic tag refused: retry without it, say so
-            print("Threads: topic_tag rifiutato, pubblico senza:", r.get("error", {}).get("message"))
-            p = {k: v for k, v in p.items() if k != "topic_tag"}
+        if "id" not in r and "topic_tag" in p:
+            e = r.get("error", {})
+            print("Threads: container con topic_tag non creato:", e.get("code"), e.get("error_subcode"), e.get("message"))
             r = requests.post(f"{TH_API}/{uid}/threads", data=p, timeout=60).json()
+            if "id" not in r:
+                p = {k: v for k, v in p.items() if k != "topic_tag"}
+                p["text"] = text_with_tag(p.get("text", ""), th["topic_tag"])
+                print("Threads: topic_tag rifiutato due volte, tag nel testo:", "#" + tag_word(th["topic_tag"]))
+                r = requests.post(f"{TH_API}/{uid}/threads", data=p, timeout=60).json()
         return r
 
     if spec.get("video"):

@@ -123,3 +123,35 @@ def test_buffer_logs_every_request_and_never_prints_the_key(pa, monkeypatch, cap
     assert seen == {"url": "https://api.buffer.com", "auth": "Bearer SECRET-BUFFER-KEY"}
     assert "SECRET-BUFFER-KEY" not in capsys.readouterr().out
     assert (pa.HERE / pa.BUFFER_LOG).read_text(encoding="utf-8").strip().endswith("probe 200")
+
+
+def test_threads_topic_goes_in_the_text_only_after_two_refusals(pa, monkeypatch):
+    """SOC (22/10/2026): a failed create with topic_tag is retried as it is; only a second
+    failure moves the topic into the text as its one tag."""
+    (pa.RENDERS / "threads_token.json").write_text(json.dumps({"access_token": "T", "user_id": "1"}))
+    assert pa.tag_word("YouTube Creators") == "YouTubeCreators"
+    assert pa.tag_word("Arts & Crafts.") == "ArtsCrafts"
+    assert pa.text_with_tag("Usually 1.", "YouTube Creators") == "Usually 1.\n\n#YouTubeCreators"
+    assert pa.text_with_tag("Usually 1. #Gaming", "YouTube Creators") == "Usually 1. #Gaming"
+    assert pa.text_with_tag("x" * 490, "YouTube Creators") == "x" * 490
+
+    class R:
+        def __init__(self, body):
+            self._b = body
+        def json(self):
+            return self._b
+    sent = []
+    answers = [{"error": {"code": 1, "message": "An unknown error occurred"}},
+               {"error": {"code": 1, "message": "An unknown error occurred"}}, {"id": "C1"}]
+    def post(url, data=None, timeout=None):
+        sent.append(dict(data))
+        if url.endswith("/threads_publish"):
+            return R({"id": "M1"})
+        return R(answers.pop(0))
+    monkeypatch.setattr(pa.requests, "post", post)
+    monkeypatch.setattr(pa.requests, "get", lambda *a, **k: R({"status": "FINISHED", "permalink": "https://threads/p"}))
+    spec = {"threads": {"text": "Usually 1.", "topic_tag": "YouTube Creators"}}
+    out = pa.publish_threads(spec, {"images": []})
+    assert out["url"] == "https://threads/p"
+    assert sent[0]["topic_tag"] == sent[1]["topic_tag"] == "YouTube Creators"     # tried twice as it is
+    assert "topic_tag" not in sent[2] and sent[2]["text"].endswith("\n\n#YouTubeCreators")
