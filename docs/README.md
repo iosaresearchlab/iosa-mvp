@@ -69,6 +69,14 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 21 October 2026 — FIX-1b reopened: the snapshot statistics cost 5.4 s
+
+- The reading of 20/10 was complete, but its slowest call was the refresh of
+  `trend_snapshot`'s statistics, 5,424 ms against the 2,000 ms bound: it
+  analyzed every column. It now analyzes the two the day's entry query reads
+  (87-393 ms in SQL, under 0.75 s over the API). Tonight's reading is the check.
+- *(Corrected: task log FIX-1b; migration `20261021090116`.)*
+
 ### 21 October 2026 — FIX-1c: the build's retries now reach the database
 
 - The build of `3085ab7` failed although each read was tried five times:

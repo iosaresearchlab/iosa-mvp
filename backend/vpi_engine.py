@@ -633,7 +633,9 @@ def _analyze_snapshot(client, notes):
     The day's rows were just written; planned on stale statistics the entry
     query could exceed the API's 8 s statement timeout (reading of
     2026-09-28). A failure here is noted and never fatal: the index on
-    posts(external_post_id) keeps the query fast without it.
+    posts(external_post_id) keeps the query fast without it. Since FIX-1b
+    (21/10/2026) it analyzes only (day, video_id), the columns that query
+    reads: the whole table took 5.4 s on 20/10.
     """
     try:
         client.rpc("analyze_snapshot", {}).execute()
