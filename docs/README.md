@@ -69,6 +69,15 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 23 October 2026 — FIX-1d: ISR writes come from crawlers on creator pages
+
+- 251K ISR writes in 30 days against the Hobby 200K (raised 3x until 16/11);
+  creator pages are 4.8K of ~4.9K writes in 12 h, opened by crawlers
+  (QlyzeBot 7.6K, ClaudeBot 6.7K, Googlebot ~4.6K requests a day). Creator
+  pages now revalidate every 24 h, QlyzeBot is disallowed, and a commit that
+  does not touch `frontend/` no longer deploys (a deploy empties the cache).
+- *(Corrected: task log FIX-1d.)*
+
 ### 21 October 2026 — FIX-1b reopened: the snapshot statistics cost 5.4 s
 
 - The reading of 20/10 was complete, but its slowest call was the refresh of

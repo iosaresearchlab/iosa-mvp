@@ -5,12 +5,15 @@ import { OutlierList } from '@/components/OutlierList';
 import { recordDelCreator } from '@/lib/supabase-server';
 import { handleDaSlug, SITO } from '@/lib/segments';
 
-export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel Hobby limit (212K of 200K ISR writes a month); 6 h keeps pages at most 6 h behind the daily reading
+// FIX-1d (23/10/2026): 24 h. Creator pages were 4.8K of the ~4.9K ISR writes of the
+// last 12 h (Vercel Observability, ISR by route) for 3.2K paths, almost all crawlers
+// (QlyzeBot, ClaudeBot, Googlebot); 251K writes in 30 days against the Hobby 200K. A
+// creator's records change once a day, at the nightly reading.
+export const revalidate = 86400;
 
 // Nessuna pagina viene precompilata: sono migliaia e verrebbero costruite
 // tutte a ogni deploy. Vengono generate alla prima visita e poi tenute in
-// cache per un'ora, che e' esattamente il ritmo con cui un motore di ricerca
-// le scopre dalla sitemap.
+// cache per 24 ore.
 export const dynamicParams = true;
 export function generateStaticParams() {
   return [];

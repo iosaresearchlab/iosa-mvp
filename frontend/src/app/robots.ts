@@ -24,6 +24,13 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/claim/'],
       },
       {
+        // FIX-1d (23/10/2026): a third-party SEO crawler (Hetzner), 7.6K of the
+        // site's 22.8K requests in 24 h, each creator page it opens an ISR write
+        // and a database read. It is not a search engine.
+        userAgent: 'QlyzeBot',
+        disallow: '/',
+      },
+      {
         // FIX-1d: link-preview fetchers, not search indexes. They obey
         // robots.txt (Twitterbot does), so a claim link sent in a DM or posted
         // on X would preview as nothing. They may read the claim page and its

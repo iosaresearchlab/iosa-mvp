@@ -82,3 +82,31 @@ def test_no_page_inherits_the_home_page_as_its_og_url():
     assert "url: SITE_URL" not in og
     creator = (ROOT / "frontend" / "src" / "app" / "creators" / "[handle]" / "page.tsx").read_text(encoding="utf-8")
     assert "url: `${SITO}/creators/${handle}`" in creator
+
+
+def test_isr_writes_are_cut_where_they_come_from(tmp_path):
+    """FIX-1d (23/10/2026): creator pages were 4.8K of ~4.9K ISR writes in 12 h. They keep
+    24 h, QlyzeBot may not crawl, and a commit outside frontend/ does not deploy (a
+    deploy starts the ISR cache again)."""
+    import json, re, shutil, subprocess
+    front = ROOT / "frontend"
+    page = (front / "src" / "app" / "creators" / "[handle]" / "page.tsx").read_text(encoding="utf-8")
+    assert re.search(r"^export const revalidate = 86400;", page, re.M)
+    robots = (front / "src" / "app" / "robots.ts").read_text(encoding="utf-8")
+    assert "userAgent: 'QlyzeBot',\n        disallow: '/'," in robots
+    assert json.loads((front / "vercel.json").read_text())["ignoreCommand"] == "bash scripts/vercel-ignore.sh"
+    # the script against a throwaway repo: frontend/ unchanged -> 0 (skip), changed -> 1
+    repo = tmp_path / "r"
+    (repo / "frontend" / "scripts").mkdir(parents=True)
+    shutil.copy(front / "scripts" / "vercel-ignore.sh", repo / "frontend" / "scripts" / "vercel-ignore.sh")
+    (repo / "backend").mkdir()
+    g = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+    g("init", "-q"); g("config", "user.email", "t@t"); g("config", "user.name", "t")
+    g("add", "-A"); g("commit", "-qm", "a"); first = g("rev-parse", "HEAD")
+    (repo / "backend" / "x.py").write_text("1"); g("add", "-A"); g("commit", "-qm", "b")
+    run = lambda prev: subprocess.run(["bash", "scripts/vercel-ignore.sh"], cwd=repo / "frontend",
+                                      env={"PATH": "/usr/bin:/bin", "VERCEL_GIT_PREVIOUS_SHA": prev}).returncode
+    assert run(first) == 0          # only backend/ changed: skip
+    (repo / "frontend" / "y.ts").write_text("1"); g("add", "-A"); g("commit", "-qm", "c")
+    assert run(first) == 1          # frontend/ changed: build
+    assert run("") == 1 and run("0" * 40) == 1     # unknown previous commit: build
