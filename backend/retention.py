@@ -107,14 +107,8 @@ class MemoryStorage:
 
 
 def _pages(client, fn, params, order):
-    out, start = [], 0
-    while True:
-        page = (client.rpc(fn, params).order(order)
-                .range(start, start + RPC_PAGE - 1).execute().data) or []
-        out.extend(page)
-        if len(page) < RPC_PAGE:
-            return out
-        start += RPC_PAGE
+    from census import rpc_all          # one call when the API allows it (FIX-1b, 23/10)
+    return rpc_all(client, fn, params, order)
 
 
 def archive_lines(storage, path: str, lines: list[str]) -> dict:
@@ -132,9 +126,27 @@ def archive_lines(storage, path: str, lines: list[str]) -> dict:
     return {"path": path, "rows": len(back), "md5": digest(back), "bytes": len(blob)}
 
 
+EXPORT_PAGE = 5000                  # rows per snapshot_export_after call (~2 MB)
+
+
+def export_rows(client, day: str) -> list[dict]:
+    """The day's snapshot rows in video_id order, in keyset pages (FIX-1b, 23/10/2026):
+    each call reads only its own rows. A page shorter than asked (a max-rows setting)
+    is not taken as the end: only an empty page is."""
+    out, after = [], ""
+    while True:
+        page = (client.rpc("snapshot_export_after",
+                           {"p_day": day, "p_after": after, "p_limit": EXPORT_PAGE})
+                .execute().data) or []
+        if not page:
+            return out
+        out.extend(page)
+        after = page[-1]["video_id"]
+
+
 def export_day(client, storage, day) -> dict:
     day = str(day)[:10]
-    rows = _pages(client, "snapshot_export", {"p_day": day}, "video_id")
+    rows = export_rows(client, day)
     out = archive_lines(storage, f"{PREFIX}/{day}.jsonl.gz", [r["line"] for r in rows])
     out["day"] = day
     return out

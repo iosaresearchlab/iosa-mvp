@@ -21,11 +21,23 @@ class Timings:
         self.max_ms = None
         self.label = None
         self.calls = 0
+        self.by_label = {}           # label -> [calls, slowest ms]
 
     def record(self, label, ms):
         self.calls += 1
         if self.max_ms is None or ms > self.max_ms:
             self.max_ms, self.label = ms, label
+        c = self.by_label.setdefault(label, [0, 0.0])
+        c[0] += 1
+        c[1] = max(c[1], ms)
+
+    def top(self, n=6):
+        """FIX-1b (23/10/2026): the slowest call of each of the n slowest labels, so
+        a run's notes show every call near the bound, not only the first."""
+        if not self.by_label:
+            return "slowest calls: none timed"
+        ranked = sorted(self.by_label.items(), key=lambda kv: -kv[1][1])[:n]
+        return "slowest calls: " + ", ".join(f"{k} {round(v[1])} ms x{v[0]}" for k, v in ranked)
 
     def note(self):
         if self.max_ms is None:

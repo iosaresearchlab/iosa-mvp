@@ -34,8 +34,9 @@ def _plain(v):
 
 
 class _Result:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class _Table:
@@ -174,8 +175,11 @@ class _Table:
 
 
 class _Rpc:
-    def __init__(self, conn, fn, params):
-        self.conn, self.fn, self.params = conn, fn, params
+    # max_rows: PostgREST's db-max-rows, None = unlimited (the project's setting).
+    max_rows = None
+
+    def __init__(self, conn, fn, params, count=None):
+        self.conn, self.fn, self.params, self.count = conn, fn, params, count
         self._order, self._range = None, None
 
     def order(self, col):
@@ -203,12 +207,22 @@ class _Rpc:
             q = sql.SQL("select * from {}({})").format(sql.Identifier(self.fn), args)
             if self._order:
                 q += sql.SQL(" order by {}").format(sql.Identifier(self._order))
-            if self._range:
-                a, b = self._range
-                q += sql.SQL(" offset {} limit {}").format(sql.Literal(a), sql.Literal(b - a + 1))
+            a, b = self._range or (0, None)
+            limit = None if b is None else b - a + 1
+            if self.max_rows is not None:
+                limit = self.max_rows if limit is None else min(limit, self.max_rows)
+            if a:
+                q += sql.SQL(" offset {}").format(sql.Literal(a))
+            if limit is not None:
+                q += sql.SQL(" limit {}").format(sql.Literal(limit))
             with self.conn.transaction(), self.conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(q, vals)
-                return _Result([{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()])
+                rows = [{k: _plain(v) for k, v in r.items()} for r in cur.fetchall()]
+                total = None
+                if self.count == "exact":
+                    cur.execute(sql.SQL("select count(*) as n from {}({})").format(sql.Identifier(self.fn), args), vals)
+                    total = cur.fetchone()["n"]
+                return _Result(rows, total)
         q = sql.SQL("select {}({})").format(sql.Identifier(self.fn), args)
         with self.conn.transaction(), self.conn.cursor() as cur:
             cur.execute(q, vals)
@@ -222,5 +236,5 @@ class PgClient:
     def table(self, name):
         return _Table(self.conn, name)
 
-    def rpc(self, fn, params):
-        return _Rpc(self.conn, fn, params)
+    def rpc(self, fn, params, count=None):
+        return _Rpc(self.conn, fn, params, count)

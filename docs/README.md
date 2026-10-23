@@ -69,6 +69,16 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 23 October 2026 — FIX-1b: the run's slow calls are stalls, not queries
+
+- Each night a different call of the reading took 5-9 s; the same calls take
+  20-700 ms by day, with every block in memory and no lock waits. The run
+  now asks for whole results in one call instead of re-running each function
+  for every 1,000-row page, reads the snapshot archive in keyset pages,
+  vacuums the two busiest tables sooner, and lists in its notes the slowest
+  call of every kind. The daytime load from crawlers is cut with FIX-1d.
+- *(Corrected: task log FIX-1b; migrations `20261023115400`, `20261023115609`.)*
+
 ### 23 October 2026 — FIX-1d: ISR writes come from crawlers on creator pages
 
 - 251K ISR writes in 30 days against the Hobby 200K (raised 3x until 16/11);

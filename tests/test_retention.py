@@ -190,6 +190,7 @@ def test_the_database_refuses_the_reference_whatever_its_age(db):
 
 def test_only_the_service_role_may_list_export_or_purge(db):
     fns = ["public.snapshot_days_before(date)", "public.snapshot_export(date)",
+           "public.snapshot_export_after(date, text, integer)",
            "public.purge_snapshot_day(date, date, bigint, text)"]
     with db.cursor() as cur:
         for fn in fns:
@@ -225,3 +226,16 @@ def test_encode_is_deterministic_and_decode_inverts_it():
     assert retention.decode(retention.encode(lines)) == lines
     with pytest.raises(retention.ArchiveError, match="truncated"):
         retention.decode(gzip.compress(b'{"a": 1}'))
+
+
+def test_the_keyset_export_returns_the_same_lines_as_the_full_export(db, monkeypatch):
+    """FIX-1b (23/10/2026): pages of EXPORT_PAGE rows after the last video_id, the same
+    lines in the same order as snapshot_export, and a capped page is not the end."""
+    with db.cursor() as cur:
+        cur.execute("insert into trend_snapshot(day, video_id, channel_id, format, countries, categories) "
+                    "select date '2026-09-01', 'v' || lpad(g::text, 5, '0'), 'UC', 'LONG', "
+                    "array['IT'], array['24'] from generate_series(1, 2345) g")
+    full = [r["line"] for r in retention._pages(PgClient(db), "snapshot_export", {"p_day": "2026-09-01"}, "video_id")]
+    monkeypatch.setattr(retention, "EXPORT_PAGE", 1000)
+    paged = [r["line"] for r in retention.export_rows(PgClient(db), "2026-09-01")]
+    assert len(full) == 2345 and paged == full

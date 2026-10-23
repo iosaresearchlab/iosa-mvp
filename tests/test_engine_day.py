@@ -383,9 +383,9 @@ def test_the_snapshot_statistics_are_refreshed_before_the_entries_are_read(world
     calls = []
     real_rpc = client.rpc
 
-    def rpc(fn, params):
+    def rpc(fn, params, **kw):
         calls.append(fn)
-        return real_rpc(fn, params)
+        return real_rpc(fn, params, **kw)
     monkeypatch.setattr(client, "rpc", rpc)
     fake.charts = {("IT", "24"): [("a", 900)], ("US", "10"): [("c", 700)]}
     run(client, fake, 0, snapshot_only=True)

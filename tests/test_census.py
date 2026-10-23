@@ -303,9 +303,10 @@ def test_missing_api_key_is_an_error_not_a_silent_empty_census(monkeypatch):
 
 
 class RecordingClient:
-    def __init__(self, rpc_pages=None):
+    def __init__(self, rpc_pages=None, counts=None):
         self.ops = []
         self.rpc_pages = list(rpc_pages or [])
+        self.counts = list(counts or [])
 
     def table(self, name):
         client = self
@@ -319,8 +320,10 @@ class RecordingClient:
                 return type("R", (), {"data": None})()
         return T()
 
-    def rpc(self, fn, params):
+    def rpc(self, fn, params, count=None):
         client = self
+        if count:
+            client.ops.append(("count", fn, count))
 
         class Q:
             def order(self, col):
@@ -334,7 +337,8 @@ class RecordingClient:
             def execute(self):
                 client.ops.append(("rpc", fn, params))
                 data = client.rpc_pages.pop(0) if client.rpc_pages else None
-                return type("R", (), {"data": data})()
+                n = client.counts.pop(0) if (count and client.counts) else None
+                return type("R", (), {"data": data, "count": n})()
         return Q()
 
 
@@ -350,14 +354,30 @@ def test_close_exits_after_a_complete_run_calls_the_database_function():
     assert db.ops == [("rpc", "close_exits_of_day", {"d": "2026-10-02"})]
 
 
-def test_entries_reads_every_page_of_the_rpc():
+def test_entries_is_one_call_when_the_api_returns_every_row():
+    """FIX-1b (23/10/2026): PostgREST runs the whole function for every page; the
+    count says one call was enough."""
+    rows = [{"video_id": f"v{i}", "gap_days": 0, "entry_certain": True} for i in range(3647)]
+    db = RecordingClient(rpc_pages=[rows], counts=[3647])
+    assert len(census.entries(db, date(2026, 10, 2))) == 3647
+    assert [op[0] for op in db.ops] == ["count", "order", "rpc"]       # no range, one call
+
+
+def test_entries_pages_the_rest_when_the_api_caps_the_rows():
     full = [{"video_id": f"v{i}", "gap_days": 0, "entry_certain": True}
             for i in range(census.RPC_PAGE)]
-    db = RecordingClient(rpc_pages=[full, full, full[:3]])
+    db = RecordingClient(rpc_pages=[full, full, full[:3]], counts=[2 * census.RPC_PAGE + 3])
     got = census.entries(db, date(2026, 10, 2))
     assert len(got) == 2 * census.RPC_PAGE + 3
     ranges = [op[2:] for op in db.ops if op[0] == "range"]
-    assert ranges == [(0, 999), (1000, 1999), (2000, 2999)]
+    assert ranges == [(1000, 1999), (2000, 2999)]
+
+
+def test_entries_without_a_count_pages_as_before():
+    full = [{"video_id": f"v{i}", "gap_days": 0, "entry_certain": True}
+            for i in range(census.RPC_PAGE)]
+    db = RecordingClient(rpc_pages=[full, full, full[:3]])
+    assert len(census.entries(db, date(2026, 10, 2))) == 2 * census.RPC_PAGE + 3
 
 
 def test_save_snapshot_writes_every_video_in_batches_with_no_permanent_flag():

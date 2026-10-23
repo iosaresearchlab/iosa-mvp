@@ -342,14 +342,7 @@ def census_date(published_at):
 
 
 def _rpc_all(client, fn, params, order):
-    out, start = [], 0
-    while True:
-        page = (client.rpc(fn, params).order(order)
-                .range(start, start + census.RPC_PAGE - 1).execute().data) or []
-        out.extend(page)
-        if len(page) < census.RPC_PAGE:
-            return out
-        start += census.RPC_PAGE
+    return census.rpc_all(client, fn, params, order)
 
 
 def _is_unique_violation(exc):
@@ -486,6 +479,7 @@ def run_daily(client, day, *, api_key, countries=None, categories=None,
         failed_ledger = record_ledger(client, "second attempt" if rerun else "reading", quota.total)
         if failed_ledger:
             notes.append(failed_ledger)
+        notes.append(client.timings.top())
         notes.append(client.timings.note())
         row["notes"] = "; ".join(notes)
         client.table("ingest_run").upsert(row, on_conflict="day").execute()
@@ -863,6 +857,7 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
         failed_ledger = record_ledger(client, "reprocess", quota.total)    # FMT-2
         if failed_ledger:
             notes.append(failed_ledger)
+        notes.append(client.timings.top())
         notes.append(client.timings.note())
         row["notes"] = "; ".join(notes)
         row["discards"] = discards

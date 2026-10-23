@@ -294,18 +294,36 @@ def save_snapshot(client, day: date, videos: dict) -> int:
     return len(rows)
 
 
-def entries(client, day: date) -> list[dict]:
-    """The day's entries: [{video_id, gap_days, entry_certain}], all pages."""
-    out, start = [], 0
-    while True:
-        page = (client.rpc("entries_of_day", {"d": day.isoformat()})
-                .order("video_id")
-                .range(start, start + RPC_PAGE - 1)
-                .execute().data) or []
+def rpc_all(client, fn: str, params: dict, order: str) -> list[dict]:
+    """Every row of a set-returning RPC, in as few calls as the API allows.
+
+    FIX-1b (23/10/2026): the run paged these calls 1,000 rows at a time, and
+    PostgREST runs the whole function for every page (entries_of_day 4-6
+    times a night, tracked_of_day 8, snapshot_export 27, each sorting the full
+    result). The first call asks for the exact count and no range: when the
+    project returns more than 1,000 rows (it does: 46,739 in one read,
+    20/10), that one call is all. When the count says rows are missing (a
+    max-rows setting), the rest is paged as before; a client that gives no
+    count is paged as before.
+    """
+    first = client.rpc(fn, params, count="exact").order(order).execute()
+    out = list(first.data or [])
+    total = getattr(first, "count", None)
+    if total is None and len(out) < RPC_PAGE:
+        return out
+    while total is None or len(out) < total:
+        start = len(out)
+        page = (client.rpc(fn, params).order(order)
+                .range(start, start + RPC_PAGE - 1).execute().data) or []
         out.extend(page)
         if len(page) < RPC_PAGE:
-            return out
-        start += RPC_PAGE
+            break
+    return out
+
+
+def entries(client, day: date) -> list[dict]:
+    """The day's entries: [{video_id, gap_days, entry_certain}], all of them."""
+    return rpc_all(client, "entries_of_day", {"d": day.isoformat()}, "video_id")
 
 
 def close_exits(client, day: date, run_complete: bool) -> int:
