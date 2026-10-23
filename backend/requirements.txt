@@ -8,6 +8,11 @@ stripe>=8.0
 supabase>=2.0
 pillow>=10.0
 requests>=2.31
+# FIX-1h (23/10/2026, Render advisory "eMudhra certificate compromise"):
+# requests and httpx (supabase) verify TLS with certifi's bundle, not the
+# system store. Render's advisory asks certifi>=2026.10.19; 2026.10.23 also
+# drops the emSign (eMudhra) roots ECC G3, C1 and ECC C3 (121 -> 118 certs).
+certifi>=2026.10.23
 python-dotenv>=1.0
 playwright>=1.40
 APScheduler>=3.10

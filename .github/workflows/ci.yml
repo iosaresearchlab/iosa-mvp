@@ -74,9 +74,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          # FIX-1h (23/10/2026): Node security release of 21/10; 22.23.4 or later.
+          node-version: "22.x"
+          check-latest: true
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Node version
+        run: node -e "const [a,b,c]=process.versions.node.split('.').map(Number); console.log('node', process.version); if (a!==22 || b<23 || (b===23 && c<4)) process.exit(1)"
       - name: Install
         run: npm ci
       - name: Build

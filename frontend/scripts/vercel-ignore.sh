@@ -5,6 +5,7 @@
 # only backend/, docs/, social/ or tests/. Skip when nothing under frontend/
 # changed since the last deployed commit. When that commit is unknown or not
 # in the clone, build.
+echo "node $(node -v 2>/dev/null)"     # FIX-1h: the build's Node version in its log
 prev="${VERCEL_GIT_PREVIOUS_SHA:-}"
 if [ -z "$prev" ] || ! git cat-file -e "${prev}^{commit}" 2>/dev/null; then
   echo "build: no previous deployed commit to compare"
