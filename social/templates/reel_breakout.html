@@ -1,0 +1,164 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@500;700;800;900&display=swap">
+<script src="gsap.min.js"></script><script src="DrawSVGPlugin.min.js"></script>
+<style>
+html,body{margin:0;background:#0d1117}
+/* IOSA breakout reel (Instagram), 23/10/2026: the breakout card told in ~14 s, iosa-motion method of 16-17/10:
+   one paused GSAP timeline, render(t) seeks it; window.CUES / window.DURATION feed render_motion.py.
+   1080x1920, safe area y 250..1500. Data from the breakout spec, never numbers in the HTML. */
+#s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;background:#0d1117}
+#bg{position:absolute;inset:-60px;background-image:linear-gradient(rgba(132,150,168,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(132,150,168,.06) 1px,transparent 1px);background-size:90px 90px}
+.glow{position:absolute;width:1400px;height:1400px;left:-160px;border-radius:50%;pointer-events:none}
+#gc{top:-120px;background:radial-gradient(closest-side,rgba(0,229,255,.16),transparent)}
+#ga{top:760px;background:radial-gradient(closest-side,rgba(255,176,32,.12),transparent);opacity:0}
+#world{position:absolute;inset:0;transform-origin:50% 45%}
+.mono{font-family:'JetBrains Mono',monospace}
+.top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:40px;font-size:22px;white-space:nowrap;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
+.top b{color:#00e5ff}
+.sc{position:absolute;left:0;top:0;width:1080px;height:1920px;opacity:0;will-change:transform,opacity,filter}
+.c{position:absolute;left:80px;right:80px;text-align:center}
+.big{font-weight:900;letter-spacing:-.035em;line-height:.98}
+.lab{font-family:'JetBrains Mono',monospace;font-size:28px;letter-spacing:.16em;color:#8496a8;text-transform:uppercase}
+.num{font-weight:900;letter-spacing:-.04em;line-height:.9}
+.cy{color:#00e5ff}.am{color:#ffb020}.mu{color:#8496a8}
+.w{display:inline-block;will-change:transform,opacity}
+.mult{font-weight:900;letter-spacing:-.04em;line-height:.9;color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,.45)}
+.bar{position:absolute;left:80px;height:44px;border-radius:10px}
+.bl{position:absolute;left:80px;font-family:'JetBrains Mono',monospace;font-size:26px;color:#8496a8}
+.ttl{font-weight:800;font-size:58px;line-height:1.12;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.who{font-weight:800;font-size:54px;letter-spacing:-.01em}
+.meta{font-family:'JetBrains Mono',monospace;font-size:30px;color:#8496a8;line-height:1.45}
+.why{font-weight:900;font-size:78px;line-height:1.04;letter-spacing:-.03em}
+</style></head><body><div id="s">
+ <div id="bg"></div><div class="glow" id="gc"></div><div class="glow" id="ga"></div>
+ <div id="world">
+  <div class="sc" id="S0" style="opacity:1">
+   <div class="c lab cy" style="top:520px" id="h0"></div>
+   <div class="c big" style="top:600px;font-size:120px" id="h1"></div>
+   <div class="c big mu" style="top:780px;font-size:76px" id="h2"></div>
+  </div>
+  <div class="sc" id="S1">
+   <div class="c lab" style="top:330px" id="l1">its channel usually gets</div>
+   <div class="c num mu" style="top:390px;font-size:150px"><span id="usualN">0</span></div>
+   <div class="c lab" style="top:600px" id="l2">this one</div>
+   <div class="c num cy" style="top:660px;font-size:170px;text-shadow:0 0 60px rgba(0,229,255,.4)"><span id="viewsN">0</span></div>
+   <div class="c meta" style="top:860px" id="asof"></div>
+   <div class="bar" id="bu" style="top:1010px;background:#3a4656"></div>
+   <div class="bl" style="top:1062px" id="bul"></div>
+   <div class="bar" id="bt" style="top:1120px;background:#00e5ff;box-shadow:0 0 26px rgba(0,229,255,.55);transform-origin:0 50%"></div>
+   <div class="c mult" style="top:1230px;font-size:190px"><span id="xv">1.0</span>×</div>
+  </div>
+  <div class="sc" id="S2">
+   <div class="c lab" style="top:330px">the video</div>
+   <div class="c ttl" style="top:400px" id="ttl"></div>
+   <div class="c who" style="top:870px" id="who"></div>
+   <div class="c meta" style="top:960px" id="subs"></div>
+   <div class="c meta" style="top:1120px" id="first"></div>
+  </div>
+  <div class="sc" id="S3">
+   <div class="c lab am" style="top:360px">what it did differently</div>
+   <div class="c why" style="top:450px" id="why"></div>
+  </div>
+  <div class="sc" id="SE">
+   <div style="position:absolute;left:0;right:0;top:420px;display:flex;justify-content:center;align-items:flex-end;gap:8px">
+    <svg width="170" height="244" viewBox="0 0 230 330" style="filter:drop-shadow(0 0 34px rgba(0,229,255,.6))">
+     <path id="logoP" d="M8 300 L70 300 L150 110 L196 190" fill="none" stroke="#00e5ff" stroke-width="52"/>
+     <circle id="logoC" cx="164" cy="38" r="38" fill="#00e5ff"/></svg>
+    <div style="font-weight:900;font-size:244px;line-height:.74;letter-spacing:-.03em;display:flex" id="osa"></div></div>
+   <div class="c big" style="top:820px;font-size:84px" id="outT"></div>
+   <div class="c meta" style="top:930px;font-size:34px" id="outS"></div>
+   <div class="c big" style="top:1130px;font-size:62px" id="cta"></div>
+   <div class="c mono cy" style="top:1220px;font-size:56px" id="url">iosaresearch.org</div>
+  </div>
+ </div>
+ <div class="top mono"><span><b>IOSA</b> · Breakout of the day</span><span id="ep"></span></div>
+</div>
+<script>
+gsap.registerPlugin(DrawSVGPlugin);
+const D=JSON.parse(new URLSearchParams(location.search).get('d'));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const words=(s,cls='')=>esc(s).split(' ').map(w=>`<span class="w ${cls}">${w}</span>`).join(' ');
+const flag=cc=>cc&&cc.length===2?String.fromCodePoint(...[...cc.toUpperCase()].map(c=>0x1F1A5+c.charCodeAt(0))):'';
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+
+/* ---------- build ---------- */
+// data: country (2 letters), usual, views, x, asof ("20 Oct"), title, channel, subs_line,
+//       first_line ("First observed in YouTube's Most Popular · India · 19 Oct"), why
+$('ep').textContent=(flag(D.country)+' '+(D.country_name||'')).trim();
+$('h0').textContent=('breakout · '+(D.country_name||'')).trim();
+$('h1').innerHTML=words(D.channel);
+$('h2').innerHTML=words('just beat its own usual.');
+$('asof').textContent='views as of '+D.asof;
+const BW=920, wT=BW, wU=Math.max(14,BW*D.usual/D.views);
+$('bu').style.width=wU+'px'; $('bt').style.width=wT+'px';
+$('bul').textContent='usual · '+fmt(D.usual);
+$('ttl').innerHTML='“'+esc(D.title)+'”';
+$('who').innerHTML=esc(D.channel);
+$('subs').textContent=D.subs_line||'';
+$('first').textContent=D.first_line;
+$('why').innerHTML=words(D.why);
+['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
+$('outT').innerHTML=words('A breakout every day.');
+$('outS').textContent="Measured against the channel's own usual.";
+$('cta').innerHTML=words(D.cta||'Is your channel in it?');
+
+/* ---------- timeline ---------- */
+const tl=gsap.timeline({paused:true,defaults:{ease:'power3.out',duration:0.6}});
+const CUES=[]; const cue=(t,k,o={})=>CUES.push({t:+t.toFixed(3),k,...o}); window.CUES=CUES;
+const IN=(sel,t,o={})=>tl.fromTo(sel,{opacity:0,y:50,filter:'blur(12px)'},{opacity:1,y:0,filter:'blur(0px)',stagger:0.05,...o},t);
+const PUSH=(from,to,t,d=0.7)=>{ cue(t,'whoosh',{d});
+  tl.to(from,{yPercent:-14,opacity:0,filter:'blur(18px)',scale:0.96,duration:d,ease:'power3.inOut'},t);
+  tl.fromTo(to,{yPercent:14,opacity:0,filter:'blur(18px)',scale:1.04},{yPercent:0,opacity:1,filter:'blur(0px)',scale:1,duration:d,ease:'power3.inOut'},t);
+};
+const T2=6.2, T3=10.0, TE=13.0, DUR=16.8;
+window.DURATION=DUR;
+tl.fromTo('#world',{scale:1},{scale:1.035,duration:DUR,ease:'sine.inOut'},0);
+tl.fromTo('#bg',{y:0},{y:-90,duration:DUR,ease:'none'},0);
+tl.fromTo('#gc',{y:0,opacity:.7},{y:420,opacity:1,duration:DUR,ease:'sine.inOut'},0);
+
+// scene 0: the hook, who and where (first frame already readable)
+const O=1.7;
+
+tl.fromTo('#h1',{scale:1},{scale:1.06,duration:O,ease:'sine.out'},0);
+IN('#h2 .w',0.2,{stagger:0.05}); cue(0.2,'pluck',{p:0.6});
+PUSH('#S0','#S1',O-0.4,0.6);
+// scene 1: usual -> this one -> the multiple
+
+IN('#l1',O+0.1,{stagger:0});
+const u={v:0}; tl.fromTo(u,{v:0},{v:D.usual,duration:0.8,ease:'power2.out',onUpdate:()=>{$('usualN').textContent=fmt(u.v);}},O+0.2);
+tl.fromTo('#usualN',{opacity:0,y:40},{opacity:1,y:0,duration:0.5},O+0.2);
+tl.fromTo(['#bu','#bul'],{opacity:0},{opacity:1,duration:0.3},O+0.6);
+IN('#l2',O+1.1,{stagger:0});
+const v={v:0}; tl.fromTo(v,{v:0},{v:D.views,duration:1.4,ease:'power2.out',onUpdate:()=>{$('viewsN').textContent=fmt(v.v);}},O+1.25);
+tl.fromTo('#viewsN',{opacity:0,y:40},{opacity:1,y:0,duration:0.5},O+1.25);
+tl.fromTo('#bt',{scaleX:0},{scaleX:1,duration:1.4,ease:'power2.out'},O+1.3);
+cue(O+1.3,'pluck',{p:0.8,mp:true});
+IN('#asof',O+2.2,{stagger:0});
+const x={v:1}; tl.fromTo(x,{v:1},{v:D.x,duration:1.1,ease:'power2.out',onUpdate:()=>{$('xv').textContent=x.v.toFixed(1);}},O+2.6);
+tl.fromTo('.mult',{opacity:0,scale:0.8},{opacity:1,scale:1,duration:1.1,transformOrigin:'50% 60%'},O+2.6);
+cue(O+3.6,'hit',{g:0.7});
+tl.fromTo('.mult',{textShadow:'0 0 60px rgba(0,229,255,.45)'},{textShadow:'0 0 110px rgba(0,229,255,.9)',duration:0.5,yoyo:true,repeat:1,ease:'sine.inOut'},O+3.6);
+
+// scene 2: the video and the creator
+PUSH('#S1','#S2',T2);
+IN('#ttl',T2+0.25,{stagger:0}); IN('#who',T2+0.6,{stagger:0}); IN('#subs',T2+0.8,{stagger:0}); IN('#first',T2+1.1,{stagger:0});
+
+// scene 3: what it did differently
+PUSH('#S2','#S3',T3);
+tl.to('#ga',{opacity:1,duration:1.0,ease:'sine.inOut'},T3);
+IN('#why .w',T3+0.3,{stagger:0.06});
+
+// outro
+PUSH('#S3','#SE',TE,0.8);
+tl.fromTo('#logoP',{drawSVG:'0%'},{drawSVG:'100%',duration:0.9,ease:'power3.inOut'},TE+0.3);
+cue(TE+0.9,'impact');
+tl.fromTo('#logoC',{scale:0,transformOrigin:'50% 50%'},{scale:1,duration:0.6,ease:'back.out(1.6)'},TE+0.9);
+tl.fromTo('#osa .w',{opacity:0,y:80},{opacity:1,y:0,duration:0.7,stagger:0.08},TE+0.5);
+IN('#outT .w',TE+1.1); IN('#outS',TE+1.4,{stagger:0}); IN('#cta .w',TE+1.8); IN('#url',TE+2.2,{stagger:0});
+tl.to({},{duration:0.01},DUR);
+
+window.render=t=>{tl.seek(t,false);};
+document.fonts.ready.then(()=>{window.__ready=true;});
+render(0);
+</script></body></html>
