@@ -625,6 +625,26 @@ function showCard(sel, x, y, pin) {
   card.hidden = false; card.classList.toggle('pinned', !!pin); pinned = !!pin;
   placeCard(x, y);
 }
+// SOC-W3b (24/10/2026): the creator card opened by the search box or by /room?c= never covers
+// the stack or the figure on it. After the flight the stack's corners and the figure's head
+// are projected to the screen; if the card meets that box it moves beside it (right if there
+// is room, else left). On a phone the card is docked under the view (CSS).
+function showCreatorCard(si) {
+  const sel = {kind:'creator', si};
+  showCard(sel, CARD_X(), innerHeight * 0.25, true);
+  if (innerWidth <= 700) return;
+  const s = stacks[si], pts = [];
+  for (const [dx, y, dz] of [[-0.6, 0, -0.4], [0.6, 0, 0.4], [-0.6, s.top + 1.5, 0], [0.6, s.top + 1.5, 0]]) {
+    const v = new THREE.Vector3(s.x + dx, y, s.z + dz).project(camera);
+    pts.push([(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]);
+  }
+  const x0 = Math.min(...pts.map(q => q[0])), x1 = Math.max(...pts.map(q => q[0]));
+  const y0 = Math.min(...pts.map(q => q[1])), y1 = Math.max(...pts.map(q => q[1]));
+  const r = card.getBoundingClientRect();
+  if (r.right < x0 || r.left > x1 || r.bottom < y0 || r.top > y1) return;
+  const right = x1 + 24, left = x0 - 24 - r.width;
+  card.style.left = (right + r.width <= innerWidth - 16 ? right : Math.max(16, left)) + 'px';
+}
 card.addEventListener('click', e => {
   if (e.target.closest('.x')) { pinned = false; card.hidden = true; card.classList.remove('pinned'); showHighlight(null); return; }
   const b = e.target.closest('button[data-vi]');
@@ -680,8 +700,8 @@ res.addEventListener('click', e => {
   const b = e.target.closest('button[data-ch]'); if (!b) return;
   const si = chStacks.get(+b.dataset.ch)[0];
   res.hidden = true; q.blur(); closeIntro();
-  flyToStack(si); const sel = {kind:'creator', si}; showHighlight(sel);
-  setTimeout(() => showCard(sel, CARD_X(), innerHeight * 0.25, true), REDUCED ? 0 : 1300);
+  flyToStack(si); showHighlight({kind:'creator', si});
+  setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);   // after the 1.4 s flight
 });
 
 // overlays
@@ -730,8 +750,8 @@ function fromChannel() {
   }
   const si = own[0];
   closeIntro(); flyToStack(si);
-  const sel = {kind:'creator', si}; showHighlight(sel);
-  setTimeout(() => showCard(sel, CARD_X(), innerHeight * 0.25, true), REDUCED ? 0 : 1300);
+  showHighlight({kind:'creator', si});
+  setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);   // after the 1.4 s flight
 }
 
 

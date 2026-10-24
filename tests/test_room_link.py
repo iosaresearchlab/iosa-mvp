@@ -49,5 +49,13 @@ def test_on_a_wide_screen_the_card_and_the_cabinet_do_not_overlap():
     """SOC-W3b (fix): the card opens at CARD_X on the right; the stack is drawn left of it."""
     html = (FE / "public" / "room" / "index.html").read_text(encoding="utf-8")
     assert "const CARD_X = () => innerWidth - 380;" in html
-    assert html.count("showCard(sel, CARD_X(), innerHeight * 0.25, true)") == 2   # search and link
+    assert html.count("setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);") == 2   # search and link
+    fn = html[html.index("function showCreatorCard(si)"):html.index("card.addEventListener('click'")]
+    assert ".project(camera)" in fn and "card.style.left" in fn             # moves beside the stack if it meets it
     assert "innerWidth * 0.62" not in html
+
+
+def test_the_link_page_is_revalidated_by_browsers():
+    src = (FE / "src" / "app" / "room" / "creator" / "route.ts").read_text(encoding="utf-8")
+    assert "'Cache-Control': BROWSER_CACHE, 'CDN-Cache-Control': CDN_CACHE" in src
+    assert "const BROWSER_CACHE = 'public, max-age=0, must-revalidate';" in src

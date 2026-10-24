@@ -19,7 +19,10 @@ export const dynamic = 'force-dynamic';
 
 const PAGINA = readFile(join(process.cwd(), 'public/room/index.html'), 'utf8');
 const ID = /^UC[A-Za-z0-9_-]{22}$/;
-const CACHE = 'public, s-maxage=86400, stale-while-revalidate=604800';
+// SOC-W3b: the CDN keeps each URL a day; a browser revalidates every time (with "public"
+// alone it could keep an old page by heuristic, as a superseded room page was seen on 24/10).
+const CDN_CACHE = 'public, s-maxage=86400, stale-while-revalidate=604800';
+const BROWSER_CACHE = 'public, max-age=0, must-revalidate';
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
@@ -60,6 +63,6 @@ export async function GET(request: Request) {
   const html = await PAGINA;
   const nome = ID.test(id) ? await nomeDelCanale(id) : null;
   return new Response(nome ? conIlCanale(html, nome, id) : html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': CACHE },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': BROWSER_CACHE, 'CDN-Cache-Control': CDN_CACHE },
   });
 }
