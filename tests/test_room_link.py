@@ -43,3 +43,11 @@ def test_the_creator_cabinet_is_framed_and_the_name_trimmed():
     assert html.count("flyToStack(si)") >= 3                         # search, link, definition
     src = (FE / "src" / "app" / "room" / "creator" / "route.ts").read_text(encoding="utf-8")
     assert ".replace(/\\s+/g, ' ').trim()" in src
+
+
+def test_on_a_wide_screen_the_card_and_the_cabinet_do_not_overlap():
+    """SOC-W3b (fix): the card opens at CARD_X on the right; the stack is drawn left of it."""
+    html = (FE / "public" / "room" / "index.html").read_text(encoding="utf-8")
+    assert "const CARD_X = () => innerWidth - 380;" in html
+    assert html.count("showCard(sel, CARD_X(), innerHeight * 0.25, true)") == 2   # search and link
+    assert "innerWidth * 0.62" not in html

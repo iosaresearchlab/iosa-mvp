@@ -519,6 +519,7 @@ function flyTo(tgt, pos, ms = 1400) {
 // rows in front, far enough for the whole stack and its figure to fit. The same for the search
 // box and for /room?c=. On a phone the creator card covers the lower half of the screen: the
 // stack is drawn smaller and in the upper part (the look-at point moves down by that much).
+const CARD_X = () => innerWidth - 380;                           // where the creator card opens on a wide screen
 function flyToStack(si) {
   const s = stacks[si], z = zones[s.band], narrow = innerWidth <= 700;
   const h = s.top + 1.6;                                        // the stack and the figure on it
@@ -529,10 +530,13 @@ function flyToStack(si) {
   const centre = new THREE.Vector3(s.x, h * 0.45, s.z);
   const pos = centre.clone().add(new THREE.Vector3(Math.sin(turn) * Math.cos(el), Math.sin(el), Math.cos(turn) * Math.cos(el)).multiplyScalar(d));
   const tgt = centre.clone();
+  const f = centre.clone().sub(pos).normalize();
   if (narrow) {                                                 // centre drawn at 42% of the half-height above the middle
-    const f = centre.clone().sub(pos).normalize();
     const up = new THREE.Vector3(0, 1, 0).sub(f.clone().multiplyScalar(f.y)).normalize();
     tgt.sub(up.multiplyScalar(d * 0.42 * tanV));
+  } else {                                                      // the creator card takes the right side (CARD_X)
+    const right = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)).normalize();
+    tgt.add(right.multiplyScalar(d * Math.min(0.5, (innerWidth - CARD_X()) / innerWidth) * tanH));
   }
   flyTo(tgt, pos);
 }
@@ -677,7 +681,7 @@ res.addEventListener('click', e => {
   const si = chStacks.get(+b.dataset.ch)[0];
   res.hidden = true; q.blur(); closeIntro();
   flyToStack(si); const sel = {kind:'creator', si}; showHighlight(sel);
-  setTimeout(() => showCard(sel, innerWidth * 0.62, innerHeight * 0.25, true), REDUCED ? 0 : 1300);
+  setTimeout(() => showCard(sel, CARD_X(), innerHeight * 0.25, true), REDUCED ? 0 : 1300);
 });
 
 // overlays
@@ -727,7 +731,7 @@ function fromChannel() {
   const si = own[0];
   closeIntro(); flyToStack(si);
   const sel = {kind:'creator', si}; showHighlight(sel);
-  setTimeout(() => showCard(sel, innerWidth * 0.62, innerHeight * 0.25, true), REDUCED ? 0 : 1300);
+  setTimeout(() => showCard(sel, CARD_X(), innerHeight * 0.25, true), REDUCED ? 0 : 1300);
 }
 
 
