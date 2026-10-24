@@ -73,7 +73,7 @@ html,body{margin:0;background:#0d1117}
    <div id="axis"></div>
    <div class="c meta" style="top:1262px;font-size:24px" id="cap"></div>
    <div id="ring"></div><div id="sparks"></div>
-   <div class="c mult" style="top:1320px;font-size:170px"><span id="xv">1.0</span>×<span class="mu" style="font-size:44px;letter-spacing:0;text-shadow:none;font-weight:800"> its usual</span></div>
+   <div class="c mult" style="top:1320px;font-size:170px"><span id="xv">1.0</span>×<span class="mu" style="font-size:44px;letter-spacing:0;text-shadow:none;font-weight:800"> VPI</span></div>
   </div>
   <div class="sc" id="S2" style="perspective:1400px">
    <div class="c lab" style="top:300px">the video</div>
@@ -119,7 +119,7 @@ const fmt=n=>Math.round(n).toLocaleString('en-US');
 $('ep').textContent=(flag(D.country)+' '+(D.country_name||'')).trim();
 $('h0').textContent=[flag(D.country)+' '+(D.country_name||''),D.asof].filter(Boolean).join(' · ');
 $('h1').innerHTML=words(D.channel);
-$('h2').innerHTML=`<span class="w">just got</span> <span class="w cy" style="font-size:1.3em"><span id="hx">1.0</span>×</span><br><span class="w mu">its usual views.</span>`;
+$('h2').innerHTML=`<span class="w">just got</span> <span class="w cy" style="font-size:1.3em"><span id="hx">1.0</span>×</span><br><span class="w mu">VPI.</span>`;
 ['avimg','avsm'].forEach(i=>{ if(D.avatar) $(i).src=D.avatar; });
 ['thumb','wbg'].forEach(i=>{ if(D.thumb) $(i).src=D.thumb; });
 $('vchip').textContent=fmt(D.views)+' views · '+D.asof;
@@ -130,7 +130,7 @@ $('first').textContent=D.first_line;
 $('why').innerHTML=words(D.why);
 ['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
 $('outT').innerHTML=words('A breakout every day.');
-$('outS').textContent="Measured against the channel's own usual.";
+$('outS').textContent="Views ÷ the median of its earlier videos.";
 $('cta').innerHTML=words(D.cta||'Is your channel in it?');
 
 // chart: grey bars = the baseline videos, cyan bar = this one; heights = value * k (px per view)
@@ -154,7 +154,7 @@ function draw(){
   grid.forEach((g,i)=>{const y=GV[i]*k;g.style.top=(CH-y)+'px';g.style.opacity=(y<70||y>CH-40)?0:Math.min(1,(y-70)/60)*Math.min(1,st.gb*2);});
 }
 const tb=document.createElement('div');tb.id='tb';$('chart').appendChild(tb);
-$('ull').textContent='usual · '+fmt(D.usual);
+$('ull').textContent='median · '+fmt(D.usual);
 // sparks for the hit
 for(let i=0;i<16;i++){const s=document.createElement('div');s.className='spark';s.style.left='534px';s.style.top='1390px';$('sparks').appendChild(s);}
 

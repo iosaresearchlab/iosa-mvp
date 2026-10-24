@@ -58,7 +58,7 @@
   <div class="face">
     <div class="thumbwrap"><img class="thumb" id="thumb"><div class="chip" id="chip"></div><img class="avatar" id="avatar"></div>
     <div class="namerow"><div class="name" id="name"></div><div class="subs" id="subs"></div></div>
-    <div class="herorow"><div class="herof" id="xf"></div><div class="herot"><div class="a">its channel's usual</div><div class="u mono">usual video · <b id="usualf"></b></div></div></div>
+    <div class="herorow"><div class="herof" id="xf"></div><div class="herot"><div class="a">VPI</div><div class="u mono"><b id="usualf"></b></div></div></div>
     <p class="titlef" id="titlef"></p>
     <p class="linef" id="linef"></p>
   </div>
@@ -66,9 +66,9 @@
   <div class="classic">
     <div style="height:56px;flex-shrink:0"></div>
     <h1 class="hero" id="x"></h1>
-    <p class="after">its channel's usual <span id="state"></span></p>
+    <p class="after">VPI <span id="state"></span></p>
     <div class="bars">
-      <div class="row"><div class="lab mono"><span>The channel's usual video</span><b id="usual"></b></div><div class="track"><div class="fill" id="f1" style="background:var(--muted)"></div></div></div>
+      <div class="row"><div class="lab mono"><span>Median of its earlier videos</span><b id="usual"></b></div><div class="track"><div class="fill" id="f1" style="background:var(--muted)"></div></div></div>
       <div class="row"><div class="lab mono"><span>This video</span><b id="views" style="color:var(--accent)"></b></div><div class="track"><div class="fill" style="width:100%;background:var(--accent);box-shadow:0 0 30px rgba(0,229,255,.5)"></div></div></div>
     </div>
     <div class="vt mono" id="vtl">The video</div><p class="title" id="title"></p>
@@ -92,7 +92,7 @@
     const tmp=document.createElement('div'); tmp.innerHTML=D.who||'';
     const name=D.channel||(tmp.querySelector('strong')?.textContent||'');
     const subs=D.subs||((tmp.querySelector('em')?.textContent||'').replace(/^\s*·\s*/,''));
-    set('name',name); set('subs',subs); set('xf',D.x); set('usualf',D.usual); set('chip',D.views); set('titlef',quote(D.title));
+    set('name',name); set('subs',subs); set('xf',D.x); set('usualf',D.vpi_line||'Viral Performance Index'); set('chip',D.views); set('titlef',quote(D.title));
     const line=D.line||((D.who||'').split(/<br\s*\/?>/i)[1]||''); set('linef',line);
     const imgs=[$('thumb'),$('avatar')];
     $('thumb').src=D.thumb; $('avatar').src=D.avatar;
