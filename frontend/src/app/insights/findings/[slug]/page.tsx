@@ -55,13 +55,13 @@ export default async function FindingPage({ params }: { params: Promise<{ slug: 
           <ArrowLeft className="w-3 h-3" /> All findings
         </Link>
 
-        <header className="space-y-2">
+        <div className="space-y-2">
           <p className="font-mono text-[11px] uppercase tracking-wider text-cyan-300">
             Findings · <time dateTime={s.meta.date}>{dataLunga(s.meta.date)}</time>
           </p>
           <h1 className="text-2xl sm:text-3xl font-black font-mono tracking-tight">{s.meta.title}</h1>
           <p className="text-base text-gray-300 leading-relaxed">{s.meta.summary}</p>
-        </header>
+        </div>
 
         <FindingChart d={s.data} />
 
