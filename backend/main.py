@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 import archivio_targhe
+import baseline_sample
 import plaque_spec
 import vpi_core
 from vpi_format import format_vpi_full  # UI-11: a VPI written for people is rounded down
@@ -994,6 +995,22 @@ def get_room(request: Request, start: str = Query(..., alias="from")):
     except ValueError:
         raise HTTPException(status_code=400, detail="from must be YYYY-MM-DD")
     return _room_response(request, start)
+
+
+@app.get("/api/posts/{record_id}/baseline-sample")
+def get_baseline_sample(record_id: str):
+    """SOC-W2 (24/10/2026): the videos of a record's baseline sample, each marked in / not in /
+    unknown in Most Popular, from the database only (baseline_sample.py); never a YouTube
+    API call. Cached 6 h by browsers and CDNs; CORS as every endpoint (the middleware)."""
+    if not supabase_service:
+        raise HTTPException(status_code=503, detail="SUPABASE_SERVICE_KEY non configurata.")
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", record_id):
+        raise HTTPException(status_code=404, detail="no such record")
+    try:
+        body = baseline_sample.sample(supabase_service, record_id)
+    except baseline_sample.NotAvailable as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return JSONResponse(body, headers={"Cache-Control": "public, max-age=21600"})
 
 
 @app.get("/api/analytics/keywords")
