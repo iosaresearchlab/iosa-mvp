@@ -1611,7 +1611,15 @@ in our database. **Claim visits** are ours: the claim page writes one
 mobile or desktop, `automatico` for previews and bots), and `claim_eventi` the
 gestures on it (`app/claim/[token]/page.tsx`); a claim page visited by a person
 puts its plaque among those rendered (`plaques_needed()`, §6.7), and they are read
-with SQL. A test visit is removed afterwards.
+with SQL. A test visit is removed afterwards. Visits with referrer `facebook.com`
+(stored as `www.facebook.com`) or `m.facebook.com` are Meta's link scanner, which opens the claim page in the
+same minute an Instagram DM carrying the link is sent (measured 24/10/2026: 35
+of 82 visits in 30 days, in pairs, from Meta data centres in the US, Ireland and
+Sweden). Since 24/10 the page marks them `automatico = true`, in the same
+classification as the user-agent rule (no column holds the reason; none is
+added); a person arriving from Facebook comes through `l.facebook.com`, which
+the rule does not touch. Rows written before keep their value: the raw rows
+stay, and a reading of past visits applies the referrer rule in its query.
 
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 

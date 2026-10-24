@@ -22,6 +22,10 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 
 
+/** Referrers of Meta's link scanner (SOC-W4): a visit from them is not a person. The host is
+ *  stored as the browser reports it: www.facebook.com and m.facebook.com (24/10: 14 and 21). */
+const SCANNER_META = new Set(['facebook.com', 'www.facebook.com', 'm.facebook.com']);
+
 export default function ClaimPage({
   params,
 }: {
@@ -100,7 +104,13 @@ export default function ClaimPage({
   // scattare il conteggio. Non li escludiamo, li marchiamo: sapere quanto i
   // motori ci passano sopra e' un'informazione, ma non e' interesse di un
   // creator per la sua misurazione.
-  const passaggioAutomatico = useCallback(() => {
+  // SOC-W4 (24/10/2026): a visit whose referrer is (www.)facebook.com or m.facebook.com is Meta's
+  // link scanner, which opens the claim page in the same minute an Instagram DM carrying the
+  // link is sent (measured 24/10: 35 of 82 visits in 30 days, in pairs, from Meta data
+  // centres in the US, Ireland and Sweden; 02 section 6.12). A person coming from Facebook
+  // arrives through l.facebook.com, which this rule does not touch.
+  const passaggioAutomatico = useCallback((provenienza: string | null) => {
+    if (provenienza && SCANNER_META.has(provenienza)) return true;
     try {
       if ((navigator as Navigator & { webdriver?: boolean }).webdriver) return true;
       return /bot|crawl|spider|slurp|mediapartners|bingpreview|headless|facebookexternalhit|embedly|preview/i
@@ -148,7 +158,7 @@ export default function ClaimPage({
         post_id: post.id,
         provenienza,
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
-        automatico: passaggioAutomatico(),
+        automatico: passaggioAutomatico(provenienza),
       })
       // Una visita non registrata non rompe la pagina, ma si vede in console:
       // dal 25/09 al 01/10 un vincolo le rifiutava tutte in silenzio (APP-12).
@@ -189,7 +199,7 @@ export default function ClaimPage({
         azione,
         provenienza,
         schermo: window.innerWidth < 768 ? 'mobile' : 'desktop',
-        automatico: passaggioAutomatico(),
+        automatico: passaggioAutomatico(provenienza),
       })
       .then(({ error }) => { if (error) console.warn('claim event not recorded:', error.message); }, () => {});
   }, [token, post?.id, passaggioAutomatico]);

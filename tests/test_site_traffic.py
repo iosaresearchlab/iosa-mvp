@@ -16,3 +16,12 @@ def test_next_pages_and_the_static_room_carry_the_analytics():
 def test_the_claim_page_still_records_one_visit_per_session():
     page = (FE / "src" / "app" / "claim" / "[token]" / "page.tsx").read_text(encoding="utf-8")
     assert ".from('claim_visite')" in page and "sessionStorage.setItem(chiave, '1')" in page
+
+
+def test_meta_link_scanner_visits_are_marked_automatic():
+    """SOC-W4 addition (24/10/2026): referrer facebook.com / m.facebook.com = Meta's link scanner."""
+    page = (FE / "src" / "app" / "claim" / "[token]" / "page.tsx").read_text(encoding="utf-8")
+    assert "const SCANNER_META = new Set(['facebook.com', 'www.facebook.com', 'm.facebook.com']);" in page
+    assert "if (provenienza && SCANNER_META.has(provenienza)) return true;" in page
+    assert page.count("automatico: passaggioAutomatico(provenienza),") == 2      # visits and gestures
+    assert "passaggioAutomatico()," not in page
