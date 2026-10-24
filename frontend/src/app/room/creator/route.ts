@@ -33,7 +33,9 @@ async function nomeDelCanale(id: string): Promise<string | null> {
       .not('author_name', 'is', null)
       .limit(1);
     if (error || !data?.length) return null;
-    return (data[0] as { author_name: string | null }).author_name;
+    // SOC-W3b: a channel name can carry trailing or doubled spaces ("DonAza " on 24/10).
+    const nome = ((data[0] as { author_name: string | null }).author_name || '').replace(/\s+/g, ' ').trim();
+    return nome || null;
   } catch {
     return null;
   }

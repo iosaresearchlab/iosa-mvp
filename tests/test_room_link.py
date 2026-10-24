@@ -32,3 +32,14 @@ def test_the_route_names_the_channel_in_the_preview_tags():
     for pattern in (r"<title>[^<]*</title>", r'<meta property="og:title" content="[^"]*">',
                     r'<meta property="og:url" content="[^"]*">', r'<meta name="twitter:card" content="summary_large_image">'):
         assert len(re.findall(pattern, html)) == 1, pattern     # each replacement hits exactly one tag
+
+
+def test_the_creator_cabinet_is_framed_and_the_name_trimmed():
+    """SOC-W3b (24/10/2026): one framing for the search box and for /room?c=; the name trimmed."""
+    html = (FE / "public" / "room" / "index.html").read_text(encoding="utf-8")
+    fly = html[html.index("function flyToStack(si)"):html.index("function flyToZone(bi)")]
+    assert "const h = s.top + 1.6;" in fly and "el = THREE.MathUtils.degToRad(42)" in fly
+    assert "Math.cos(turn) * Math.cos(el)" in fly                  # in front of the screens (+z)
+    assert html.count("flyToStack(si)") >= 3                         # search, link, definition
+    src = (FE / "src" / "app" / "room" / "creator" / "route.ts").read_text(encoding="utf-8")
+    assert ".replace(/\\s+/g, ' ').trim()" in src

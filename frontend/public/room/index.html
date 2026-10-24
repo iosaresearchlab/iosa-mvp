@@ -514,10 +514,27 @@ function flyTo(tgt, pos, ms = 1400) {
   if (REDUCED || ms === 0) { camera.position.copy(pos); controls.target.copy(tgt); controls.update(); return; }
   fly = {t0: performance.now(), ms, p0: camera.position.clone(), t0v: controls.target.clone(), p1: pos, t1: tgt};
 }
+// SOC-W3b (24/10/2026): a creator's cabinet framed from above and in front (the screens face
+// +z), a three-quarter turn towards the outer side of its zone, high enough to look over the
+// rows in front, far enough for the whole stack and its figure to fit. The same for the search
+// box and for /room?c=. On a phone the creator card covers the lower half of the screen: the
+// stack is drawn smaller and in the upper part (the look-at point moves down by that much).
 function flyToStack(si) {
-  const s = stacks[si], tgt = new THREE.Vector3(s.x, s.top * 0.55, s.z);
-  const d = 6 + s.top * 0.9;
-  flyTo(tgt, new THREE.Vector3(s.x + d * 0.45, s.top * 0.55 + d * 0.5, s.z + d));
+  const s = stacks[si], z = zones[s.band], narrow = innerWidth <= 700;
+  const h = s.top + 1.6;                                        // the stack and the figure on it
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), tanH = tanV * camera.aspect;
+  const share = narrow ? 0.3 : 0.5;                             // of the view's height
+  const d = Math.max(6, h / (2 * tanV * share), 3 / (2 * tanH));
+  const turn = (s.x >= z.cx ? 1 : -1) * 0.55, el = THREE.MathUtils.degToRad(42);
+  const centre = new THREE.Vector3(s.x, h * 0.45, s.z);
+  const pos = centre.clone().add(new THREE.Vector3(Math.sin(turn) * Math.cos(el), Math.sin(el), Math.cos(turn) * Math.cos(el)).multiplyScalar(d));
+  const tgt = centre.clone();
+  if (narrow) {                                                 // centre drawn at 42% of the half-height above the middle
+    const f = centre.clone().sub(pos).normalize();
+    const up = new THREE.Vector3(0, 1, 0).sub(f.clone().multiplyScalar(f.y)).normalize();
+    tgt.sub(up.multiplyScalar(d * 0.42 * tanV));
+  }
+  flyTo(tgt, pos);
 }
 function flyToZone(bi) {
   const z = zones[bi], r = Math.max(z.w, z.d);
