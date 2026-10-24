@@ -1595,6 +1595,24 @@ permissions; `publish_api.py --check-insights` reads `/me/threads_insights`
 (`views,followers_count`) once and says whether it answers, without printing
 the token.
 
+### 6.12 Site traffic and claim visits *(SOC-W4, 24/10/2026)*
+
+Two counts, kept apart. **Page views** are Vercel Web Analytics (free tier,
+enabled on the project `iosa-mvp`): every Next page through `<Analytics />`
+in `app/layout.tsx`, and the static `/room` through the same script in the
+head of `public/room/index.html`; each view carries its page, country, device
+and referrer host, so a visit from a social post is read by its referrer
+(`t.co` for X, `l.instagram.com`, `l.threads.com`, `bsky.app` and
+`go.bsky.app`). No cookie, no custom event (not on the free plan). They are
+read in the Vercel dashboard (project, Analytics: Pages, Referrers) or, for the
+daily social reading, through the Vercel connector; nothing of them is stored
+in our database. **Claim visits** are ours: the claim page writes one
+`claim_visite` row per browser session (token, `post_id`, referrer host,
+mobile or desktop, `automatico` for previews and bots), and `claim_eventi` the
+gestures on it (`app/claim/[token]/page.tsx`); a claim page visited by a person
+puts its plaque among those rendered (`plaques_needed()`, §6.7), and they are read
+with SQL. A test visit is removed afterwards.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and
