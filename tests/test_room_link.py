@@ -45,14 +45,18 @@ def test_the_creator_cabinet_is_framed_and_the_name_trimmed():
     assert ".replace(/\\s+/g, ' ').trim()" in src
 
 
-def test_on_a_wide_screen_the_card_and_the_cabinet_do_not_overlap():
-    """SOC-W3b (fix): the card opens at CARD_X on the right; the stack is drawn left of it."""
+def test_the_creator_card_is_anchored_beside_the_cabinet():
+    """SOC-W3c (24/10/2026): beside the selected cabinet (right, else left), re-anchored on every
+    frame (flight, drag, zoom), docked at the bottom when there is no room."""
     html = (FE / "public" / "room" / "index.html").read_text(encoding="utf-8")
-    assert "const CARD_X = () => innerWidth - 380;" in html
-    assert html.count("setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);") == 2   # search and link
-    fn = html[html.index("function showCreatorCard(si)"):html.index("card.addEventListener('click'")]
-    assert ".project(camera)" in fn and "card.style.left" in fn             # moves beside the stack if it meets it
-    assert "innerWidth * 0.62" not in html
+    assert html.count("  showCreatorCard(si);") == 2                     # search and link, at once
+    fn = html[html.index("function anchorCard()"):html.index("card.addEventListener('click'")]
+    assert ".project(camera)" in fn and "x1 + GAP" in fn and "x0 - GAP - w" in fn
+    assert "card.classList.add('docked')" in fn and "const GAP = 20;" in html
+    loop = html[html.index("function frame()"):]
+    assert loop.index("anchorCard();") > loop.index("controls.update();")   # after the camera moves
+    assert "anchored = null;" in html[html.index("function showCard("):]     # any other card drops it
+    assert "#card.docked{" in html and "CARD_X" not in html
 
 
 def test_the_link_page_is_revalidated_by_browsers():

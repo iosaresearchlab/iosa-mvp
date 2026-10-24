@@ -97,6 +97,8 @@ button{cursor:pointer;}
 /* card */
 #card{z-index:8;width:min(330px,calc(100vw - 32px));background:var(--panel-solid);border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;box-shadow:0 18px 50px rgba(0,0,0,.55);pointer-events:none;font-size:.82rem;line-height:1.4;}
 #card.pinned{pointer-events:auto;}
+/* SOC-W3c: no room beside the selected cabinet: the creator card docks at the bottom, centred */
+#card.docked{left:50% !important;top:auto !important;bottom:calc(env(safe-area-inset-bottom,0px) + 64px);transform:translateX(-50%);max-height:45vh;overflow:auto;}
 #card .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-data);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid currentColor;}
 #card .ttl{font-weight:700;font-size:.95rem;margin:8px 0 2px;text-wrap:balance;overflow-wrap:anywhere;}
 #card .who{color:var(--mute);font-size:.78rem;overflow-wrap:anywhere;}
@@ -519,7 +521,6 @@ function flyTo(tgt, pos, ms = 1400) {
 // rows in front, far enough for the whole stack and its figure to fit. The same for the search
 // box and for /room?c=. On a phone the creator card covers the lower half of the screen: the
 // stack is drawn smaller and in the upper part (the look-at point moves down by that much).
-const CARD_X = () => innerWidth - 380;                           // where the creator card opens on a wide screen
 function flyToStack(si) {
   const s = stacks[si], z = zones[s.band], narrow = innerWidth <= 700;
   const h = s.top + 1.6;                                        // the stack and the figure on it
@@ -534,10 +535,7 @@ function flyToStack(si) {
   if (narrow) {                                                 // centre drawn at 42% of the half-height above the middle
     const up = new THREE.Vector3(0, 1, 0).sub(f.clone().multiplyScalar(f.y)).normalize();
     tgt.sub(up.multiplyScalar(d * 0.42 * tanV));
-  } else {                                                      // the creator card takes the right side (CARD_X)
-    const right = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)).normalize();
-    tgt.add(right.multiplyScalar(d * Math.min(0.5, (innerWidth - CARD_X()) / innerWidth) * tanH));
-  }
+  }                                                             // wide screens: centred, the card anchored beside it (SOC-W3c)
   flyTo(tgt, pos);
 }
 function flyToZone(bi) {
@@ -620,30 +618,45 @@ function placeCard(x, y) {
   card.style.left = Math.max(16, left) + 'px'; card.style.top = top + 'px'; card.style.position = 'fixed';
 }
 function showCard(sel, x, y, pin) {
+  anchored = null; card.classList.remove('docked');
   if (!sel) { if (!pinned) { card.hidden = true; } return; }
   card.innerHTML = sel.kind === 'tv' ? tvCard(sel.vi) : creatorCard(sel.si);
   card.hidden = false; card.classList.toggle('pinned', !!pin); pinned = !!pin;
   placeCard(x, y);
 }
-// SOC-W3b (24/10/2026): the creator card opened by the search box or by /room?c= never covers
-// the stack or the figure on it. After the flight the stack's corners and the figure's head
-// are projected to the screen; if the card meets that box it moves beside it (right if there
-// is room, else left). On a phone the card is docked under the view (CSS).
+// SOC-W3c (24/10/2026): the creator card opened by the search box or by /room?c= sits next to
+// the selected cabinet: anchored to its place on the screen (the stack, the figure and its ring
+// projected), to its right with a 20 px gap, or to its left if the right side runs out of the
+// viewport; never over them. It follows the camera on every frame, during the flight and when
+// the view is dragged or zoomed. With no room on either side it docks at the bottom (on a phone
+// it is always docked there, by CSS). Any other card, or closing it, drops the anchor.
+let anchored = null;
+const GAP = 20;
 function showCreatorCard(si) {
-  const sel = {kind:'creator', si};
-  showCard(sel, CARD_X(), innerHeight * 0.25, true);
-  if (innerWidth <= 700) return;
-  const s = stacks[si], pts = [];
-  for (const [dx, y, dz] of [[-0.6, 0, -0.4], [0.6, 0, 0.4], [-0.6, s.top + 1.5, 0], [0.6, s.top + 1.5, 0]]) {
+  showCard({kind:'creator', si}, 0, 0, true);
+  anchored = si;
+  anchorCard();
+}
+function anchorCard() {
+  if (anchored === null || card.hidden) return;
+  if (innerWidth <= 700) { card.classList.remove('docked'); return; }
+  const s = stacks[anchored];
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, behind = false;
+  for (const [dx, y, dz] of [[-0.6, 0, -0.45], [0.6, 0, -0.45], [-0.6, 0, 0.45], [0.6, 0, 0.45],
+                             [-0.6, s.top + 1.5, 0], [0.6, s.top + 1.5, 0], [0, s.top + 0.05, 0.5], [0, s.top + 0.05, -0.5]]) {
     const v = new THREE.Vector3(s.x + dx, y, s.z + dz).project(camera);
-    pts.push([(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]);
+    if (v.z > 1) behind = true;
+    const px = (v.x + 1) / 2 * innerWidth, py = (1 - v.y) / 2 * innerHeight;
+    x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
   }
-  const x0 = Math.min(...pts.map(q => q[0])), x1 = Math.max(...pts.map(q => q[0]));
-  const y0 = Math.min(...pts.map(q => q[1])), y1 = Math.max(...pts.map(q => q[1]));
-  const r = card.getBoundingClientRect();
-  if (r.right < x0 || r.left > x1 || r.bottom < y0 || r.top > y1) return;
-  const right = x1 + 24, left = x0 - 24 - r.width;
-  card.style.left = (right + r.width <= innerWidth - 16 ? right : Math.max(16, left)) + 'px';
+  const w = card.offsetWidth, h = card.offsetHeight;
+  let left = null;
+  if (!behind && x1 + GAP + w <= innerWidth - 16 && x1 > 0) left = x1 + GAP;
+  else if (!behind && x0 - GAP - w >= 16 && x0 < innerWidth) left = x0 - GAP - w;
+  if (left === null) { card.classList.add('docked'); return; }
+  card.classList.remove('docked');
+  const top = Math.min(Math.max(16, (y0 + y1) / 2 - h / 2), innerHeight - h - 16);
+  card.style.position = 'fixed'; card.style.left = left + 'px'; card.style.top = top + 'px';
 }
 card.addEventListener('click', e => {
   if (e.target.closest('.x')) { pinned = false; card.hidden = true; card.classList.remove('pinned'); showHighlight(null); return; }
@@ -701,7 +714,7 @@ res.addEventListener('click', e => {
   const si = chStacks.get(+b.dataset.ch)[0];
   res.hidden = true; q.blur(); closeIntro();
   flyToStack(si); showHighlight({kind:'creator', si});
-  setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);   // after the 1.4 s flight
+  showCreatorCard(si);                                          // anchored: it follows the flight
 });
 
 // overlays
@@ -751,7 +764,7 @@ function fromChannel() {
   const si = own[0];
   closeIntro(); flyToStack(si);
   showHighlight({kind:'creator', si});
-  setTimeout(() => showCreatorCard(si), REDUCED ? 0 : 1500);   // after the 1.4 s flight
+  showCreatorCard(si);                                          // anchored: it follows the flight
 }
 
 
@@ -807,6 +820,7 @@ function frame() {
   }
   walk(dt);
   controls.update();
+  anchorCard();                                                  // SOC-W3c
   if (pendingPick && !pinned) {
     pendingPick = false;
     const sel = pick(lastPointer.x, lastPointer.y);
