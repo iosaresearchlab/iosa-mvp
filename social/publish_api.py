@@ -21,7 +21,8 @@ Post spec (JSON):
   "images": ["2026-10-10-breakout-ml7.jpg"],        # JPEG, 1 to 10 (carousel when > 1)
   "video": null, "cover": null,                     # a Reel/video instead of images (mp4 + jpg cover)
   "bluesky":   {"text": "...", "alt": "..."},       # null to skip
-  "instagram": {"caption": "...", "user_tags": [{"username": "x", "x": 0.5, "y": 0.8}]},
+  "instagram": {"caption": "...", "user_tags": [{"username": "x", "x": 0.5, "y": 0.8}],
+                "collaborators": ["user"], "trial": true},  # both optional, SOC-W5 below
   "threads":   {"text": "...", "topic_tag": "YouTube Creators"},
   "x":         {"text": "...", "reply": "https://youtu.be/... ..."}   # the card + the first reply
 }
@@ -39,6 +40,20 @@ request is logged in renders/social/buffer_requests.log and the script refuses t
 publication past BUFFER_BUDGET of them (a publication costs 2 to 6).
 Results (links and ids) are written back into the spec under "result". A channel that already has a
 result is never published again, so a retry cannot double-post.
+
+Instagram, two optional fields (SOC-W5, owner 24/10/2026), checked against the documentation of
+the API this script uses (Instagram API with Instagram Login, graph.instagram.com), 24/10/2026:
+- "trial": a trial reel, shown to non-followers first. Supported: changelog of 3 Dec 2025, "Trial
+  Reels Support in Instagram API with Facebook Login and Instagram API with Instagram Login";
+  "trial_params is optional and part of the create media endpoint"; graduation_strategy "should be
+  either MANUAL or SS_PERFORMANCE"; "The media_type must be REELS if this parameter is included".
+  true = SS_PERFORMANCE (Instagram shares it with followers if it performs); "MANUAL" also accepted.
+  Reels only: on an image post it is ignored with a warning.
+- "collaborators": NOT supported by this API. The create-media parameter ("A list of up to 3
+  instagram usernames as collaborators", Feed image, Reels and Carousels) is documented for
+  graph.facebook.com (Facebook Login), and the IG Media reference says of collaborators
+  "Available for Instagram API with Facebook Login only". The field is accepted, validated (at
+  most 3 usernames) and ignored, with a warning in the dry run and in the run.
 
 Credentials are read from renders/*.txt|json and backend/.env and are never printed.
 Media go to the public Supabase Storage bucket "social" (the APIs fetch images and videos by URL).
@@ -170,14 +185,36 @@ def ig_wait(cid, tok):
     die("instagram: container non pronto dopo 5 minuti")
 
 
+def ig_extras(spec):
+    """SOC-W5: (trial_params or None, warnings) for the optional Instagram fields."""
+    ig = spec.get("instagram") or {}
+    warnings, trial = [], None
+    if ig.get("collaborators"):
+        warnings.append("instagram.collaborators " + ", ".join(ig["collaborators"]) + ": ignored, "
+                        "collaborator invites are not in the Instagram API with Instagram Login "
+                        "(Facebook Login only)")
+    t = ig.get("trial")
+    if t not in (None, False):
+        if not spec.get("video"):
+            warnings.append("instagram.trial: ignored, a trial reel needs a video (media_type REELS)")
+        else:
+            trial = json.dumps({"graduation_strategy": t if isinstance(t, str) else "SS_PERFORMANCE"})
+    return trial, warnings
+
+
 def publish_instagram(spec, urls):
     t = json.loads((RENDERS / "instagram_token.json").read_text(encoding="utf-8"))
     tok, uid = t["access_token"], t["user_id"]
     ig = spec["instagram"]
     tags = json.dumps(ig.get("user_tags") or [])
+    trial, warnings = ig_extras(spec)
+    for w in warnings:
+        print("ATTENZIONE:", w)
     if spec.get("video"):
         p = {"media_type": "REELS", "video_url": urls["video"], "caption": ig["caption"],
              "share_to_feed": "true", "access_token": tok}
+        if trial:
+            p["trial_params"] = trial
         if urls.get("cover"):
             p["cover_url"] = urls["cover"]
         if ig.get("user_tags"):
@@ -445,6 +482,13 @@ def dry_run(spec, sp, only, force_volume):
         print(f"  {c}: {action}")
     miss = missing_media(spec)
     print("  media:", "all present" if not miss else "MISSING " + ", ".join(miss))
+    ig = spec.get("instagram") or {}
+    if ig.get("collaborators") is not None or ig.get("trial") is not None:     # SOC-W5
+        trial, warnings = ig_extras(spec)
+        print("  instagram.collaborators:", ig.get("collaborators"), "| instagram.trial:", ig.get("trial"),
+              "->", f"trial_params {trial}" if trial else "no trial_params")
+        for w in warnings:
+            print("  WARNING " + w)
     bad = problems(spec)
     print("  spec:", "valid" if not bad else "INVALID")
     for _, reason in bad:

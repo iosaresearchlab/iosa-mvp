@@ -8,6 +8,9 @@ Limits checked, each with the platform's own way of counting:
 - Bluesky: `bluesky.text` at most 300 graphemes; alt text on every image it carries;
 - Threads: `threads.text` at most 500 characters;
 - Instagram: `instagram.caption` at most 2,200 characters and 30 hashtags;
+- Instagram, optional (SOC-W5): `instagram.collaborators` a list of at most 3 usernames;
+  `instagram.trial` true, "MANUAL" or "SS_PERFORMANCE" (a trial reel; on an image post
+  publish_api.py ignores it with a warning);
 - media: every file the spec names (`images`, `video`, `cover`, `x.card`, `dm.card`) on disk,
   relative to the working folder (renders/social).
 
@@ -27,6 +30,9 @@ except ImportError:                                   # run as a script from soc
 
 X_MAX, BLUESKY_MAX, THREADS_MAX, IG_CAPTION_MAX, IG_HASHTAGS_MAX = 280, 300, 500, 2200, 30
 HASHTAG = re.compile(r"(?:^|(?<=\s))#\w+", re.UNICODE)
+IG_COLLABORATORS_MAX = 3                                 # SOC-W5: Instagram's limit
+IG_USERNAME = re.compile(r"[A-Za-z0-9._]{1,30}")
+IG_TRIAL_STRATEGIES = ("MANUAL", "SS_PERFORMANCE")      # trial_params.graduation_strategy
 
 
 def graphemes(text: str) -> int:
@@ -90,6 +96,13 @@ def check(spec: dict, work: pathlib.Path = None, pending_only: bool = False) -> 
             out.append(("instagram", f"instagram.caption: {n} characters (max {IG_CAPTION_MAX})"))
         if h > IG_HASHTAGS_MAX:
             out.append(("instagram", f"instagram.caption: {h} hashtags (max {IG_HASHTAGS_MAX})"))
+        col = ig.get("collaborators")
+        if col is not None and (not isinstance(col, list) or len(col) > IG_COLLABORATORS_MAX
+                                or not all(isinstance(u, str) and IG_USERNAME.fullmatch(u.lstrip("@")) for u in col)):
+            out.append(("instagram", f"instagram.collaborators: a list of at most {IG_COLLABORATORS_MAX} usernames"))
+        trial = ig.get("trial")
+        if trial is not None and trial is not False and trial is not True and trial not in IG_TRIAL_STRATEGIES:
+            out.append(("instagram", "instagram.trial: true, false, \"MANUAL\" or \"SS_PERFORMANCE\""))
     for name in media(spec):
         p = pathlib.Path(name)
         if not (p if p.is_absolute() else work / p).is_file():
