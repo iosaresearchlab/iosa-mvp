@@ -11,8 +11,10 @@ Countdown templates: Friday Top 10 `renders/social/templates/reel_top10_v2.html`
 flag, views, usual per row, from the published `<date>-top10.json`) and Monday 5 channels to watch
 `renders/social/templates/reel_watch5_v2.html` (data: name, flag, meta, usual, points per row, from the published
 `<date>-watch5.json`), both approved 17/10. Breakout reel for Instagram `renders/social/templates/reel_breakout.html`
-(23/10, under owner review; data from the breakout spec: country, country_name, usual, views, x, asof, title, channel,
-subs_line, first_line, why, optional cta; example `example_reel_breakout.json`; 16.8 s, 504 frames). Every new video
+(v3 approved 23/10: channel picture in a ring, thumbnail scene, the channel's earlier videos as bars with this one
+growing and the gridlines rescaling; data from the breakout spec: country, country_name, usual, views, x, asof, title,
+channel, subs_line, first_line, why, avatar, thumb, baseline [{d, v}], optional cta; example `example_reel_breakout.json`;
+18.4 s, 552 frames). Every new video
 starts from these templates and this method. The older
 frame-by-frame templates (`reel_top10.html`, `reel_watch5.html`, `reel.html`, `render_reel_video.py`) are retired.
 

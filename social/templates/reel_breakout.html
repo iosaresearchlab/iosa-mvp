@@ -3,14 +3,15 @@
 <script src="gsap.min.js"></script><script src="DrawSVGPlugin.min.js"></script>
 <style>
 html,body{margin:0;background:#0d1117}
-/* IOSA breakout reel (Instagram), 23/10/2026: the breakout card told in ~14 s, iosa-motion method of 16-17/10:
-   one paused GSAP timeline, render(t) seeks it; window.CUES / window.DURATION feed render_motion.py.
-   1080x1920, safe area y 250..1500. Data from the breakout spec, never numbers in the HTML. */
+/* IOSA breakout reel (Instagram), v2 23/10/2026 after the owner's review (first scene too empty,
+   animation too basic; add the channel's picture and the video's thumbnail).
+   iosa-motion method: one paused GSAP timeline, render(t) seeks it; window.CUES / window.DURATION
+   feed render_motion.py. 1080x1920, safe area y 250..1500. Every number from the data JSON. */
 #s{width:1080px;height:1920px;position:relative;overflow:hidden;font-family:Inter,sans-serif;color:#eef3f8;background:#0d1117}
 #bg{position:absolute;inset:-60px;background-image:linear-gradient(rgba(132,150,168,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(132,150,168,.06) 1px,transparent 1px);background-size:90px 90px}
 .glow{position:absolute;width:1400px;height:1400px;left:-160px;border-radius:50%;pointer-events:none}
-#gc{top:-120px;background:radial-gradient(closest-side,rgba(0,229,255,.16),transparent)}
-#ga{top:760px;background:radial-gradient(closest-side,rgba(255,176,32,.12),transparent);opacity:0}
+#gc{top:-200px;background:radial-gradient(closest-side,rgba(0,229,255,.18),transparent)}
+#ga{top:700px;background:radial-gradient(closest-side,rgba(255,176,32,.13),transparent);opacity:0}
 #world{position:absolute;inset:0;transform-origin:50% 45%}
 .mono{font-family:'JetBrains Mono',monospace}
 .top{position:absolute;left:80px;right:80px;top:150px;display:flex;justify-content:space-between;gap:40px;font-size:22px;white-space:nowrap;letter-spacing:.12em;text-transform:uppercase;color:#8496a8}
@@ -19,45 +20,73 @@ html,body{margin:0;background:#0d1117}
 .c{position:absolute;left:80px;right:80px;text-align:center}
 .big{font-weight:900;letter-spacing:-.035em;line-height:.98}
 .lab{font-family:'JetBrains Mono',monospace;font-size:28px;letter-spacing:.16em;color:#8496a8;text-transform:uppercase}
-.num{font-weight:900;letter-spacing:-.04em;line-height:.9}
 .cy{color:#00e5ff}.am{color:#ffb020}.mu{color:#8496a8}
 .w{display:inline-block;will-change:transform,opacity}
+/* hook */
+#av{position:absolute;left:350px;top:300px;width:380px;height:380px}
+#av img{position:absolute;left:30px;top:30px;width:320px;height:320px;border-radius:50%;object-fit:cover;background:#1b2430}
+#av svg{position:absolute;inset:0}
+.pulse{position:absolute;left:30px;top:30px;width:316px;height:316px;border-radius:50%;border:2px solid rgba(0,229,255,.7)}
+.chip{display:inline-block;padding:10px 22px;border:1px solid rgba(0,229,255,.35);border-radius:40px;background:rgba(0,229,255,.07)}
+/* chart */
+#chart{position:absolute;left:80px;width:920px;top:250px;height:990px;overflow:hidden}
+.gb{position:absolute;bottom:0;background:#3a4656;border-radius:8px 8px 0 0}
+#tb{position:absolute;bottom:0;right:0;width:150px;background:linear-gradient(#5ff2ff,#00c8e0);border-radius:12px 12px 0 0;box-shadow:0 0 40px rgba(0,229,255,.55)}
+#ul{position:absolute;left:0;right:0;height:0;border-top:3px dashed #8496a8}
+#ull{position:absolute;left:0;z-index:3;background:#0d1117cc;padding:4px 10px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:26px;color:#c4d0dc;transform:translateY(-44px);white-space:nowrap}
+.gl{position:absolute;left:0;right:170px;height:0;border-top:1px solid rgba(132,150,168,.22)}
+.gl span{position:absolute;right:0;top:-34px;font-family:'JetBrains Mono',monospace;font-size:22px;color:#5d6b7a}
+#tvl{position:absolute;right:0;z-index:3;width:400px;text-align:right;font-weight:900;font-size:64px;letter-spacing:-.03em;color:#00e5ff}
+#axis{position:absolute;left:80px;width:920px;top:1240px;height:3px;background:#2a3542}
 .mult{font-weight:900;letter-spacing:-.04em;line-height:.9;color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,.45)}
-.bar{position:absolute;left:80px;height:44px;border-radius:10px}
-.bl{position:absolute;left:80px;font-family:'JetBrains Mono',monospace;font-size:26px;color:#8496a8}
-.ttl{font-weight:800;font-size:58px;line-height:1.12;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-.who{font-weight:800;font-size:54px;letter-spacing:-.01em}
-.meta{font-family:'JetBrains Mono',monospace;font-size:30px;color:#8496a8;line-height:1.45}
-.why{font-weight:900;font-size:78px;line-height:1.04;letter-spacing:-.03em}
+.spark{position:absolute;opacity:0;width:12px;height:12px;border-radius:50%;background:#00e5ff;box-shadow:0 0 14px #00e5ff}
+#ring{position:absolute;left:390px;top:1240px;width:300px;height:300px;border-radius:50%;border:4px solid #00e5ff;opacity:0}
+/* video */
+#card{position:absolute;left:80px;top:370px;width:920px;height:518px;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 2px rgba(0,229,255,.25);transform-origin:50% 100%}
+#card img{width:100%;height:100%;object-fit:cover;transform-origin:60% 40%}
+#vchip{position:absolute;left:24px;bottom:24px;padding:12px 20px;border-radius:12px;background:#00e5ff;color:#06222a;font-weight:800;font-size:30px;font-family:Inter,sans-serif}
+.ttl{font-weight:800;font-size:50px;line-height:1.14;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#row{position:absolute;left:80px;right:80px;top:1140px;display:flex;align-items:center;justify-content:center;gap:24px}
+#row img{width:88px;height:88px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #00e5ff}
+.who{font-weight:800;font-size:46px}
+.meta{font-family:'JetBrains Mono',monospace;font-size:28px;color:#8496a8;line-height:1.45}
+/* why */
+#wbg{position:absolute;left:-60px;top:250px;width:1200px;height:1300px;object-fit:cover;opacity:0;filter:blur(30px) saturate(1.2)}
+.why{font-weight:900;font-size:84px;line-height:1.04;letter-spacing:-.03em}
+#uline{position:absolute;left:80px;top:420px;width:180px;height:8px;border-radius:4px;background:#ffb020;transform-origin:0 50%}
 </style></head><body><div id="s">
  <div id="bg"></div><div class="glow" id="gc"></div><div class="glow" id="ga"></div>
  <div id="world">
   <div class="sc" id="S0" style="opacity:1">
-   <div class="c lab cy" style="top:520px" id="h0"></div>
-   <div class="c big" style="top:600px;font-size:120px" id="h1"></div>
-   <div class="c big mu" style="top:780px;font-size:76px" id="h2"></div>
+   <div id="av">
+    <div class="pulse" id="p1"></div><div class="pulse" id="p2"></div>
+    <img id="avimg" alt="">
+    <svg viewBox="0 0 380 380"><circle id="avring" cx="190" cy="190" r="178" fill="none" stroke="#00e5ff" stroke-width="8" stroke-linecap="round" transform="rotate(-90 190 190)" style="filter:drop-shadow(0 0 12px rgba(0,229,255,.8))"/></svg>
+   </div>
+   <div class="c" style="top:720px"><span class="chip mono cy" id="h0" style="font-size:26px;letter-spacing:.14em;text-transform:uppercase"></span></div>
+   <div class="c big" style="top:820px;font-size:112px" id="h1"></div>
+   <div class="c big" style="top:990px;font-size:74px;line-height:1.08" id="h2"></div>
   </div>
   <div class="sc" id="S1">
-   <div class="c lab" style="top:330px" id="l1">its channel usually gets</div>
-   <div class="c num mu" style="top:390px;font-size:150px"><span id="usualN">0</span></div>
-   <div class="c lab" style="top:600px" id="l2">this one</div>
-   <div class="c num cy" style="top:660px;font-size:170px;text-shadow:0 0 60px rgba(0,229,255,.4)"><span id="viewsN">0</span></div>
-   <div class="c meta" style="top:860px" id="asof"></div>
-   <div class="bar" id="bu" style="top:1010px;background:#3a4656"></div>
-   <div class="bl" style="top:1062px" id="bul"></div>
-   <div class="bar" id="bt" style="top:1120px;background:#00e5ff;box-shadow:0 0 26px rgba(0,229,255,.55);transform-origin:0 50%"></div>
-   <div class="c mult" style="top:1230px;font-size:190px"><span id="xv">1.0</span>×</div>
+   <div class="c lab" style="top:270px;opacity:0" id="l1">its videos before this one</div>
+   <div id="chart"><div id="ul"><div id="ull"></div></div><div id="tvl"></div></div>
+   <div id="axis"></div>
+   <div class="c meta" style="top:1262px;font-size:24px" id="cap"></div>
+   <div id="ring"></div><div id="sparks"></div>
+   <div class="c mult" style="top:1320px;font-size:170px"><span id="xv">1.0</span>×<span class="mu" style="font-size:44px;letter-spacing:0;text-shadow:none;font-weight:800"> its usual</span></div>
   </div>
-  <div class="sc" id="S2">
-   <div class="c lab" style="top:330px">the video</div>
-   <div class="c ttl" style="top:400px" id="ttl"></div>
-   <div class="c who" style="top:870px" id="who"></div>
-   <div class="c meta" style="top:960px" id="subs"></div>
-   <div class="c meta" style="top:1120px" id="first"></div>
+  <div class="sc" id="S2" style="perspective:1400px">
+   <div class="c lab" style="top:300px">the video</div>
+   <div id="card"><img id="thumb" alt=""><div id="vchip"></div></div>
+   <div class="c ttl" style="top:930px" id="ttl"></div>
+   <div id="row"><img id="avsm" alt=""><div style="text-align:left"><div class="who" id="who"></div><div class="meta" id="subs" style="font-size:26px"></div></div></div>
+   <div class="c meta" style="top:1290px;font-size:24px" id="first"></div>
   </div>
   <div class="sc" id="S3">
+   <img id="wbg" alt="">
    <div class="c lab am" style="top:360px">what it did differently</div>
-   <div class="c why" style="top:450px" id="why"></div>
+   <div id="uline"></div>
+   <div class="c why" style="top:480px" id="why"></div>
   </div>
   <div class="sc" id="SE">
    <div style="position:absolute;left:0;right:0;top:420px;display:flex;justify-content:center;align-items:flex-end;gap:8px">
@@ -82,17 +111,18 @@ const words=(s,cls='')=>esc(s).split(' ').map(w=>`<span class="w ${cls}">${w}</s
 const flag=cc=>cc&&cc.length===2?String.fromCodePoint(...[...cc.toUpperCase()].map(c=>0x1F1A5+c.charCodeAt(0))):'';
 const fmt=n=>Math.round(n).toLocaleString('en-US');
 
-/* ---------- build ---------- */
-// data: country (2 letters), usual, views, x, asof ("20 Oct"), title, channel, subs_line,
-//       first_line ("First observed in YouTube's Most Popular · India · 19 Oct"), why
+/* ---------- build ----------
+ data: country (2 letters), country_name, usual, views, x, asof ("22 Oct"), title, channel, subs_line,
+       first_line, why, avatar (channel picture file, channels.list snippet.thumbnails.high),
+       thumb (video thumbnail file, i.ytimg.com/vi/<id>/maxresdefault.jpg), baseline [{d, v}] (the
+       record's baseline videos with the views read for the baseline check, as on slide 2), optional cta */
 $('ep').textContent=(flag(D.country)+' '+(D.country_name||'')).trim();
-$('h0').textContent=('breakout · '+(D.country_name||'')).trim();
+$('h0').textContent=[flag(D.country)+' '+(D.country_name||''),D.asof].filter(Boolean).join(' · ');
 $('h1').innerHTML=words(D.channel);
-$('h2').innerHTML=words('just beat its own usual.');
-$('asof').textContent='views as of '+D.asof;
-const BW=920, wT=BW, wU=Math.max(14,BW*D.usual/D.views);
-$('bu').style.width=wU+'px'; $('bt').style.width=wT+'px';
-$('bul').textContent='usual · '+fmt(D.usual);
+$('h2').innerHTML=`<span class="w">just got</span> <span class="w cy" style="font-size:1.3em"><span id="hx">1.0</span>×</span><br><span class="w mu">its usual views.</span>`;
+['avimg','avsm'].forEach(i=>{ if(D.avatar) $(i).src=D.avatar; });
+['thumb','wbg'].forEach(i=>{ if(D.thumb) $(i).src=D.thumb; });
+$('vchip').textContent=fmt(D.views)+' views · '+D.asof;
 $('ttl').innerHTML='“'+esc(D.title)+'”';
 $('who').innerHTML=esc(D.channel);
 $('subs').textContent=D.subs_line||'';
@@ -103,6 +133,31 @@ $('outT').innerHTML=words('A breakout every day.');
 $('outS').textContent="Measured against the channel's own usual.";
 $('cta').innerHTML=words(D.cta||'Is your channel in it?');
 
+// chart: grey bars = the baseline videos, cyan bar = this one; heights = value * k (px per view)
+const CH=990, PLOT=680, CAP=985;                 // chart box height, final cyan height, overflow cap
+const base=(D.baseline&&D.baseline.length?D.baseline:[{v:D.usual}]).map(b=>+b.v);
+const n=base.length, gap=14, gw=(920-150-60-gap*(n-1))/n;
+const bars=base.map((v,i)=>{const e=document.createElement('div');e.className='gb';e.style.left=(i*(gw+gap))+'px';e.style.width=gw+'px';$('chart').appendChild(e);return e;});
+const gmax=Math.max(...base,D.usual);
+const k1=420/gmax, k2=PLOT/D.views;              // zoomed in on the usual, then the true scale
+$('cap').textContent=n>1?`grey: its ${n} videos of the 7–90 days before this one`:'';
+const st={V:0,gb:0};
+// gridlines with their view counts slide down as the scale pulls back: the eye sees the zoom-out
+const GV=[];for(let e=2;e<=8;e++)for(const m of [1,2,5]){const v=m*10**e;if(v<=D.views*1.05)GV.push(v);}
+const grid=GV.map(v=>{const g=document.createElement('div');g.className='gl';g.innerHTML='<span>'+(v>=1e6?(v/1e6)+'M':v>=1e3?(v/1e3)+'K':v)+'</span>';$('chart').appendChild(g);return g;});
+function draw(){
+  const k=Math.min(k1,PLOT/Math.max(st.V,1));
+  bars.forEach((e,i)=>{e.style.height=Math.max(4,base[i]*k*st.gb)+'px';});
+  $('ul').style.top=(CH-D.usual*k*Math.min(1,st.gb*1.2))+'px';
+  const h=st.V*k; $('tb').style.height=h+'px';
+  $('tvl').style.top=(CH-h-84)+'px'; $('tvl').textContent=fmt(st.V);
+  grid.forEach((g,i)=>{const y=GV[i]*k;g.style.top=(CH-y)+'px';g.style.opacity=(y<70||y>CH-40)?0:Math.min(1,(y-70)/60)*Math.min(1,st.gb*2);});
+}
+const tb=document.createElement('div');tb.id='tb';$('chart').appendChild(tb);
+$('ull').textContent='usual · '+fmt(D.usual);
+// sparks for the hit
+for(let i=0;i<16;i++){const s=document.createElement('div');s.className='spark';s.style.left='534px';s.style.top='1390px';$('sparks').appendChild(s);}
+
 /* ---------- timeline ---------- */
 const tl=gsap.timeline({paused:true,defaults:{ease:'power3.out',duration:0.6}});
 const CUES=[]; const cue=(t,k,o={})=>CUES.push({t:+t.toFixed(3),k,...o}); window.CUES=CUES;
@@ -111,43 +166,55 @@ const PUSH=(from,to,t,d=0.7)=>{ cue(t,'whoosh',{d});
   tl.to(from,{yPercent:-14,opacity:0,filter:'blur(18px)',scale:0.96,duration:d,ease:'power3.inOut'},t);
   tl.fromTo(to,{yPercent:14,opacity:0,filter:'blur(18px)',scale:1.04},{yPercent:0,opacity:1,filter:'blur(0px)',scale:1,duration:d,ease:'power3.inOut'},t);
 };
-const T2=6.2, T3=10.0, TE=13.0, DUR=16.8;
+const O=2.4, T2=8.0, T3=11.8, TE=14.6, DUR=18.4;
 window.DURATION=DUR;
 tl.fromTo('#world',{scale:1},{scale:1.035,duration:DUR,ease:'sine.inOut'},0);
 tl.fromTo('#bg',{y:0},{y:-90,duration:DUR,ease:'none'},0);
-tl.fromTo('#gc',{y:0,opacity:.7},{y:420,opacity:1,duration:DUR,ease:'sine.inOut'},0);
+tl.fromTo('#gc',{y:0,opacity:.75},{y:520,opacity:1,duration:DUR,ease:'sine.inOut'},0);
 
-// scene 0: the hook, who and where (first frame already readable)
-const O=1.7;
+// scene 0: the hook. Frame 0 already shows the picture, the country and the name.
+tl.fromTo('#avimg',{scale:.94},{scale:1,duration:O,ease:'sine.out'},0);
+tl.fromTo('#avring',{drawSVG:'0% 30%'},{drawSVG:'0% 100%',duration:1.3,ease:'power2.inOut'},0);
+[['#p1',0.1],['#p2',0.75]].forEach(([p,t])=>tl.fromTo(p,{scale:1,opacity:.8},{scale:1.55,opacity:0,duration:1.4,ease:'power2.out'},t));
+tl.fromTo('#h1',{scale:1},{scale:1.05,duration:O,ease:'sine.out'},0);
+IN('#h2 .w',0.25,{stagger:0.12}); cue(0.25,'pluck',{p:0.6});
+const hx={v:1}; tl.fromTo(hx,{v:1},{v:D.x,duration:0.9,ease:'power2.out',onUpdate:()=>{$('hx').textContent=hx.v.toFixed(1);}},0.4);
+PUSH('#S0','#S1',O-0.45,0.6);
 
-tl.fromTo('#h1',{scale:1},{scale:1.06,duration:O,ease:'sine.out'},0);
-IN('#h2 .w',0.2,{stagger:0.05}); cue(0.2,'pluck',{p:0.6});
-PUSH('#S0','#S1',O-0.4,0.6);
-// scene 1: usual -> this one -> the multiple
+// scene 1: its usual videos, then this one breaks through and the scale zooms out
+draw();
+tl.to('#l1',{opacity:1,duration:0.4},O);
+tl.to(st,{gb:1,duration:1.1,ease:'power2.out',onUpdate:draw},O+0.1);
+bars.forEach((e,i)=>cue(O+0.1+i*1.0/Math.max(1,n),'pluck',{p:0.25+0.3*base[i]/gmax}));
+tl.fromTo('#ul',{opacity:0},{opacity:1,duration:0.3},O+0.6);
+// this one grows on screen with its counter on top; when it reaches the top the scale pulls back:
+// it keeps climbing while its channel's videos and the gridlines sink
+tl.fromTo('#tvl',{opacity:0},{opacity:1,duration:0.3},O+1.4);
+tl.to(st,{V:D.views,duration:2.4,ease:'power3.in',onUpdate:draw},O+1.4);
+cue(O+1.4,'pluck',{p:0.95,mp:true});
+IN('#cap',O+3.0,{stagger:0});
+const x={v:1}; tl.fromTo(x,{v:1},{v:D.x,duration:0.9,ease:'power2.out',onUpdate:()=>{$('xv').textContent=x.v.toFixed(1);}},O+3.7);
+tl.fromTo('.mult',{opacity:0,scale:0.7},{opacity:1,scale:1,duration:0.9,ease:'back.out(1.4)',transformOrigin:'50% 60%'},O+3.7);
+cue(O+4.5,'hit',{g:0.75});
+tl.fromTo('#ring',{scale:0.3,opacity:0.9},{scale:2.4,opacity:0,duration:1.0,ease:'power2.out',immediateRender:false},O+4.5);
+document.querySelectorAll('.spark').forEach((s,i)=>{const a=i/16*Math.PI*2, r=260+((i*37)%5)*40;
+  tl.fromTo(s,{x:0,y:0,opacity:1,scale:1},{x:Math.cos(a)*r,y:Math.sin(a)*r*0.55,opacity:0,scale:0.3,duration:0.9,ease:'power3.out',immediateRender:false},O+4.5);});
+tl.fromTo('.mult',{textShadow:'0 0 60px rgba(0,229,255,.45)'},{textShadow:'0 0 120px rgba(0,229,255,.95)',duration:0.45,yoyo:true,repeat:1,ease:'sine.inOut'},O+4.5);
 
-IN('#l1',O+0.1,{stagger:0});
-const u={v:0}; tl.fromTo(u,{v:0},{v:D.usual,duration:0.8,ease:'power2.out',onUpdate:()=>{$('usualN').textContent=fmt(u.v);}},O+0.2);
-tl.fromTo('#usualN',{opacity:0,y:40},{opacity:1,y:0,duration:0.5},O+0.2);
-tl.fromTo(['#bu','#bul'],{opacity:0},{opacity:1,duration:0.3},O+0.6);
-IN('#l2',O+1.1,{stagger:0});
-const v={v:0}; tl.fromTo(v,{v:0},{v:D.views,duration:1.4,ease:'power2.out',onUpdate:()=>{$('viewsN').textContent=fmt(v.v);}},O+1.25);
-tl.fromTo('#viewsN',{opacity:0,y:40},{opacity:1,y:0,duration:0.5},O+1.25);
-tl.fromTo('#bt',{scaleX:0},{scaleX:1,duration:1.4,ease:'power2.out'},O+1.3);
-cue(O+1.3,'pluck',{p:0.8,mp:true});
-IN('#asof',O+2.2,{stagger:0});
-const x={v:1}; tl.fromTo(x,{v:1},{v:D.x,duration:1.1,ease:'power2.out',onUpdate:()=>{$('xv').textContent=x.v.toFixed(1);}},O+2.6);
-tl.fromTo('.mult',{opacity:0,scale:0.8},{opacity:1,scale:1,duration:1.1,transformOrigin:'50% 60%'},O+2.6);
-cue(O+3.6,'hit',{g:0.7});
-tl.fromTo('.mult',{textShadow:'0 0 60px rgba(0,229,255,.45)'},{textShadow:'0 0 110px rgba(0,229,255,.9)',duration:0.5,yoyo:true,repeat:1,ease:'sine.inOut'},O+3.6);
-
-// scene 2: the video and the creator
+// scene 2: the video, its thumbnail tilting in, then the creator
 PUSH('#S1','#S2',T2);
-IN('#ttl',T2+0.25,{stagger:0}); IN('#who',T2+0.6,{stagger:0}); IN('#subs',T2+0.8,{stagger:0}); IN('#first',T2+1.1,{stagger:0});
+tl.fromTo('#card',{rotateX:24,y:80,scale:0.9,opacity:0},{rotateX:0,y:0,scale:1,opacity:1,duration:1.0,ease:'power3.out'},T2+0.15);
+tl.fromTo('#thumb',{scale:1},{scale:1.1,duration:T3-T2,ease:'none'},T2);
+tl.fromTo('#vchip',{opacity:0,x:-40},{opacity:1,x:0,duration:0.5},T2+0.9); cue(T2+0.9,'pluck',{p:0.7});
+IN('#ttl',T2+0.6,{stagger:0}); IN('#row',T2+1.1,{stagger:0}); IN('#first',T2+1.5,{stagger:0});
 
-// scene 3: what it did differently
+// scene 3: what it did differently, over the thumbnail blurred
 PUSH('#S2','#S3',T3);
 tl.to('#ga',{opacity:1,duration:1.0,ease:'sine.inOut'},T3);
-IN('#why .w',T3+0.3,{stagger:0.06});
+tl.to('#wbg',{opacity:0.16,duration:1.0},T3);
+tl.fromTo('#wbg',{scale:1.05},{scale:1.15,duration:TE-T3+0.8,ease:'none'},T3);
+tl.fromTo('#uline',{scaleX:0},{scaleX:1,duration:0.6,ease:'power3.out'},T3+0.25);
+IN('#why .w',T3+0.35,{stagger:0.07});
 
 // outro
 PUSH('#S3','#SE',TE,0.8);
@@ -159,6 +226,7 @@ IN('#outT .w',TE+1.1); IN('#outS',TE+1.4,{stagger:0}); IN('#cta .w',TE+1.8); IN(
 tl.to({},{duration:0.01},DUR);
 
 window.render=t=>{tl.seek(t,false);};
-document.fonts.ready.then(()=>{window.__ready=true;});
+const imgs=[...document.images].filter(i=>i.getAttribute('src'));
+Promise.all([document.fonts.ready,...imgs.map(i=>i.decode().catch(()=>{}))]).then(()=>{window.__ready=true;});
 render(0);
 </script></body></html>

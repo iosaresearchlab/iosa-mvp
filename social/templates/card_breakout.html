@@ -27,18 +27,53 @@
   .mark{display:block;font-weight:700;font-size:20px;}
   .sub{display:block;font-size:14px;letter-spacing:.14em;color:var(--muted);margin-top:4px;}
   footer > div:last-child{color:var(--muted);font-size:20px;}
+
+  /* Face layout (owner, 24/10: the creator's face and the video's thumbnail lead the card).
+     Used when the data carries "thumb" and "avatar"; without them the card keeps the layout above. */
+  .face{display:none;}
+  .card.f .classic{display:none;}
+  .card.f .face{display:block;}
+  .card.f .classic{display:none;}
+  .card.f.wide .herof{font-size:176px;}
+  .card.f.wide .herot .a{font-size:42px;}
+  .thumbwrap{position:relative;margin-top:36px;width:936px;height:527px;}
+  .thumb{width:936px;height:527px;object-fit:cover;border-radius:22px;display:block;border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04);}
+  .chip{position:absolute;right:22px;bottom:22px;background:var(--accent);color:#04161a;font-weight:900;font-size:30px;letter-spacing:-.01em;padding:10px 18px;border-radius:12px;box-shadow:0 0 34px rgba(0,229,255,.55);}
+  .avatar{position:absolute;left:30px;bottom:-84px;width:176px;height:176px;border-radius:50%;object-fit:cover;border:6px solid var(--ground);box-shadow:0 0 0 5px var(--accent),0 0 46px rgba(0,229,255,.55);background:var(--surface);}
+  .namerow{margin:22px 0 0 236px;min-height:86px;}
+  .name{font-size:48px;font-weight:900;color:#fff;letter-spacing:-.02em;line-height:1.05;}
+  .subs{font-size:26px;color:var(--muted);font-weight:500;margin-top:6px;}
+  .herorow{display:flex;align-items:flex-end;gap:30px;margin-top:40px;}
+  .herof{font-weight:900;letter-spacing:-.04em;line-height:.8;font-size:200px;color:var(--accent);white-space:nowrap;text-shadow:0 0 60px rgba(0,229,255,.35);}
+  .herot{padding-bottom:6px;}
+  .herot .a{white-space:nowrap;font-size:46px;font-weight:800;letter-spacing:-.02em;line-height:1.05;}
+  .herot .u{font-size:22px;color:var(--muted);margin-top:12px;letter-spacing:.04em;}
+  .herot .u b{color:var(--ink);font-weight:700;}
+  .linef{margin:16px 0 0;font-size:32px;line-height:1.3;color:var(--muted);font-weight:500;}
+  .titlef{margin:34px 0 0;font-size:38px;line-height:1.2;font-weight:800;letter-spacing:-.01em;}
 </style></head><body>
 <section class="card" id="card">
   <div class="eyebrow mono"><span><b>IOSA</b> · Breakout of the day</span><span id="where"></span></div>
-  <div style="height:56px;flex-shrink:0"></div>
-  <h1 class="hero" id="x"></h1>
-  <p class="after">its channel's usual <span id="state"></span></p>
-  <div class="bars">
-    <div class="row"><div class="lab mono"><span>The channel's usual video</span><b id="usual"></b></div><div class="track"><div class="fill" id="f1" style="background:var(--muted)"></div></div></div>
-    <div class="row"><div class="lab mono"><span>This video</span><b id="views" style="color:var(--accent)"></b></div><div class="track"><div class="fill" style="width:100%;background:var(--accent);box-shadow:0 0 30px rgba(0,229,255,.5)"></div></div></div>
+
+  <div class="face">
+    <div class="thumbwrap"><img class="thumb" id="thumb"><div class="chip" id="chip"></div><img class="avatar" id="avatar"></div>
+    <div class="namerow"><div class="name" id="name"></div><div class="subs" id="subs"></div></div>
+    <div class="herorow"><div class="herof" id="xf"></div><div class="herot"><div class="a">its channel's usual</div><div class="u mono">usual video · <b id="usualf"></b></div></div></div>
+    <p class="titlef" id="titlef"></p>
+    <p class="linef" id="linef"></p>
   </div>
-  <div class="vt mono" id="vtl">The video</div><p class="title" id="title"></p>
-  <p class="who" id="who"></p>
+
+  <div class="classic">
+    <div style="height:56px;flex-shrink:0"></div>
+    <h1 class="hero" id="x"></h1>
+    <p class="after">its channel's usual <span id="state"></span></p>
+    <div class="bars">
+      <div class="row"><div class="lab mono"><span>The channel's usual video</span><b id="usual"></b></div><div class="track"><div class="fill" id="f1" style="background:var(--muted)"></div></div></div>
+      <div class="row"><div class="lab mono"><span>This video</span><b id="views" style="color:var(--accent)"></b></div><div class="track"><div class="fill" style="width:100%;background:var(--accent);box-shadow:0 0 30px rgba(0,229,255,.5)"></div></div></div>
+    </div>
+    <div class="vt mono" id="vtl">The video</div><p class="title" id="title"></p>
+    <p class="who" id="who"></p>
+  </div>
   <div class="grow"></div>
   <p class="src mono" id="src"></p>
   <footer class="mono"><div><span class="mark">IOSA</span><span class="sub">INSTITUTE FOR OPEN SOCIAL ANALYTICS</span></div><div>iosaresearch.org</div></footer>
@@ -46,9 +81,33 @@
 <script>
   const q=new URLSearchParams(location.search);
   const D=JSON.parse(q.get('d'));
-  const set=(id,v)=>document.getElementById(id).innerHTML=v;
-  set('where',D.where); set('x',D.x); set('state',D.state||''); set('usual',D.usual); set('views',D.views); set('who',D.who); set('src',D.src); set('title',D.title?'\u201c'+D.title+'\u201d':''); if(!D.title)document.getElementById('vtl').style.display='none';
-  // usual bar is drawn to scale, with a 6px floor so it stays visible
-  document.getElementById('f1').style.width=Math.max(D.usualN/D.viewsN*100,0.6)+'%';
+  const $=id=>document.getElementById(id);
+  const set=(id,v)=>$(id).innerHTML=v;
+  const quote=t=>t?'“'+t+'”':'';
+  set('where',D.where); set('src',D.src);
+  window.__ready=false;
+  if(D.thumb && D.avatar){
+    // face layout: channel name and subscribers come from "channel"/"subs", or from the <strong>/<em> of "who"
+    $('card').classList.add('f');
+    const tmp=document.createElement('div'); tmp.innerHTML=D.who||'';
+    const name=D.channel||(tmp.querySelector('strong')?.textContent||'');
+    const subs=D.subs||((tmp.querySelector('em')?.textContent||'').replace(/^\s*·\s*/,''));
+    set('name',name); set('subs',subs); set('xf',D.x); set('usualf',D.usual); set('chip',D.views); set('titlef',quote(D.title));
+    const line=D.line||((D.who||'').split(/<br\s*\/?>/i)[1]||''); set('linef',line);
+    const imgs=[$('thumb'),$('avatar')];
+    $('thumb').src=D.thumb; $('avatar').src=D.avatar;
+    if(String(D.x).replace(/[^0-9.,]/g,'').length>=4) $('card').classList.add('wide');
+    // keep the footer inside the card: drop the description line, then shorten the thumbnail
+    const fit=()=>{ const c=$('card').getBoundingClientRect(), f=document.querySelector('footer').getBoundingClientRect(); return f.bottom<=c.bottom-40; };
+    Promise.all(imgs.map(i=>i.decode().catch(()=>{}))).then(()=>document.fonts.ready).then(()=>{
+      if(!fit()) $('linef').style.display='none';
+      if(!fit()){ $('thumb').style.height='470px'; document.querySelector('.thumbwrap').style.height='470px'; }
+      window.__ready=true;});
+  } else {
+    set('x',D.x); set('state',D.state||''); set('usual',D.usual); set('views',D.views); set('who',D.who); set('title',quote(D.title)); if(!D.title)$('vtl').style.display='none';
+    // usual bar is drawn to scale, with a 6px floor so it stays visible
+    $('f1').style.width=Math.max(D.usualN/D.viewsN*100,0.6)+'%';
+    document.fonts.ready.then(()=>{window.__ready=true;});
+  }
 </script>
 </body></html>
