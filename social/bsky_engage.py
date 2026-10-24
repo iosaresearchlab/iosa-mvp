@@ -1,13 +1,15 @@
-"""SOC-E (23/10/2026): likes and follows on Bluesky, within fixed limits, by the official API.
+"""SOC-E (23/10/2026; limits SOC-E2, owner 24/10): likes and follows on Bluesky, within fixed
+limits, by the official API.
 
 Usage (from C:\\Work\\iosa-lab\\renders\\social, through the wrapper there):
     python3 bsky_engage.py --like <post> [<post> ...] --follow <handle> [<handle> ...]
     python3 bsky_engage.py --like https://bsky.app/profile/x.bsky.social/post/3abc --dry-run
 
 A post is an at:// URI or its bsky.app link; a handle may carry the @. The limits are fixed:
-- never more than 4 likes and 2 follows in one run (a run asking for more does nothing);
-- never the same account twice in 7 days, counting likes and follows together and the run
-  itself: an account already in renders/social/bsky_engage.log in the last 7 days is skipped;
+- never more than 25 likes and 10 follows in one run (a run asking for more does nothing);
+- the same account at most once in 24 hours, counting likes and follows together and the run
+  itself: an account already in renders/social/bsky_engage.log in the last 24 hours is skipped
+  (SOC-E2, the owner's volumes of 24/10; were 4 likes, 2 follows, once in 7 days);
 - never a reply, never a post: the script only writes app.bsky.feed.like and
   app.bsky.graph.follow records.
 A post already liked, or an account already followed, is skipped and not logged. Every action
@@ -27,7 +29,7 @@ RENDERS = paths.renders()
 BSKY = "https://bsky.social/xrpc"
 HANDLE = "iosaresearch.bsky.social"
 LOG = "bsky_engage.log"
-MAX_LIKES, MAX_FOLLOWS, DAYS = 4, 2, 7
+MAX_LIKES, MAX_FOLLOWS, HOURS = 25, 10, 24
 WEB = re.compile(r"^https://bsky\.app/profile/([^/]+)/post/([A-Za-z0-9]+)/?$")
 
 
@@ -35,10 +37,10 @@ def now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def recent(days=DAYS):
-    """DIDs in the log of the last `days` days."""
+def recent(hours=HOURS):
+    """DIDs in the log of the last `hours` hours."""
     f = HERE / LOG
-    seen, since = set(), now() - datetime.timedelta(days=days)
+    seen, since = set(), now() - datetime.timedelta(hours=hours)
     if not f.is_file():
         return seen
     for line in f.read_text(encoding="utf-8").splitlines():
@@ -139,7 +141,7 @@ def run(likes, follows, dry=False, api=None):
             skipped.append(f"{action} {handle}: our own account")
             continue
         if did in seen:
-            skipped.append(f"{action} {handle}: account already engaged in the last {DAYS} days")
+            skipped.append(f"{action} {handle}: account already engaged in the last {HOURS} hours")
             continue
         seen.add(did)
         if not dry:

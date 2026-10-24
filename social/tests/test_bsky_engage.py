@@ -68,25 +68,25 @@ def test_one_like_and_one_follow_are_written_and_logged(be, net, capsys):
     assert "BSKY-PASSWORD" not in out and "JWT" not in out and "YouTube units: 0" in out
 
 
-def test_more_than_four_likes_or_two_follows_does_nothing(be, net):
+def test_more_than_25_likes_or_10_follows_does_nothing(be, net):
     with pytest.raises(SystemExit):
-        be.run([f"at://did:plc:a/app.bsky.feed.post/{i}" for i in range(5)], [])
+        be.run([f"at://did:plc:a/app.bsky.feed.post/{i}" for i in range(26)], [])
     with pytest.raises(SystemExit):
-        be.run([], ["a", "b", "c"])
+        be.run([], [f"h{i}.bsky.social" for i in range(11)])
     assert net["seen"] == []                                   # not even the login
 
 
-def test_the_same_account_is_never_engaged_twice_in_seven_days(be, net):
-    old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=8)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    new = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+def test_the_same_account_is_engaged_at_most_once_in_24_hours(be, net):
+    old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=25)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    new = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=23)).strftime("%Y-%m-%dT%H:%M:%SZ")
     (be.HERE / be.LOG).write_text(f"{old} like did:plc:old old.bsky.social at://x\n"
                                   f"{new} follow did:plc:ana ana.bsky.social\n", encoding="utf-8")
     net["posts"] = [post("1", "did:plc:ana", "ana.bsky.social"), post("2", "did:plc:old", "old.bsky.social"),
                     post("3", "did:plc:cy", "cy.bsky.social"), post("4", "did:plc:cy", "cy.bsky.social")]
     done, skipped, _ = be.run([p["uri"] for p in net["posts"]], [])
-    assert [d.split()[1] for d in done] == ["old.bsky.social", "cy.bsky.social"]     # 8 days ago is fine
-    assert any("ana.bsky.social" in s and "7 days" in s for s in skipped)
-    assert any("cy.bsky.social" in s and "7 days" in s for s in skipped)             # twice in one run
+    assert [d.split()[1] for d in done] == ["old.bsky.social", "cy.bsky.social"]     # 25 hours ago is fine
+    assert any("ana.bsky.social" in s and "24 hours" in s for s in skipped)
+    assert any("cy.bsky.social" in s and "24 hours" in s for s in skipped)             # twice in one run
     assert len(net["created"]) == 2
 
 
@@ -102,3 +102,14 @@ def test_already_liked_or_followed_and_dry_run_write_nothing(be, net):
 def test_it_only_ever_writes_likes_and_follows(be):
     src = (be.paths.CODE / "bsky_engage.py").read_text(encoding="utf-8")
     assert "app.bsky.feed.post\", {" not in src and "reply" not in src.split('"""', 2)[2]
+
+
+def test_the_limits_are_the_owners_of_24_10(be):
+    assert (be.MAX_LIKES, be.MAX_FOLLOWS, be.HOURS) == (25, 10, 24)
+
+
+def test_25_likes_and_10_follows_on_different_accounts_all_go_through(be, net):
+    net["posts"] = [post(str(i), f"did:plc:a{i}", f"a{i}.bsky.social") for i in range(25)]
+    net["profiles"] = [{"did": f"did:plc:f{i}", "handle": f"f{i}.bsky.social", "viewer": {}} for i in range(10)]
+    done, skipped, _ = be.run([p["uri"] for p in net["posts"]], [p["handle"] for p in net["profiles"]])
+    assert len(done) == 35 and skipped == [] and len(net["created"]) == 35
