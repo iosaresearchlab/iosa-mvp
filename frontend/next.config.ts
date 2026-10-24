@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // database read for ~30 s (leggi(), src/lib/supabase-server.ts); the default
   // 60 s per page left too little room for five slow reads.
   staticPageGenerationTimeout: 120,
+  // SOC-W1 (24/10/2026): the sitemap is regenerated at run time (ISR) and lists the
+  // published Findings stories, read from content/findings.
+  outputFileTracingIncludes: {
+    '/sitemap.xml': ['./content/findings/**/*'],
+  },
   // Le pagine legali sono diventate file statici in /public, come richiesto da
   // TikTok (pagine standalone, raggiungibili e stampabili). Questi redirect
   // tengono vivi i vecchi indirizzi /privacy e /terms, che possono essere gia'

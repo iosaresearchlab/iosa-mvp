@@ -1,402 +1,45 @@
-'use client';
+// SOC-W1 (24/10/2026): /insights is a server page so the Findings block (newest
+// first, at most 5, from the repository at build time) sits above the stats,
+// which the client part still reads from the analytics API.
+import Link from 'next/link';
+import { ArrowRight, BookOpen } from 'lucide-react';
+import InsightsClient from '@/components/InsightsClient';
+import { dataLunga, storiePubblicate } from '@/lib/findings';
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { formatVPI } from "@/lib/format";
-import ContenutoMetodologia from '@/components/MetodologiaModal';
-import {
-  TrendingUp,
-  Trophy,
-  HelpCircle,
-  Info,
-  ArrowLeft,
-  ShieldCheck,
-  X,
-  Globe,
-  Layers,
-  Zap,
-  Flame,
-  BarChart3,
-  Sparkles,
-  Tag
-} from "lucide-react";
+const MASSIMO = 5;
 
-interface StatDetail {
-  avg_vpi: number;
-  outlier_count: number;
+function BloccoFindings() {
+  const storie = storiePubblicate();
+  if (!storie.length) return null; // drafts are never linked
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
+        <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-[#00E5FF]" />
+          <span>Findings</span>
+        </h2>
+        <Link href="/insights/findings" className="font-mono text-[11px] text-gray-400 hover:text-[#00E5FF] inline-flex items-center gap-1">
+          All findings <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+      <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {storie.slice(0, MASSIMO).map((m) => (
+          <li key={m.slug}>
+            <Link
+              href={`/insights/findings/${m.slug}`}
+              className="block h-full bg-[#070A10] border border-gray-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-colors"
+            >
+              <p className="font-mono text-[10px] text-gray-500">{dataLunga(m.date)}</p>
+              <h3 className="font-mono font-bold text-white text-sm mt-1">{m.title}</h3>
+              <p className="text-xs text-gray-400 mt-1">{m.summary}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
-
-interface InsightsData {
-  by_country: Record<string, StatDetail>;
-  by_category: Record<string, StatDetail>;
-  macro_regions: Record<string, StatDetail>;
-}
-
-interface KeywordItem {
-  keyword: string;
-  frequency: number;
-  viral_velocity: number;
-}
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-type ModalType = 'faq' | 'methodology' | null;
 
 export default function InsightsPage() {
-  const [insights, setInsights] = useState<InsightsData | null>(null);
-  const [keywords, setKeywords] = useState<KeywordItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [minVpiFilter, setMinVpiFilter] = useState<number>(5.0);
-  const [error, setError] = useState<string | null>(null);
-  const [activeModal, setActiveModal] = useState<ModalType>(null);
-
-  useEffect(() => {
-    document.title = 'IOSA — Macro Insights & Analytics';
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    fetchKeywords();
-  }, [minVpiFilter]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [insightsRes, keywordsRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/analytics/insights`),
-        fetch(`${BACKEND_URL}/api/analytics/keywords?min_vpi=${minVpiFilter}`)
-      ]);
-
-      if (!insightsRes.ok) throw new Error("Failed to load insights data");
-      if (!keywordsRes.ok) throw new Error("Failed to load viral keywords data");
-
-      const insightsJson = await insightsRes.json();
-      const keywordsJson = await keywordsRes.json();
-
-      setInsights(insightsJson);
-      setKeywords(keywordsJson.keywords || []);
-    } catch (err: any) {
-      console.error("Error fetching analytics insights:", err);
-      setError("Unable to load macro insights. Please verify backend service.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchKeywords = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/analytics/keywords?min_vpi=${minVpiFilter}`);
-      if (res.ok) {
-        const data = await res.json();
-        setKeywords(data.keywords || []);
-      }
-    } catch (err) {
-      console.error("Error updating keywords:", err);
-    }
-  };
-
-  return (
-    <main className="min-h-screen bg-[#030508] text-white font-sans relative flex flex-col justify-between">
-      
-
-      {/* Main Content Area */}
-      <div className="pt-6 pb-12 px-4 md:px-8 max-w-7xl mx-auto space-y-6 flex-grow w-full font-sans">
-        
-        {/* Back to Home Button - Placed below header on the left side */}
-        <div className="flex justify-start">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gray-900/90 hover:bg-gray-800 border border-gray-800 text-gray-300 hover:text-[#00E5FF] transition-all font-mono text-xs shadow-md group"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#00E5FF] group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back to Home</span>
-          </Link>
-        </div>
-
-        {/* Header Section */}
-        <div className="bg-gradient-to-b from-[#0B101B] to-[#070A10] border border-gray-800 rounded-2xl p-6 relative shadow-xl">
-          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E5FF]/10 rounded-full blur-3xl" />
-          </div>
-
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 px-3 py-0.5 rounded-full mb-2">
-              <BarChart3 className="w-3 h-3 text-[#00E5FF]" />
-              <span>Global Algorithmic Intelligence</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white flex items-center gap-3">
-              Macro Insights & Analytics
-            </h1>
-            <p className="text-gray-400 mt-1 text-xs sm:text-sm font-sans max-w-2xl">
-              Global Viral Performance Index (VPI) distribution, regional benchmarks, category density, and keyword mining.
-            </p>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 bg-[#070A10] rounded-2xl border border-gray-800">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#00E5FF] mb-4"></div>
-            <p className="text-gray-400 text-xs font-mono">Aggregating global VPI dataset & running keyword mining...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-950/40 border border-red-800 text-red-300 p-6 rounded-xl text-center font-mono text-xs">
-            {error}
-          </div>
-        ) : (
-          <>
-            {/* SEZIONE 1: BENCHMARK REGIONALI & COUNTRY */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
-                <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-[#00E5FF]" />
-                  <span>Macro-Region & Country Benchmarks</span>
-                </h2>
-                <span className="text-[10px] font-mono text-gray-500">Section 01</span>
-              </div>
-
-              {/* Macro-Regions Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {insights &&
-                  Object.entries(insights.macro_regions || {}).map(([region, stat]) => (
-                    <div
-                      key={region}
-                      className="bg-[#070A10] border border-gray-800 hover:border-cyan-500/40 transition-all rounded-2xl p-5 shadow-xl flex flex-col justify-between group"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">
-                            {region}
-                          </span>
-                          <div className="p-1.5 bg-cyan-950/50 border border-cyan-500/20 rounded-lg text-[#00E5FF] group-hover:scale-110 transition-transform">
-                            <Zap className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                        <div className="flex items-baseline justify-between mt-3">
-                          <span className="text-2xl sm:text-3xl font-black font-mono text-[#00E5FF]">
-                            {formatVPI(stat.avg_vpi)}
-                          </span>
-                          <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
-                            {stat.outlier_count} Spikes
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-4 font-mono">Average VPI multiplier across region</p>
-                    </div>
-                  ))}
-              </div>
-
-              {/* Top Countries Table */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
-                    <Flame className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Country VPI Performance Breakdown</span>
-                  </h3>
-                  <span className="text-[10px] font-mono text-gray-500">Sorted by Avg VPI</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {insights &&
-                    Object.entries(insights.by_country || {})
-                      .sort((a, b) => b[1].avg_vpi - a[1].avg_vpi)
-                      .map(([country, stat]) => (
-                        <div
-                          key={country}
-                          className="bg-black/60 p-3 rounded-xl border border-gray-800 hover:border-gray-700 transition-all font-mono"
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-white">{country}</span>
-                            <span className="text-[9px] text-gray-500">{stat.outlier_count} posts</span>
-                          </div>
-                          <div className="text-base font-black text-[#00E5FF]">
-                            {formatVPI(stat.avg_vpi)}
-                          </div>
-                        </div>
-                      ))}
-                </div>
-              </div>
-            </section>
-
-            {/* SEZIONE 2: DISTRIBUZIONE CATEGORIE */}
-            <section className="space-y-4 pt-2">
-              <div className="flex items-center justify-between pb-1 border-b border-gray-800/80">
-                <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#00E5FF]" />
-                  <span>Category Virality Density</span>
-                </h2>
-                <span className="text-[10px] font-mono text-gray-500">Section 02</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {insights &&
-                  Object.entries(insights.by_category || {})
-                    .sort((a, b) => b[1].outlier_count - a[1].outlier_count)
-                    .map(([cat, stat]) => (
-                      <div
-                        key={cat}
-                        className="bg-[#070A10] border border-gray-800 hover:border-cyan-500/30 transition-all rounded-2xl p-4 flex items-center justify-between shadow-xl"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Tag className="w-3.5 h-3.5 text-[#00E5FF]" />
-                            <h3 className="text-xs font-bold font-mono text-white">{cat}</h3>
-                          </div>
-                          <p className="text-[11px] text-gray-400 font-mono">
-                            Detected Spikes: <strong className="text-white">{stat.outlier_count}</strong>
-                          </p>
-                        </div>
-                        <div className="text-right font-mono">
-                          <div className="text-lg font-black text-[#00E5FF]">
-                            {formatVPI(stat.avg_vpi)}
-                          </div>
-                          <div className="text-[8px] text-gray-500 uppercase tracking-wider">Avg Velocity</div>
-                        </div>
-                      </div>
-                    ))}
-              </div>
-            </section>
-
-            {/* SEZIONE 3: VIRAL KEYWORD CLOUD / RANKER */}
-            <section className="space-y-4 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-gray-800/80">
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold font-mono text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#00E5FF]" />
-                    <span>Viral Keyword Mining & Velocity Ranker</span>
-                  </h2>
-                </div>
-
-                {/* Min VPI Filter Selector */}
-                <div className="flex items-center gap-2 bg-[#070A10] p-1.5 rounded-xl border border-gray-800 self-start sm:self-auto font-mono">
-                  <span className="text-[10px] text-gray-400 pl-2 font-medium">Min VPI Threshold:</span>
-                  {[3.0, 5.0, 8.0].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setMinVpiFilter(val)}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                        minVpiFilter === val
-                          ? "bg-[#00E5FF] text-black shadow-md shadow-cyan-950/50"
-                          : "text-gray-400 hover:text-white"
-                      }`}
-                    >
-                      +{val.toFixed(1)}x
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Word Cloud Representation */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl p-5 shadow-xl">
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400 mb-3">
-                  Extracted Viral Keyword Cloud
-                </h3>
-                <div className="flex flex-wrap gap-2 items-center justify-center py-3">
-                  {keywords.map((kw) => {
-                    const sizeClass =
-                      kw.viral_velocity >= 10
-                        ? "text-sm px-3.5 py-1.5 bg-cyan-950/60 text-cyan-300 border-cyan-500/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]"
-                        : kw.viral_velocity >= 6
-                        ? "text-xs px-3 py-1 bg-black text-[#00E5FF] border-gray-700 hover:border-cyan-500/40"
-                        : "text-[11px] px-2.5 py-1 bg-black/80 text-gray-300 border-gray-800";
-
-                    return (
-                      <span
-                        key={kw.keyword}
-                        className={`font-mono font-bold rounded-xl border transition-all hover:scale-105 inline-flex items-center gap-1.5 cursor-default ${sizeClass}`}
-                      >
-                        #{kw.keyword}
-                        <span className="text-[9px] opacity-75 font-normal">
-                          ({formatVPI(kw.viral_velocity)})
-                        </span>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Keyword Analytics Table */}
-              <div className="bg-[#070A10] border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
-                <div className="px-5 py-3 border-b border-gray-800 font-mono font-bold text-xs uppercase tracking-wider text-gray-300 flex items-center justify-between">
-                  <span>Term Frequency & Velocity Ranker</span>
-                  <span className="text-[10px] text-gray-500 font-normal">Top Recurrent Terms</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-gray-300 font-mono">
-                    <thead className="bg-black text-gray-400 uppercase tracking-wider font-semibold border-b border-gray-800 text-[10px]">
-                      <tr>
-                        <th className="px-5 py-3">Keyword / Term</th>
-                        <th className="px-5 py-3 text-center">Frequency (Occurrences)</th>
-                        <th className="px-5 py-3 text-right">Avg Viral Velocity</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800/60">
-                      {keywords.slice(0, 15).map((kw, i) => (
-                        <tr key={kw.keyword} className="hover:bg-black/60 transition-colors">
-                          <td className="px-5 py-3 font-bold text-white flex items-center gap-2">
-                            <span className="text-gray-500 text-[10px] w-4">#{i + 1}</span>
-                            <span className="text-[#00E5FF]">#{kw.keyword}</span>
-                          </td>
-                          <td className="px-5 py-3 text-center font-medium text-gray-300">
-                            {kw.frequency}
-                          </td>
-                          <td className="px-5 py-3 text-right font-black text-[#00E5FF]">
-                            {formatVPI(kw.viral_velocity)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-
-      {/* Modali Governance */}
-      {activeModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-[#0B101B] border border-cyan-500/50 rounded-2xl max-w-xl w-full p-5 max-h-[85vh] overflow-y-auto relative shadow-2xl">
-            <button
-              onClick={() => setActiveModal(null)}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-white font-mono cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {activeModal === 'faq' && (
-              <>
-                <div className="flex items-center gap-2 text-[#00E5FF] font-mono text-xs font-bold mb-1">
-                  <ShieldCheck className="w-4 h-4" /> TRANSPARENCY & GOVERNANCE FAQ
-                </div>
-                <h2 className="text-xl font-bold font-mono text-white mb-4">Frequently Asked Questions</h2>
-                <div className="space-y-4 font-sans text-xs">
-                  <div className="bg-black/40 border border-gray-800 p-3.5 rounded-xl">
-                    <h3 className="font-bold text-white text-sm font-mono mb-1">How is the VPI Ratio calculated?</h3>
-                    <p className="text-gray-300 leading-relaxed font-mono text-[11px]">
-                      VPI = E<sub>act</sub> / E<sub>base</sub>: views divided by the median views of the same channel&apos;s long-form videos published 7-90 days before it. If that median is 10,000 views and the video reaches 150,000, its VPI is 15.0x.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeModal === 'methodology' && <ContenutoMetodologia />}
-
-            <div className="mt-5 pt-3 border-t border-gray-800 flex justify-end">
-              <button
-                onClick={() => setActiveModal(null)}
-                className="bg-[#00E5FF] hover:bg-cyan-400 text-black font-mono font-bold text-xs px-4 py-2 rounded-lg transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </main>
-  );
+  return <InsightsClient findings={<BloccoFindings />} />;
 }

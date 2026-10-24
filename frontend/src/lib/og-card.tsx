@@ -153,7 +153,7 @@ async function fontGoogle(famiglia: string, testo: string): Promise<Font[]> {
 }
 
 /** The fonts for this text: Noto Sans always, then only the scripts it uses. */
-async function fontPer(testo: string): Promise<Font[]> {
+export async function fontPer(testo: string): Promise<Font[]> {
   const altre = FAMIGLIE.filter(([re]) => re.test(testo)).map(([, f]) => f);
   const caratteri = Array.from(new Set(Array.from(testo))).join('');
   const lotti = await Promise.all([
@@ -166,6 +166,11 @@ async function fontPer(testo: string): Promise<Font[]> {
 const LOGO: Promise<string> = readFile(join(process.cwd(), 'public/brand/iosa-logo@2x.png'), 'base64').then(
   (b) => `data:image/png;base64,${b}`
 );
+
+/** The IOSA mark as a data URI (SOC-W1: the Findings card uses it too). */
+export function marchioIosa(): Promise<string> {
+  return LOGO;
+}
 
 function tronca(s: string, n: number): string {
   const c = Array.from(s);

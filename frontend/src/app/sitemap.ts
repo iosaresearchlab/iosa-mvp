@@ -10,6 +10,7 @@ import {
   SITO,
 } from '@/lib/segments';
 import { SERIES_FLOOR } from '@/lib/index-start';
+import { storiePubblicate } from '@/lib/findings';
 
 export const revalidate = 21600; // OPS-1, 17/10: hourly ISR passed the Vercel Hobby limit (212K of 200K ISR writes a month); 6 h keeps pages at most 6 h behind the daily reading
 
@@ -70,5 +71,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...fisse, ...paesi, ...categorie, ...creator];
+  // SOC-W1 (24/10/2026): published Findings stories and their index; drafts never.
+  const storie = storiePubblicate();
+  const findings: MetadataRoute.Sitemap = storie.length
+    ? [
+        { url: `${SITO}/insights/findings`, lastModified: new Date(`${storie[0].date}T00:00:00Z`), changeFrequency: 'weekly', priority: 0.7 },
+        ...storie.map((m) => ({
+          url: `${SITO}/insights/findings/${m.slug}`,
+          lastModified: new Date(`${m.date}T00:00:00Z`),
+          changeFrequency: 'monthly' as const,
+          priority: 0.7,
+        })),
+      ]
+    : [];
+
+  return [...fisse, ...findings, ...paesi, ...categorie, ...creator];
 }

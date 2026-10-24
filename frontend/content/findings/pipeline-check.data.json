@@ -1,0 +1,16 @@
+{
+  "type": "bar",
+  "measure": "Records first observed per day",
+  "unit": "",
+  "reading_date": "2026-10-23",
+  "points": [
+    {"label": "17 Oct", "value": 1951},
+    {"label": "18 Oct", "value": 2049},
+    {"label": "19 Oct", "value": 2005},
+    {"label": "20 Oct", "value": 1946},
+    {"label": "21 Oct", "value": 1996},
+    {"label": "22 Oct", "value": 2109},
+    {"label": "23 Oct", "value": 2114}
+  ],
+  "note": "v2 records of public_records by entered_on, all measured formats; query tools/findings/pipeline-check.sql, run on 24 Oct 2026."
+}
