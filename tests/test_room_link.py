@@ -8,8 +8,8 @@ FE = ROOT / "frontend"
 
 def test_the_query_rule_comes_before_the_plain_rewrite():
     cfg = (FE / "next.config.ts").read_text(encoding="utf-8")
-    q = cfg.index('has: [{ type: "query", key: "c" }], destination: "/room/creator"')
-    plain = cfg.index('{ source: "/room", destination: "/room/index.html" }')
+    q = cfg.index('beforeFiles: [{ source: "/room", has: [{ type: "query", key: "c" }], destination: "/room/creator" }]')
+    plain = cfg.index('afterFiles: [{ source: "/room", destination: "/room/index.html" }]')
     assert q < plain
     assert "'/room/creator': ['./public/room/index.html']" in cfg
 

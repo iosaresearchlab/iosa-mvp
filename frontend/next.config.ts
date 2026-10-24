@@ -24,12 +24,14 @@ const nextConfig: NextConfig = {
   },
   // ROOM-1 (08/10/2026): the Breakout Room is a static page in /public/room.
   // SOC-W3 (24/10/2026): /room?c=<channel_id> is the same page with the channel's link
-  // preview (src/app/room/creator/route.ts); first match wins.
+  // preview (src/app/room/creator/route.ts). beforeFiles: on Vercel the static /room
+  // answered before an ordinary rewrite could look at the query (measured 24/10).
   async rewrites() {
-    return [
-      { source: "/room", has: [{ type: "query", key: "c" }], destination: "/room/creator" },
-      { source: "/room", destination: "/room/index.html" },
-    ];
+    return {
+      beforeFiles: [{ source: "/room", has: [{ type: "query", key: "c" }], destination: "/room/creator" }],
+      afterFiles: [{ source: "/room", destination: "/room/index.html" }],
+      fallback: [],
+    };
   },
 };
 
