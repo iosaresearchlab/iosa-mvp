@@ -1496,7 +1496,8 @@ records with format in `MEASURED_FORMATS`, `entry_certain`, not `hidden`,
 `entered_on` one of those days and `>= series_floor()`, as
 `{"from","to","v":[[video_id, title, ch_index, band_index, vpi_day1,
 views_day1, baseline, entered_off, days_charting, left_off, vpi_max,
-views_max, countries, live]],"c":[[channel_name, channel_handle]]}`;
+views_max, countries, live]],"c":[[channel_name, channel_handle, channel_id]]}`
+(channel_id since SOC-W3);
 `band_index` 0-4 from `baseline_band()`, 5 = no computable baseline; VPIs at
 two decimals rounded down; `left_off` -99 while charting. One query
 (`room_records()`), cached per state of the window's runs, gzip,
@@ -1505,6 +1506,15 @@ frontend's `/api/room/latest` (ROOM-1b), cached by Vercel's CDN for an hour
 with stale-while-revalidate, so no visitor waits for the backend to wake;
 an error is never cached. Its copy of the scale is held equal
 to `VPI_SCALE` by `tests/test_scale.py`.
+
+`/room?c=<channel_id>` *(SOC-W3, 24/10/2026)* opens the same page on that
+channel's cabinet: camera on it, the creator card open; a channel not in the
+week's room leaves the page as it is, with one line saying so. The URL is
+rewritten (`next.config.ts`, a `has` query rule before the plain one) to
+`src/app/room/creator/route.ts`, which serves `index.html` with the title,
+`og:title`, `og:url` and `twitter:title` naming the channel ("<channel name>
+in The Breakout Room", from one `public_records` read; image `/room/og.png`),
+cached a day by Vercel's CDN; an unknown id serves the page's own tags.
 
 ### 6.9 Canonical URLs *(SEO-1, 08/10/2026)*
 

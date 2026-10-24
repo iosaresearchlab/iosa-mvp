@@ -127,7 +127,7 @@ def test_the_known_video_round_trips(db, monkeypatch):
     row = next(v for v in d["v"] if v[0] == KNOWN)
     assert len(row) == 14
     assert len(row[1]) == 95 and row[1].endswith("…") and row[1].startswith("A very long title")
-    assert d["c"][row[2]] == ["name UCknown", "@UCknown"]
+    assert d["c"][row[2]] == ["name UCknown", "@UCknown", "UCknown"]
     assert row[3] == 1                                           # 100-1k
     assert row[4] == 49.99                                       # rounded down, not up to 50.00
     assert row[5:7] == [25_593, 513]

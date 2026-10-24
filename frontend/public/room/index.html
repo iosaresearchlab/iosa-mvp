@@ -142,6 +142,11 @@ button{cursor:pointer;}
 #loading{position:fixed;inset:0;display:grid;place-items:center;font-family:var(--f-data);font-size:.8rem;color:var(--mute);z-index:4;pointer-events:none;}
 
 
+/* SOC-W3: one-line notice when /room?c=<channel_id> names a channel not in this week's room */
+#notice{top:calc(env(safe-area-inset-top,0px) + 64px);text-align:center;left:50%;transform:translateX(-50%);z-index:11;max-width:calc(100vw - 32px);background:var(--panel-solid);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:.82rem;color:var(--ink);cursor:pointer;}
+
+@media (max-width:700px){#notice{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);border-radius:12px;width:calc(100vw - 32px);}}
+
 /* reel mode (#reel): the page renders frames on demand for the video */
 body.reel .hud, body.reel #intro, body.reel #loading{display:none !important;}
 #reelUI{display:none;}
@@ -205,6 +210,7 @@ body.reel #reelUI{display:block;position:fixed;inset:0;z-index:20;pointer-events
 <div id="hint" class="hud">drag to look · scroll to zoom · right-drag to move · W A S D</div>
 
 <div id="card" class="hud" hidden></div>
+<div id="notice" class="hud" role="status" hidden></div>
 <div id="reelUI" aria-hidden="true"><div class="mark"><b>IOSA</b> · The Breakout Room<span id="reelSub"></span></div><div class="cap"><div class="l1" id="cap1"></div><div class="l2" id="cap2"></div></div><div class="end" id="reelEnd"><div class="e1">IOSA · Most Popular</div><div class="e2">The Breakout Room</div><div class="e3">Every long-form video of the week, measured against its own channel.</div><div class="e4">iosaresearch.org/room</div></div></div>
 
 <div id="intro" class="overlay">
@@ -683,9 +689,31 @@ addEventListener('resize', () => {
 function fromHash() { const m = /^#zone([0-5])$/.exec(location.hash); if (m) { closeIntro(); flyToZone(+m[1]); } }
 addEventListener('hashchange', fromHash);
 
+// SOC-W3 (24/10/2026): /room?c=<channel_id> opens on that channel's cabinet, camera on it,
+// the creator card open; a channel not in this week's room leaves the page as it is, with
+// one line saying so. c[2] is the channel id (GET /api/room/latest, 02 section 6.8).
+function fromChannel() {
+  const id = new URLSearchParams(location.search).get('c');
+  if (!id) return;
+  const ci = C.findIndex(c => c[2] === id);
+  const own = ci < 0 ? [] : (chStacks.get(ci) || []);
+  if (!own.length) {
+    const n = document.getElementById('notice');
+    n.textContent = `That channel has no video first observed in Most Popular ${PERIOD}.`;
+    n.hidden = false;
+    n.addEventListener('click', () => { n.hidden = true; }, {once: true});
+    return;
+  }
+  const si = own[0];
+  closeIntro(); flyToStack(si);
+  const sel = {kind:'creator', si}; showHighlight(sel);
+  setTimeout(() => showCard(sel, innerWidth * 0.62, innerHeight * 0.25, true), REDUCED ? 0 : 1300);
+}
+
 
 // ---------- reel mode ----------
 const REEL = location.hash === '#reel';
+if (!REEL) fromChannel();
 if (REEL) {
   document.body.classList.add('reel'); intro.hidden = true; labelRenderer.domElement.style.visibility = 'hidden';
   controls.enabled = false; controls.autoRotate = false;

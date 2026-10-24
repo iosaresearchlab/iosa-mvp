@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   // published Findings stories, read from content/findings.
   outputFileTracingIncludes: {
     '/sitemap.xml': ['./content/findings/**/*'],
+    // SOC-W3: /room?c= serves the room page with the channel's link preview.
+    '/room/creator': ['./public/room/index.html'],
   },
   // Le pagine legali sono diventate file statici in /public, come richiesto da
   // TikTok (pagine standalone, raggiungibili e stampabili). Questi redirect
@@ -21,8 +23,13 @@ const nextConfig: NextConfig = {
     ];
   },
   // ROOM-1 (08/10/2026): the Breakout Room is a static page in /public/room.
+  // SOC-W3 (24/10/2026): /room?c=<channel_id> is the same page with the channel's link
+  // preview (src/app/room/creator/route.ts); first match wins.
   async rewrites() {
-    return [{ source: "/room", destination: "/room/index.html" }];
+    return [
+      { source: "/room", has: [{ type: "query", key: "c" }], destination: "/room/creator" },
+      { source: "/room", destination: "/room/index.html" },
+    ];
   },
 };
 

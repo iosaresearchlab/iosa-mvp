@@ -886,7 +886,7 @@ def get_day1_bands(format: str = "LONG"):
 #   v: [video_id, title, ch_index, band_index, vpi_day1, views_day1, baseline,
 #       entered_off, days_charting, left_off, vpi_max, views_max,
 #       "countries space-separated", live]
-#   c: [channel_name, channel_handle]
+#   c: [channel_name, channel_handle, channel_id]   (channel_id: SOC-W3, /room?c=)
 # band_index 0..4 = BASELINE_BANDS in order, 5 = no computable baseline (rule
 # not standard or no day-1 VPI): those records stay. The week is the 7 most
 # recent readings with a complete census (latest), or the 7 starting on a day
@@ -949,7 +949,7 @@ def room_payload(client, runs):
         ch = r.get("channel_id")
         if ch not in channels:
             channels[ch] = len(c)
-            c.append([r.get("channel_name"), r.get("channel_handle")])
+            c.append([r.get("channel_name"), r.get("channel_handle"), ch])   # ch: SOC-W3, /room?c=
         v.append([r["video_id"], _room_title(r.get("title")), channels[ch], _room_band(r),
                   _room_floor2(r.get("vpi_day1")), _room_int(r.get("views_day1")),
                   _room_int(r.get("baseline_score")), off(r["entered_on"]),
