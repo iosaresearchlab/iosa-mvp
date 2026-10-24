@@ -1,12 +1,13 @@
 """SOC-W5 (24/10/2026): Instagram collaborators and trial reels in the spec. No network."""
 import importlib
 import json
+import os
 import subprocess
 import sys
 
 import pytest
 
-from social import validate_spec, wrappers
+from social import paths, validate_spec, wrappers
 
 
 @pytest.fixture
@@ -60,8 +61,9 @@ def test_trial_on_an_image_post_is_ignored_with_a_warning(pa):
 def test_the_dry_run_prints_both_fields(pa):
     sp = pa.HERE / "queue" / "2026-10-24-reel.json"
     sp.write_text(json.dumps(reel(collaborators=["someone", "other.one"], trial=True)), encoding="utf-8")
+    env = {**os.environ, "IOSA_REPO": str(paths.REPO), "IOSA_SOCIAL_WORK": str(pa.HERE)}   # CI: the repo is elsewhere
     r = subprocess.run([sys.executable, "-I", "publish_api.py", f"queue/{sp.name}", "--dry-run"],
-                       cwd=pa.HERE, capture_output=True, text=True, timeout=60)
+                       cwd=pa.HERE, env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "instagram.collaborators: ['someone', 'other.one'] | instagram.trial: True" in r.stdout
     assert 'trial_params {"graduation_strategy": "SS_PERFORMANCE"}' in r.stdout
