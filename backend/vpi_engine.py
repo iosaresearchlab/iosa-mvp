@@ -227,6 +227,21 @@ from quota import QuotaCounter, record_ledger  # noqa: E402
 
 BASELINE_CHANNEL_BATCH = 50   # a brake inside a batch loses at most this batch
 WRITE_BATCH = 500
+# OPS-2 (25/10/2026): apply_daily_views updates posts rows (a non-HOT update: engagement_score is
+# indexed, so every one of the table's 16 indexes takes a new entry) and upserts post_daily. At
+# rest a 500-row call takes 0.2-0.35 s on production (EXPLAIN ANALYZE, 25/10); during the night's
+# write load and the free compute's IO limits it took 9-10.6 s, past the 8 s statement timeout,
+# on 24/10 at 00:37 and again at 08:20. 100 rows a call: 0.04-0.10 s at rest, a fifth of the
+# night's worst; the plan is unchanged (both probe sides on their primary keys).
+VIEWS_BATCH = 100
+
+
+def _apply_views(client, d, payload):
+    """apply_daily_views in calls of VIEWS_BATCH rows; the number of records updated."""
+    n = 0
+    for i in range(0, len(payload), VIEWS_BATCH):
+        n += client.rpc("apply_daily_views", {"d": d.isoformat(), "rows": payload[i:i + VIEWS_BATCH]}).execute().data or 0
+    return n
 
 
 QUOTA_STOP_RESULT = {"baseline": None, "samples": 0, "rule": "quota_stop",
@@ -596,11 +611,7 @@ def _process(client, day, videos, row, notes, discards, quota, *, api_key, censu
         base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
         payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
                         **_vpi_fields(float(t["views"]), base)})
-    updated = 0
-    for i in range(0, len(payload), WRITE_BATCH):
-        updated += client.rpc("apply_daily_views",
-                              {"d": day.isoformat(), "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
-    row["updated"] = updated
+    row["updated"] = _apply_views(client, day, payload)
 
     # 5. exits: a complete census observes absence, whatever the baselines
     row["exits"] = census.close_exits(client, day, census_complete)
@@ -730,7 +741,7 @@ def _complete_baselines(client, day, videos, notes, quota, *, api_key, session=N
         if rows:
             done += client.rpc("complete_baselines", {"d": day.isoformat(), "rows": rows}).execute().data or 0
         if views:
-            client.rpc("apply_daily_views", {"d": day.isoformat(), "rows": views}).execute()
+            _apply_views(client, day, views)
         if brep["stop_reason"]:
             stopped = brep["stop_reason"]
             notes.append(f"baselines stopped: {stopped}")
@@ -751,10 +762,7 @@ def _catch_up(client, day, later_day):
         base = float(t["baseline_score"]) if t["baseline_score"] is not None else None
         payload.append({"post_id": str(t["post_id"]), "views": float(t["views"]),
                         **_vpi_fields(float(t["views"]), base)})
-    views = 0
-    for i in range(0, len(payload), WRITE_BATCH):
-        views += client.rpc("apply_daily_views", {"d": later_day.isoformat(),
-                                                  "rows": payload[i:i + WRITE_BATCH]}).execute().data or 0
+    views = _apply_views(client, later_day, payload)
     exits = census.close_exits(client, later_day, True)
     return {"views": views, "exits": exits}
 
