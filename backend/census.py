@@ -326,6 +326,9 @@ def entries(client, day: date) -> list[dict]:
     return rpc_all(client, "entries_of_day", {"d": day.isoformat()}, "video_id")
 
 
+CLOSE_BATCH = 200
+
+
 def close_exits(client, day: date, run_complete: bool) -> int:
     """Close the v2 records absent from today's snapshot.
 
@@ -334,4 +337,13 @@ def close_exits(client, day: date, run_complete: bool) -> int:
     """
     if not run_complete:
         return 0
-    return client.rpc("close_exits_of_day", {"d": day.isoformat()}).execute().data or 0
+    # OPS-2 (25/10/2026): at most CLOSE_BATCH exits per statement, until a call
+    # closes fewer. One statement for the whole day (about 1,900-2,100 non-HOT
+    # updates of posts) took 4.4-7.2 s and was cancelled at 8 s on 19/10.
+    n = 0
+    while True:
+        k = client.rpc("close_exits_of_day_batch",
+                       {"d": day.isoformat(), "lim": CLOSE_BATCH}).execute().data or 0
+        n += k
+        if k < CLOSE_BATCH:
+            return n

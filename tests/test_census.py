@@ -351,7 +351,18 @@ def test_close_exits_after_a_partial_run_makes_no_database_call():
 def test_close_exits_after_a_complete_run_calls_the_database_function():
     db = RecordingClient(rpc_pages=[7])
     assert census.close_exits(db, date(2026, 10, 2), run_complete=True) == 7
-    assert db.ops == [("rpc", "close_exits_of_day", {"d": "2026-10-02"})]
+    assert db.ops == [("rpc", "close_exits_of_day_batch", {"d": "2026-10-02", "lim": census.CLOSE_BATCH})]
+
+
+def test_close_exits_calls_in_batches_until_one_closes_fewer():
+    """OPS-2 (25/10/2026): at most CLOSE_BATCH exits per statement."""
+    b = census.CLOSE_BATCH
+    db = RecordingClient(rpc_pages=[b, b, 37])
+    assert census.close_exits(db, date(2026, 10, 2), run_complete=True) == 2 * b + 37
+    assert [op[1] for op in db.ops] == ["close_exits_of_day_batch"] * 3
+    db = RecordingClient(rpc_pages=[b, 0])             # an exact multiple ends on an empty call
+    assert census.close_exits(db, date(2026, 10, 2), run_complete=True) == b
+    assert len(db.ops) == 2
 
 
 def test_entries_is_one_call_when_the_api_returns_every_row():

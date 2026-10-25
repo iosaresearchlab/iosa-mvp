@@ -889,8 +889,8 @@ active, 27,455 snapshot rows):
 |---|---|---|---|
 | `entries_of_day` | `posts` | before INC-1: nested-loop anti join, `posts` scanned once per snapshot row (timed out at 8 s; reproduced 6.0 s); now merge anti join on `posts_external_post_id_idx` | 97 ms |
 | `tracked_of_day` (one page) | active `posts` | hash join; `posts` seq scan (status filter), snapshot by `trend_snapshot_day_idx` | 23 ms inner, 148 ms per page |
-| `close_exits_of_day` (as a select) | active `posts`, `post_daily` | hash anti join on the snapshot pkey; the two subqueries by `post_daily_pkey` | 182 ms |
-| `apply_daily_views` (500 rows) | none (batch) | `posts` and `post_daily` by primary key | per batch |
+| `close_exits_of_day` (as a select; since OPS-2 the run calls `close_exits_of_day_batch`, 200 exits per call) | active `posts`, `post_daily` | hash anti join on the snapshot pkey; the two subqueries by `post_daily_pkey` | 182 ms |
+| `apply_daily_views` (100 rows since OPS-2; 500 before) | none (batch) | `posts` and `post_daily` by primary key | per batch |
 | `records_of_day` | `posts` | `posts_entered_idx` | ms |
 | `snapshot_export` (one page), `purge_snapshot_day` | one day of snapshot, capped at 7 days | `trend_snapshot_pkey` | ~0.8 s per page |
 | channel inventory reads | `channel_inventory` | primary key | ms |
@@ -915,6 +915,19 @@ records, migration `20261020142541`): 73 ms. Every run's notes end with
 *"slowest query N ms (label, calls)"* (`backend/db_timing.py`, the call as
 the run sees it, network included), and `tests/check_run.sql` fails a night
 whose slowest call reaches 2,000 ms, a quarter of the timeout.
+
+**OPS-2** *(25/10/2026)*. The processing of 24/10 was cancelled twice in
+`apply_daily_views` (8,991 and 10,561 ms per call of 500 rows). The plans
+are right; what costs is the write: every update of `posts` is non-HOT
+(status, `left_on` and `engagement_score` are indexed) and touches its 16
+indexes, and at night the same statement runs 25-50 times slower than by
+day. The two calls that write in bulk are cut into smaller statements:
+`apply_daily_views` in calls of 100 rows (`VIEWS_BATCH`, `vpi_engine.py`;
+explain analyze, 500 rows 189-351 ms, 100 rows 37-103 ms), and the exits
+through `close_exits_of_day_batch(d, lim)` (migration `20261025191108`),
+200 per call until a call closes fewer (`CLOSE_BATCH`, `census.py`; the
+1,902 exits of 24/10 in one statement 716-5,750 ms, one batch of 200
+105-1,320 ms). Same guards, same records, same columns.
 
 
 **The site's reads (FIX-1c, 20/10/2026).** The anonymous role has 3 s. The

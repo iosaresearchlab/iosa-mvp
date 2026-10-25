@@ -262,11 +262,51 @@ def test_close_exits_refuses_without_a_snapshot_for_the_day(db):
     assert closed(db) == [("p", "ACTIVE", None, None)]
 
 
+def close_batch(conn, day, lim):
+    with conn.cursor() as cur:
+        cur.execute("select close_exits_of_day_batch(%s, %s)", (day, lim))
+        return cur.fetchone()[0]
+
+
+def test_close_exits_in_batches_closes_the_same_records_as_the_whole_day(db):
+    """OPS-2 (25/10/2026): the batch function, called until it closes fewer than
+    lim, leaves posts exactly as close_exits_of_day(d) does."""
+    day0(db, ["a"])
+    ids = [f"x{i}" for i in range(7)]
+    snap(db, d(1), ["a"] + ids)
+    for i, v in enumerate(ids):
+        v2_record(db, v, d(1), 1 + i % 3)
+    snap(db, d(4), ["a", "x2", "x5"], run=None)
+    with db.cursor() as cur:
+        cur.execute("savepoint s")
+    assert close(db, d(4)) == 5
+    whole = closed(db)
+    with db.cursor() as cur:
+        cur.execute("rollback to savepoint s")
+    assert [close_batch(db, d(4), 2) for _ in range(4)] == [2, 2, 1, 0]
+    assert closed(db) == whole
+    assert [r[1] for r in whole].count("CLOSED") == 5
+
+
+def test_close_exits_in_batches_keeps_the_guards(db):
+    day0(db, ["a"])
+    snap(db, d(1), ["a", "p"])
+    v2_record(db, "p", d(1), 1)
+    assert close_batch(db, d(2), 200) == 0               # no snapshot for the day
+    snap(db, d(2), ["a"], run="partial")
+    assert close_batch(db, d(2), 200) == 0               # census not complete
+    assert closed(db) == [("p", "ACTIVE", None, None)]
+
+
 def test_close_exits_is_not_callable_by_the_public_api_roles(db):
     with db.cursor() as cur:
         cur.execute("select has_function_privilege('anon', 'public.close_exits_of_day(date)', 'execute'), "
                     "has_function_privilege('authenticated', 'public.close_exits_of_day(date)', 'execute'), "
                     "has_function_privilege('service_role', 'public.close_exits_of_day(date)', 'execute')")
+        assert cur.fetchone() == (False, False, True)
+        cur.execute("select has_function_privilege('anon', 'public.close_exits_of_day_batch(date, int)', 'execute'), "
+                    "has_function_privilege('authenticated', 'public.close_exits_of_day_batch(date, int)', 'execute'), "
+                    "has_function_privilege('service_role', 'public.close_exits_of_day_batch(date, int)', 'execute')")
         assert cur.fetchone() == (False, False, True)
 
 
