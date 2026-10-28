@@ -66,11 +66,11 @@ const lab=d=>{const t=new Date(d*864e5);return t.getUTCDate()+' '+mon[t.getUTCMo
 
 /* ---------- build ---------- */
 $('ep').textContent=D.where;
-$('h0').innerHTML=words('5 channels')+'<br>'+words('that keep beating')+'<br>'+words('their own usual','cy');
+$('h0').innerHTML=words('5 channels')+'<br>'+words('that keep beating')+'<br>'+words('their own numbers','cy');
 $('h0s').innerHTML=D.hook_sub;
 ['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
 $('outT').innerHTML=words('Every Monday.');
-$('outS').innerHTML=D.out_sub;
+$('outS').textContent='VPI · Viral Performance Index';
 $('cta').innerHTML=words('Is your channel in our charts?');
 for(let i=0;i<5;i++){const s=document.createElement('span');$('lad').appendChild(s);}
 const LAD=[...$('lad').children];
@@ -87,13 +87,12 @@ const items=rows.map(r=>{
    <div class="c mt" style="top:530px">${esc(r.meta)}</div>
    <svg class="ch" width="${W}" height="${H}" style="position:absolute;left:80px;top:700px"></svg>
    <div class="c" style="top:1200px"><span class="cnt cy" style="font-size:84px"><span class="nv">0</span> <span class="nu">videos</span></span></div>
-   <div class="c lab" style="top:1305px">in Most Popular · every one ≥ 2× its usual</div>
-   <div class="c mt" style="top:1360px;font-size:28px">usual ${esc(r.usual)} views</div>`;
+   <div class="c lab" style="top:1305px">in Most Popular · every one ≥ 2× VPI</div>`;
   $('items').appendChild(d);
   const S=d.querySelector('.ch');
   el('line',{x1:0,x2:W,y1:y(1),y2:y(1),stroke:'#3a4656','stroke-width':3},S);
   el('line',{x1:0,x2:W,y1:y(2),y2:y(2),stroke:'#5b6b7d','stroke-width':2,'stroke-dasharray':'8 8'},S);
-  el('text',{x:W,y:y(1)-10,'text-anchor':'end','font-size':22,fill:'#8496a8','font-family':'JetBrains Mono'},S,'usual 1×');
+  el('text',{x:W,y:y(1)-10,'text-anchor':'end','font-size':22,fill:'#8496a8','font-family':'JetBrains Mono'},S,'1×');
   el('text',{x:W,y:y(2)-10,'text-anchor':'end','font-size':22,fill:'#8496a8','font-family':'JetBrains Mono'},S,'2×');
   el('text',{x:0,y:H+6,'font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},S,lab(d0));
   el('text',{x:x(d1)+20,y:H+6,'text-anchor':'end','font-size':24,fill:'#8496a8','font-family':'JetBrains Mono'},S,lab(d1));

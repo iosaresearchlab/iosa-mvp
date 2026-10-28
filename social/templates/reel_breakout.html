@@ -130,7 +130,7 @@ $('first').textContent=D.first_line;
 $('why').innerHTML=words(D.why);
 ['O','S','A'].forEach(ch=>{const s=document.createElement('span');s.className='w';s.textContent=ch;$('osa').appendChild(s);});
 $('outT').innerHTML=words('A breakout every day.');
-$('outS').textContent="Views ÷ the median of its earlier videos.";
+$('outS').textContent="VPI · Viral Performance Index";
 $('cta').innerHTML=words(D.cta||'Is your channel in it?');
 
 // chart: grey bars = the baseline videos, cyan bar = this one; heights = value * k (px per view)
@@ -154,7 +154,7 @@ function draw(){
   grid.forEach((g,i)=>{const y=GV[i]*k;g.style.top=(CH-y)+'px';g.style.opacity=(y<70||y>CH-40)?0:Math.min(1,(y-70)/60)*Math.min(1,st.gb*2);});
 }
 const tb=document.createElement('div');tb.id='tb';$('chart').appendChild(tb);
-$('ull').textContent='median · '+fmt(D.usual);
+$('ull').textContent='1×';
 // sparks for the hit
 for(let i=0;i<16;i++){const s=document.createElement('div');s.className='spark';s.style.left='534px';s.style.top='1390px';$('sparks').appendChild(s);}
 
