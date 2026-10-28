@@ -1634,6 +1634,30 @@ added); a person arriving from Facebook comes through `l.facebook.com`, which
 the rule does not touch. Rows written before keep their value: the raw rows
 stay, and a reading of past visits applies the referrer rule in its query.
 
+**Burst rule (OPS-3, 28/10/2026).** From 25/10 16:55 UTC a crawler opened the
+claim pages one by one: 762 rows on 761 tokens by 21:34 UTC (records first
+observed 27/09-24/10), 132 more until 26/10 11:xx UTC, every row desktop, no
+referrer, `automatico` false, one hit per page, a median of 7 s between hits.
+The Supabase edge logs of its inserts (25/10 16:50-21:40 UTC): 755 POSTs from
+745 IP addresses in 61 networks and 6 countries (a rotating proxy), one user
+agent, Chrome 155 on Linux (the current release, what every Linux Chrome user
+sends), `navigator.webdriver` not set. Neither the address nor the browser
+tells it from a person, so the user-agent rule and a per-client rate cannot
+catch it; the count does. Before 25/10 (85 visits since 20/09) no 24 hours
+held more than 9 desktop visits without a referrer on other claim tokens, all
+of them already marked automatic. Since 28/10 (migration `20261028161007`) a
+`before insert` trigger on `claim_visite` sets `automatico = true` on a
+desktop visit without a referrer when the 24 hours before it hold at least
+**20** such visits on other claim tokens; it stores nothing more than the row.
+A phone visit, a visit with a referrer and a `true` the page set are never
+touched. Declared: the first 20 visits of a burst pass as they are, and a
+person on a desktop without a referrer during a burst is marked automatic too.
+`claim_eventi` is not touched (the crawler makes no gesture). Rows written
+before keep their value; `tools/claim/ops3_crawler_2026_10_25.sql` (read-only)
+identifies the burst over the stored rows. The plaques of the crawled tokens
+entered `plaques_needed()` with those rows: the 03:30 job of 26/10 ran 35
+minutes against about one.
+
 ### 6.7 Public app alignment *(owner decisions, 01/10/2026)*
 
 Two status words only, on every page, from `lib/record-status.ts` and
