@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const CREATOR_CDN_CACHE = "s-maxage=86400, stale-while-revalidate=604800, stale-if-error=604800";
+// OPS-4, second step: the country and category pages, 6 h as their former ISR.
+const SEGMENT_CDN_CACHE = "s-maxage=21600, stale-while-revalidate=604800, stale-if-error=604800";
 
 const nextConfig: NextConfig = {
   // FIX-1c (20/10/2026): a page prerendered by the build may retry a failed
@@ -23,6 +25,14 @@ const nextConfig: NextConfig = {
       {
         source: "/creators/:handle",
         headers: [{ key: "Vercel-CDN-Cache-Control", value: CREATOR_CDN_CACHE }],
+      },
+      {
+        source: "/outliers/:country",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: SEGMENT_CDN_CACHE }],
+      },
+      {
+        source: "/categories/:category",
+        headers: [{ key: "Vercel-CDN-Cache-Control", value: SEGMENT_CDN_CACHE }],
       },
     ];
   },

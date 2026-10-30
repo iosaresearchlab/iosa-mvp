@@ -5,7 +5,8 @@ Observability) with 292K writes in 30 days against the Hobby 200K. The page is
 rendered per request and kept 24 h by Vercel's CDN through a
 Vercel-CDN-Cache-Control header set in next.config.ts for /creators/:handle: the
 same freshness as the former `revalidate = 86400`, and the CDN cache counts no
-ISR write. The other ISR routes keep their 6 h (OPS-1).
+ISR write. Second step (30/10): the country and category pages the same way, 6 h;
+`/outliers` and the sitemap keep ISR at 6 h (OPS-1).
 """
 import re
 from pathlib import Path
@@ -31,8 +32,23 @@ def test_the_cdn_keeps_creator_pages_24_hours():
     assert "private" not in m.group(1) and "no-store" not in m.group(1)
 
 
-def test_the_other_isr_routes_keep_six_hours():
-    for rel in ("outliers/page.tsx", "outliers/[country]/page.tsx",
-                "categories/[category]/page.tsx", "sitemap.ts"):
+def test_country_and_category_pages_are_not_isr_and_kept_6_hours():
+    """Second step, 30/10: the writes left after the creator pages."""
+    cfg = (FRONT / "next.config.ts").read_text(encoding="utf-8")
+    m = re.search(r'const SEGMENT_CDN_CACHE = "([^"]+)";', cfg)
+    assert m and m.group(1) == "s-maxage=21600, stale-while-revalidate=604800, stale-if-error=604800"
+    block = cfg[cfg.index("async headers()"):cfg.index("async redirects()")]
+    for src in ('source: "/outliers/:country"', 'source: "/categories/:category"'):
+        i = block.index(src)
+        assert '{ key: "Vercel-CDN-Cache-Control", value: SEGMENT_CDN_CACHE }' in block[i:i + 160], src
+    for rel in ("outliers/[country]/page.tsx", "categories/[category]/page.tsx"):
+        src = (FRONT / "src" / "app" / rel).read_text(encoding="utf-8")
+        assert re.search(r"^export const dynamic = 'force-dynamic';", src, re.M), rel
+        for isr in ("export const revalidate", "generateStaticParams"):
+            assert isr not in src, (rel, isr)
+
+
+def test_the_single_isr_pages_keep_six_hours():
+    for rel in ("outliers/page.tsx", "sitemap.ts"):
         src = (FRONT / "src" / "app" / rel).read_text(encoding="utf-8")
         assert re.search(r"^export const revalidate = 21600;", src, re.M), rel

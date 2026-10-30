@@ -963,8 +963,11 @@ stale-if-error=604800`, `next.config.ts`), which has priority over the private
 honoured only on 200, 404, 410 and redirects (Vercel docs, CDN cache and
 Cache-Control headers): the same page at the same age at most, no ISR write. The
 CDN cache is per region, so a page read from several regions is rendered once in
-each. The country and category pages, `/outliers` and the sitemap keep ISR at 6 h
-(OPS-1). Held by `tests/test_ops4_isr.py`.
+each. Second step (30/10 evening): with the creator pages out, the writes left were
+the country and category pages (158 + 39 of 211 units, 10:2x-22:2x UTC), one per page
+a crawler opens; they are rendered per request the same way and kept 6 h by the CDN
+(`s-maxage=21600`, as their former `revalidate`). Only `/outliers` and the sitemap,
+one path each, keep ISR at 6 h (OPS-1). Held by `tests/test_ops4_isr.py`.
 
 **Backend memory (FIX-1c, 20/10/2026).** The free Render instance has 512 MB.
 Measured with `tools/measure_peak_rss.py`: a plaque render +522-527 MB (gone
