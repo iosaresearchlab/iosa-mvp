@@ -5,19 +5,14 @@ import { OutlierList } from '@/components/OutlierList';
 import { recordDelCreator } from '@/lib/supabase-server';
 import { handleDaSlug, SITO } from '@/lib/segments';
 
-// FIX-1d (23/10/2026): 24 h. Creator pages were 4.8K of the ~4.9K ISR writes of the
-// last 12 h (Vercel Observability, ISR by route) for 3.2K paths, almost all crawlers
-// (QlyzeBot, ClaudeBot, Googlebot); 251K writes in 30 days against the Hobby 200K. A
-// creator's records change once a day, at the nightly reading.
-export const revalidate = 86400;
-
-// Nessuna pagina viene precompilata: sono migliaia e verrebbero costruite
-// tutte a ogni deploy. Vengono generate alla prima visita e poi tenute in
-// cache per 24 ore.
-export const dynamicParams = true;
-export function generateStaticParams() {
-  return [];
-}
+// OPS-4 (30/10/2026): no ISR. Creator pages were 3.4K of the ~3.8K ISR write units of
+// 12 h (Vercel Observability, 29-30/10), one write per path a crawler reaches (Googlebot,
+// PetalBot, OAI-SearchBot), and the team stood at 292K ISR writes in 30 days against the
+// Hobby 200K (FIX-1d had already cut 1 h -> 24 h). The page is rendered per request and
+// kept by Vercel's CDN for the same 24 h (Vercel-CDN-Cache-Control, next.config.ts): the
+// same page, the same age at most, and the CDN cache counts no ISR write. A 500 is never
+// kept (Vercel caches only 200/404/410/redirects); stale-if-error serves the last good page.
+export const dynamic = 'force-dynamic';
 
 /**
  * Una pagina con una sola misurazione non ha abbastanza sostanza per essere

@@ -949,6 +949,23 @@ the database at once during the build and a few reads timed out twice; each
 page is now rendered on its first visit and kept 6 hours, like the creator
 pages, so the build reads only `/outliers` and the sitemap.
 
+**ISR writes (OPS-4, 30/10/2026).** The Vercel Hobby team includes 200,000 ISR
+writes, counted on the usage page over a rolling "Last 30 Days" window, and over it the projects are paused (17/10: 402
+DEPLOYMENT_DISABLED at 212,338). Usage page, 30/10 00:5x UTC: 292,203 for
+29/09-29/10; the "3x until 16/11" increase shown there covers CDN requests, CPU
+and transfer, not ISR writes. Observability, ISR by route, the 12 hours before
+00:5x UTC: 3.6K write units, `/creators/[handle]` 3.4K (1.1K paths), the country
+and category pages 0.4K. The creator pages are no longer ISR: rendered per
+request (`dynamic = 'force-dynamic'`) and kept 24 h by Vercel's CDN
+(`Vercel-CDN-Cache-Control: s-maxage=86400, stale-while-revalidate=604800,
+stale-if-error=604800`, `next.config.ts`), which has priority over the private
+`Cache-Control` Next sets on a dynamic page, never reaches the browser, and is
+honoured only on 200, 404, 410 and redirects (Vercel docs, CDN cache and
+Cache-Control headers): the same page at the same age at most, no ISR write. The
+CDN cache is per region, so a page read from several regions is rendered once in
+each. The country and category pages, `/outliers` and the sitemap keep ISR at 6 h
+(OPS-1). Held by `tests/test_ops4_isr.py`.
+
 **Backend memory (FIX-1c, 20/10/2026).** The free Render instance has 512 MB.
 Measured with `tools/measure_peak_rss.py`: a plaque render +522-527 MB (gone
 from the backend, FIX-1a); the long-form day-1 series paged with every post

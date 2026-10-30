@@ -91,7 +91,8 @@ def test_isr_writes_are_cut_where_they_come_from(tmp_path):
     import json, re, shutil, subprocess
     front = ROOT / "frontend"
     page = (front / "src" / "app" / "creators" / "[handle]" / "page.tsx").read_text(encoding="utf-8")
-    assert re.search(r"^export const revalidate = 86400;", page, re.M)
+    # OPS-4 (30/10/2026): no ISR at all now; held by tests/test_ops4_isr.py
+    assert re.search(r"^export const dynamic = 'force-dynamic';", page, re.M)
     robots = (front / "src" / "app" / "robots.ts").read_text(encoding="utf-8")
     assert "userAgent: 'QlyzeBot',\n        disallow: '/'," in robots
     assert json.loads((front / "vercel.json").read_text())["ignoreCommand"] == "bash scripts/vercel-ignore.sh"
