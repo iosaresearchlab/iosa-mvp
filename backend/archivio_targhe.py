@@ -88,6 +88,15 @@ def carica(nome: str, percorso: Path) -> Optional[str]:
         if r.status_code in (200, 201):
             log.info("targa %s archiviata", nome)
             return url_pubblico(nome)
+        # FIX-1a (30/10/2026): Storage reads "upsert" from the x-upsert header, not from the
+        # query string, so a name already in the bucket answers 409 Duplicate
+        # (KeyAlreadyExists, sometimes wrapped in a 400). The name says the plaque's state,
+        # so the file there is this plaque: archived, not a failure, and never overwritten.
+        # 30/10 15:33 UTC the Plaques job failed on one: esiste() missed a file archived
+        # on 26/10 and the upload found it.
+        if r.status_code in (400, 409) and "KeyAlreadyExists" in r.text:
+            log.info("targa %s gia' in archivio", nome)
+            return url_pubblico(nome)
         log.warning("archiviazione di %s non riuscita (%s): %s",
                     nome, r.status_code, r.text[:200])
     except (requests.RequestException, OSError) as e:

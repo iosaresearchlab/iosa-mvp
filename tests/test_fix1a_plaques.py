@@ -247,3 +247,31 @@ def test_the_admin_render_endpoint_never_opens_chromium_on_render(monkeypatch):
                                         "content_title": "t", "e_act": "1", "e_base": "1",
                                         "gamma": "1", "date_str": "2026-10-20", "level_name": "x"})
     assert r.status_code == 409
+
+
+def test_an_upload_that_finds_the_file_already_archived_is_not_a_failure(monkeypatch, tmp_path):
+    """30/10/2026 15:33 UTC: the Plaques job failed on iosa_HqRVXokCujXByE1q, archived on
+    26/10: esiste() missed it, the render ran, and Storage answered the upload 400
+    {"statusCode":"409","error":"Duplicate","code":"KeyAlreadyExists"}."""
+    png = tmp_path / "t.png"
+    png.write_bytes(b"\x89PNG")
+    monkeypatch.setenv("SUPABASE_URL", "https://db.test")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "k")
+    sent = []
+
+    def post(url, **kw):
+        sent.append(url)
+        body = ('{"statusCode":"409","error":"Duplicate","message":"The resource already exists",'
+                '"code":"KeyAlreadyExists"}')
+        return type("R", (), {"status_code": 400, "text": body})()
+
+    monkeypatch.setattr(archivio_targhe.requests, "post", post)
+    assert archivio_targhe.carica("x_closed_2026-09-28.png", png) == \
+        "https://db.test/storage/v1/object/public/targhe/x_closed_2026-09-28.png"
+    assert len(sent) == 1
+
+    def post_other(url, **kw):
+        return type("R", (), {"status_code": 400, "text": '{"error":"InvalidKey"}'})()
+
+    monkeypatch.setattr(archivio_targhe.requests, "post", post_other)
+    assert archivio_targhe.carica("x_closed_2026-09-28.png", png) is None    # any other error still fails
