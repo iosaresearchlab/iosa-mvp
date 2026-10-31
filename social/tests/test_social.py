@@ -71,7 +71,7 @@ def _spec(w, name, **extra):
 
 def test_dry_run_through_the_wrapper_says_what_would_go_out_and_writes_nothing(work):
     sp = _spec(work, "2026-10-19-s2-x")
-    for i in (1, 3):                      # two posts already on Instagram that day: the cap is reached
+    for i in (1, 3):                      # two posts already on Instagram that day: no cap since SOC-CAP
         _spec(work, f"2026-10-19-s{i}-y", result={"instagram": {"url": f"https://ig/{i}"}})
     before = sp.read_bytes()
     env = {**os.environ, "IOSA_REPO": str(paths.REPO), "IOSA_SOCIAL_WORK": ""}
@@ -86,7 +86,7 @@ def test_dry_run_through_the_wrapper_says_what_would_go_out_and_writes_nothing(w
                        cwd=work, env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "bluesky: publish" in r.stdout
-    assert "instagram: capped" in r.stdout
+    assert "instagram: publish" in r.stdout   # SOC-CAP (30/10/2026): no daily volume cap
     assert "threads: publish" in r.stdout
     assert "media: all present" in r.stdout
     assert sp.read_bytes() == before
@@ -208,3 +208,19 @@ def test_carousel_slides_have_an_example(card, example, keys):
         assert all(b["v"] >= 0 and b["d"] < d["this"]["d"] for b in d["baseline"])
         vs = sorted(b["v"] for b in d["baseline"])
         assert d["usual"] > 0 and vs[0] <= d["usual"] <= vs[-1]
+
+
+def test_plan_never_caps_a_channel(work):
+    """SOC-CAP (owner, 30/10/2026 21:01): no daily publishing cap on any channel (CAP = {}).
+    However many posts a channel already has that editorial day, plan() never says "capped"."""
+    from social import publish_api
+    assert publish_api.CAP == {}
+    sp = _spec(work, "2026-10-19-s9-x", x={"text": "x"})
+    for i in range(1, 9):                 # eight posts already out on every channel that day
+        _spec(work, f"2026-10-19-s{i}-y",
+              result={c: {"url": f"https://{c}/{i}"} for c in publish_api.CHANNELS})
+    spec = json.loads(sp.read_text(encoding="utf-8"))
+    for only in (None, set(publish_api.CHANNELS)):
+        for force in (False, True):
+            actions = publish_api.plan(spec, sp, only, force)
+            assert actions and all(a == "publish" for _, a in actions), actions

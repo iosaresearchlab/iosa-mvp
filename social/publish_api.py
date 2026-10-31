@@ -427,7 +427,7 @@ def refresh_tokens():
             print(name, "NON rinnovato:", r.get("error", {}).get("message"))
 
 
-CAP = {"instagram": 2, "threads": 2}
+CAP = {}  # owner, 30/10/2026 21:01: no daily volume caps on any channel ("si pubblica quello che c'è e quello che si decide, senza limiti"); was {"instagram": 2, "threads": 2}
 CHANNELS = ("bluesky", "instagram", "threads", "x")
 OPT_IN = {"x"}                    # published only when asked (--x, or --only naming it)
 
@@ -448,7 +448,10 @@ def used_today(sp, ch):
 
 
 def plan(spec, sp, only=None, force_volume=False):
-    """[(channel, action)] with action "publish", "done <url>" or "capped": what a run would do."""
+    """[(channel, action)] with action "publish" or "done <url>": what a run would do.
+
+    "capped" is returned only for a channel in CAP, and CAP is empty (SOC-CAP, owner
+    30/10/2026): no channel has a daily volume cap, so plan() never returns it."""
     res = spec.get("result", {})
     out = []
     for c in CHANNELS:
@@ -556,16 +559,17 @@ def main():
                 urls["cover"] = upload_public(spec["cover"])
         res["_media"] = urls
         save()
-    # Volume cap (playbook "Slots and volumes", owner 10/10): at most 2 posts a day on
-    # Instagram and on Threads. The editorial day is the date prefix of the spec file
-    # (slots 3 and 4 carry the date of that day's slot 1). Override: --force-volume.
+    # Daily volume caps: none (SOC-CAP, owner 30/10/2026 21:01: CAP = {}; the cap of 2
+    # posts a day on Instagram and Threads, owner 10/10, is withdrawn). The check stays for
+    # a channel put back in CAP: the editorial day is the date prefix of the spec file, and
+    # --force-volume overrides it.
     day = sp.name[:10]
     for c, action in plan(spec, sp, only, force_volume):
         if action.startswith("done"):
             print(c, "già pubblicato:", res[c].get("url") or res[c].get("post"))
             continue
         if action == "capped":
-            print(c, f"SALTATO: tetto di {CAP[c]} post al giorno già raggiunto per {day} (playbook, Slots and volumes)")
+            print(c, f"SALTATO: tetto di {CAP[c]} post al giorno già raggiunto per {day}")
             res[c + "_skipped"] = f"volume cap {CAP[c]}/day reached for {day}"
             save()
             continue
