@@ -767,8 +767,29 @@ def _catch_up(client, day, later_day):
     return {"views": views, "exits": exits}
 
 
+# INC-2 (6/11/2026): a reading whose process is killed (a Render restart for
+# memory, 00:39 UTC on 6/11) never records its end, so a row with a complete
+# census and no finish is either a reading still running or one that died.
+# The longest finished reading since 7/10 took 52 minutes (ingest_run,
+# measured 7/11/2026); a row older than this has no process behind it. The
+# API passes the shorter limit of main.DEAD_RUN_AFTER: there the process lock
+# already proves nothing runs.
+DEAD_RUN_AFTER = timedelta(hours=2)
+
+
+def _run_died(row, now, dead_after) -> bool:
+    """True when the row has no finish and started more than dead_after ago."""
+    if row.get("finished_at") is not None:
+        return False
+    try:
+        t = datetime.fromisoformat(str(row.get("started_at")).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    return now - t >= dead_after
+
+
 def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.sleep,
-                  storage=None, now=None) -> dict:
+                  storage=None, now=None, dead_after=DEAD_RUN_AFTER) -> dict:
     """Finish the processing of a day whose chart census is complete (INC-1).
 
     The stored snapshot is the census, already paid for: the charts are
@@ -780,7 +801,9 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
     rewritten with what was done.
 
     Refuses a day with no complete census, a snapshot that is not the one the
-    census counted, or a reading still in progress. Later days already read
+    census counted, or a reading still in progress. A row with no finish that
+    started more than dead_after ago is a reading that died (INC-2): it is
+    finished like a failed one. Later days already read
     are caught up for this day's records, in order, from their snapshots;
     refused if one of them is not a finished complete census with its
     snapshot intact.
@@ -794,7 +817,8 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
     row = dict(rows[0])
     if row.get("census_complete") is not True:
         raise ReprocessRefused(f"{day}: the census is not complete")
-    if row.get("finished_at") is None:
+    died = _run_died(row, started, dead_after)
+    if row.get("finished_at") is None and not died:
         raise ReprocessRefused(f"{day}: a reading is in progress")
     later = sorted((r for r in (client.table("ingest_run").select("*").execute().data or [])
                     if str(r["day"])[:10] > day.isoformat()), key=lambda r: str(r["day"]))
@@ -819,6 +843,9 @@ def reprocess_day(client, day, *, api_key, quota=None, session=None, sleep=time.
     old_notes = [n for n in (row.get("notes") or "").split("; ") if n]
     notes = [n if not n.startswith("failed: ") else f"processing failed at {row.get('finished_at')}: {n[8:]}"
              for n in old_notes]
+    if died:
+        notes.append(f"the reading started {row.get('started_at')} died without recording its end "
+                     "(process killed after the census): its units after the census are not counted")
     notes.append(f"reprocessed at {stamp} by reprocess_day: census from the stored snapshot "
                  f"({len(videos)} videos), charts not read again")
     for k in ("id", "entries", "new_channels", "updated", "exits", "baselines_complete"):
@@ -926,11 +953,11 @@ def esegui_un_ciclo(con_scadenze: bool = True, rerun: bool = False) -> dict:
                      snapshot_only=snapshot_only, rerun=rerun)
 
 
-def riprendi_un_giorno(day) -> dict:
+def riprendi_un_giorno(day, dead_after=DEAD_RUN_AFTER) -> dict:
     """reprocess_day for `day`, configured from the environment (service role)."""
     key = os.getenv("SUPABASE_SERVICE_KEY") or SUPABASE_KEY
     client = create_client(SUPABASE_URL, key)
-    return reprocess_day(client, day, api_key=YOUTUBE_API_KEY)
+    return reprocess_day(client, day, api_key=YOUTUBE_API_KEY, dead_after=dead_after)
 
 
 def start_engine():

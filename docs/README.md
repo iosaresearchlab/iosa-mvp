@@ -69,6 +69,18 @@ says what to change, `08` says in what order and how each step is proved.
 
 ## Correction log
 
+### 7 November 2026 — INC-2: a reading killed after its census is finished
+
+- On 6/11 at 00:39 UTC Render restarted the backend for memory while the
+  reading of 5/11 was archiving old snapshots. Records, daily views and exits
+  of 5/11 were already written; the run report was not, so `ingest_run`
+  kept no finish and no outcome. Neither the 00:30 second attempt (the reading
+  was still running then) nor the 08:20 morning pass (it looked only at rows
+  with a finish) could finish it, against the rule that no night is
+  unrecoverable. A row with a complete census and no finish older than 2
+  hours is now a reading that died, and is finished from its snapshot.
+- *(Corrected: task log INC-2; migration `20261107010000`.)*
+
 ### 23 October 2026 — FIX-1b: the run's slow calls are stalls, not queries
 
 - Each night a different call of the reading took 5-9 s; the same calls take

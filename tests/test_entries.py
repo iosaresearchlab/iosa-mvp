@@ -348,6 +348,25 @@ def test_a_complete_census_whose_processing_failed_is_the_reference(db):
     assert entries(db, d(2)) == {"c": (0, True)}
 
 
+def test_the_morning_pass_finishes_a_reading_that_died_and_leaves_a_running_one(db):
+    # INC-2: complete census, no finish, started more than 2 hours ago = dead
+    with db.cursor() as cur:
+        cur.execute("create or replace function public.chiedi_ripresa_di_un_giorno(p_day date) "
+                    "returns bigint language sql as 'select 42::bigint'")
+        cur.execute("insert into ingest_run (day, started_at, census_complete) values "
+                    "((now() at time zone 'utc')::date - 1, now() - interval '20 minutes', true)")
+        cur.execute("select public.ripresa_se_serve()")
+        assert cur.fetchone() == (None,)                 # could still be running
+        cur.execute("update ingest_run set started_at = now() - interval '3 hours' "
+                    "where day = (now() at time zone 'utc')::date - 1")
+        cur.execute("select public.ripresa_se_serve()")
+        assert cur.fetchone() == (42,)                   # dead: finished from its snapshot
+        cur.execute("update ingest_run set census_complete = false "
+                    "where day = (now() at time zone 'utc')::date - 1")
+        cur.execute("select public.ripresa_se_serve()")
+        assert cur.fetchone() == (None,)                 # no census on record: not this pass
+
+
 def test_the_morning_pass_is_scheduled_and_not_callable_by_any_api_role(db):
     with db.cursor() as cur:
         cur.execute("select schedule, command, active from cron.job where jobname = 'ripresa-iosa'")

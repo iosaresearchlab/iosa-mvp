@@ -259,7 +259,9 @@ def _ripresa_di_un_giorno(day):
     if url:
         threading.Thread(target=_keepalive, args=(stop, url + "/"), daemon=True).start()
     try:
-        esiti = riprendi_un_giorno(day)
+        # INC-2: the caller holds the process lock, so a row with no finish
+        # older than DEAD_RUN_AFTER has no reading behind it
+        esiti = riprendi_un_giorno(day, dead_after=DEAD_RUN_AFTER)
         log.info("reprocess_day %s concluso: %s", day, esiti.get("notes", "")[-300:])
     except ReprocessRefused as e:
         log.warning("reprocess_day refused: %s", e)

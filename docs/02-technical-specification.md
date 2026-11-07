@@ -1317,6 +1317,18 @@ process, and it started more than 5 minutes ago (a restart kills the
 task). Records the brake did not reach wait for the 08:20 morning pass: at
 00:30 the quota has not reset.
 
+*(INC-2, 07/11/2026.)* A reading killed after its census never writes its
+end: on 06/11 a Render restart for memory at 00:39 UTC killed the reading of
+05/11 during retention, after its records, daily views and exits, and left
+`finished_at` and `outcome` null. Until then `reprocess_day` refused any row
+with no finish ("a reading is in progress") and the morning pass looked only
+at rows with one, so neither path finished it. Now a row with a complete
+census and no finish counts as dead when it started more than 2 hours ago
+(the longest finished reading since 07/10 took 52 minutes): the morning pass
+finishes it, and `reprocess_day` accepts it. Called from the API, which
+holds the process lock, `reprocess_day` uses the 5 minutes above. Its units
+after the census are not recorded, and its notes say so.
+
 **`reprocess_day <day>`** *(29/09/2026, INC-1b)*. `backend/reprocess_day.py`,
 `POST /api/ingest/reprocess/{day}` (trigger token), or
 `chiedi_ripresa_di_un_giorno(day)` from the database (token read from the

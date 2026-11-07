@@ -505,6 +505,45 @@ def test_reprocess_refuses_what_it_cannot_prove(world, monkeypatch):
         reprocess(client, fake, 0)            # a later day (1) is not a complete census
 
 
+def _kill_after_processing(db, n):
+    """INC-2, 6/11/2026: the process is killed during retention, after records,
+    daily views and exits are written: the finally never runs, the row keeps
+    no finish, no outcome and zero counters."""
+    with db.cursor() as cur:
+        cur.execute("update ingest_run set finished_at = null, outcome = null, entries = 0, "
+                    "updated = 0, exits = 0, notes = 'slice order seed 1' where day = %s", (day(n),))
+
+
+def test_a_reading_killed_after_its_census_is_finished_once_it_is_dead(world):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = DAY1
+    run(client, fake, 1)
+    before_posts, before_daily = posts(db), daily(db, "n1")
+    _kill_after_processing(db, 1)
+    started = one(db, "select started_at from ingest_run where day = %s", day(1))[0][0]
+    with pytest.raises(eng.ReprocessRefused, match="a reading is in progress"):
+        reprocess(client, fake, 1, now=started + timedelta(minutes=30))      # could still be running
+    out = reprocess(client, fake, 1, now=started + timedelta(hours=3))        # nothing runs any more
+    assert out["outcome"] == "ok"
+    assert posts(db) == before_posts and daily(db, "n1") == before_daily    # nothing written twice
+    r = one(db, "select outcome, finished_at is not null, reprocessed_at is not null, entries, notes "
+                "from ingest_run where day = %s", day(1))[0]
+    assert r[:4] == ("ok", True, True, 2)
+    assert "died without recording its end" in r[4]
+
+
+def test_the_api_lock_lets_the_reprocess_take_a_dead_run_sooner(world):
+    fake, client, db = world
+    _day0(client, fake)
+    fake.charts = DAY1
+    run(client, fake, 1)
+    _kill_after_processing(db, 1)
+    started = one(db, "select started_at from ingest_run where day = %s", day(1))[0][0]
+    out = reprocess(client, fake, 1, now=started + timedelta(minutes=30), dead_after=timedelta(minutes=5))
+    assert out["outcome"] == "ok"
+
+
 def test_a_crashed_day_left_until_after_the_next_night_is_still_recovered(world, monkeypatch):
     # day 1 crashes after its census and is not resumed; day 2 runs with day 1
     # as its reference; day 1 is reprocessed afterwards and caught up
