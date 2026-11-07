@@ -81,6 +81,8 @@ says what to change, `08` says in what order and how each step is proved.
   hours is now a reading that died, and is finished from its snapshot.
 - *(Corrected: task log INC-2; migration `20261107010000`.)*
 
+Day 5/11 finished the same evening, after the push: migration applied at 22:29 UTC, `reprocess_day` closed the row from its snapshot at 22:30 UTC (outcome ok, 1,960 entries, 0 units for baselines; the 1,980 exits had already been written by the dead run and were not redone).
+
 ### 23 October 2026 — FIX-1b: the run's slow calls are stalls, not queries
 
 - Each night a different call of the reading took 5-9 s; the same calls take
